@@ -1,0 +1,52 @@
+From f314a617c7be65c27526bfa45ccc3c38003d84df Mon Sep 17 00:00:00 2001
+From: Oleksii Beketov <ol.beketov@samsung.com>
+Date: Wed, 31 Jan 2018 15:55:33 +0200
+Subject: [PATCH] [IOT-2919] Missing mfg cert
+
+Allow to load certificates from non-manufacturer credentials
+in case of absent manufacturer credentials.
+
+Bug: https://jira.iotivity.org/browse/IOT-2919
+Change-Id: I1f165c561e2e4fed094ec7a4e8c2b160dbe0712a
+Signed-off-by: Oleksii Beketov <ol.beketov@samsung.com>
+---
+ resource/csdk/security/src/pkix_interface.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/resource/csdk/security/src/pkix_interface.c b/resource/csdk/security/src/pkix_interface.c
+index 1fad5249c..4c2aba5b7 100644
+--- a/resource/csdk/security/src/pkix_interface.c
++++ b/resource/csdk/security/src/pkix_interface.c
+@@ -70,6 +70,17 @@ void GetManufacturerPkixInfo(PkiInfo_t * inf)
+     GetPemOwnCert(&inf->crt, MF_PRIMARY_CERT);
+     GetDerKey(&inf->key, MF_PRIMARY_CERT);
+     (void)GetPemCaCert(&inf->ca, MF_TRUST_CA);
++
++    if (inf->crt.len == 0 || inf->key.len == 0)
++    {
++        GetPemOwnCert(&inf->crt, PRIMARY_CERT);
++        GetPrimaryCertKey(&inf->key);
++    }
++    if (inf->ca.len == 0)
++    {
++        GetPemCaCert(&inf->ca, TRUST_CA);
++    }
++
+     // CRL not provided
+     inf->crl.data = NULL;
+     inf->crl.len = 0;
+@@ -99,5 +110,11 @@ void InitManufacturerCipherSuiteList(bool * list, const char* deviceId)
+         return;
+     }
+     InitCipherSuiteListInternal(list, MF_TRUST_CA, deviceId);
++
++    if (list[1] == false)
++    {
++        InitCipherSuiteListInternal(list, TRUST_CA, deviceId);
++    }
++
+     OIC_LOG_V(DEBUG, TAG, "Out %s", __func__);
+ }
+-- 
+2.16.1.windows.1
+

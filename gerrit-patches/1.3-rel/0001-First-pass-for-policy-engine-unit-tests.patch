@@ -1,0 +1,823 @@
+From 7a035a480564f871208914385cd2556af5e13fe6 Mon Sep 17 00:00:00 2001
+From: Steven Saunders <s.saunders-contractor@cablelabs.com>
+Date: Wed, 25 Oct 2017 13:57:12 -0600
+Subject: [PATCH] First pass for policy engine unit tests
+
+Make changes per reviewers suggestions
+
+Change-Id: I6c5d9f3da881491b11afafe559f5ea3b6bba4c6b
+Signed-off-by: Steven Saunders <s.saunders-contractor@cablelabs.com>
+---
+ .gitignore                                         |   3 +
+ .../csdk/security/include/internal/aclresource.h   |   7 +
+ resource/csdk/security/src/aclresource.c           |  98 +++++
+ resource/csdk/security/unittest/SConscript         |   7 +
+ .../unittest/oic_unittest_policyengine.dat         | Bin 0 -> 1618 bytes
+ .../unittest/oic_unittest_policyengine.json        | 105 ++++++
+ resource/csdk/security/unittest/policyengine.cpp   | 394 ++++++++++++++++-----
+ .../csdk/security/unittest/securitytestutility.cpp |  32 ++
+ .../csdk/security/unittest/securitytestutility.h   |  26 ++
+ 9 files changed, 590 insertions(+), 82 deletions(-)
+ create mode 100644 resource/csdk/security/unittest/oic_unittest_policyengine.dat
+ create mode 100644 resource/csdk/security/unittest/oic_unittest_policyengine.json
+ create mode 100644 resource/csdk/security/unittest/securitytestutility.cpp
+ create mode 100644 resource/csdk/security/unittest/securitytestutility.h
+
+diff --git a/.gitignore b/.gitignore
+index 3d175f73b..52ca76278 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -66,6 +66,9 @@ proguard-project.txt
+ *.iml
+ .idea
+ 
++# Ignore Visual Studio Code workspace files
++.vscode/
++
+ # Ignore CTags default data
+ tags
+ 
+diff --git a/resource/csdk/security/include/internal/aclresource.h b/resource/csdk/security/include/internal/aclresource.h
+index 0904ce39b..78fdc65e2 100644
+--- a/resource/csdk/security/include/internal/aclresource.h
++++ b/resource/csdk/security/include/internal/aclresource.h
+@@ -38,6 +38,13 @@ OCStackResult InitACLResource();
+  */
+ OCStackResult DeInitACLResource();
+ 
++/**
++ * ACL Logging
++ *
++ */
++void logAcl(OicSecAcl_t *acl);
++void logCurrrentAcl();
++
+ /**
+  * This method is used by PolicyEngine to retrieve ACL for a Subject.
+  *
+diff --git a/resource/csdk/security/src/aclresource.c b/resource/csdk/security/src/aclresource.c
+index 046f9f3e4..4fad7fae8 100644
+--- a/resource/csdk/security/src/aclresource.c
++++ b/resource/csdk/security/src/aclresource.c
+@@ -4021,3 +4021,101 @@ OCStackResult GetAclRownerId(OicUuid_t *rowneruuid)
+     }
+     return OC_STACK_ERROR;
+ }
++
++//******************************************************************
++// ACL Logging
++//******************************************************************
++
++#ifndef NDEBUG
++
++static void logResource(OicSecRsrc_t *r, char* lead)
++{
++    char wildcard[4][25] = { {"None"}, {"Discoverable (+)"}, {"Non Discoverable (-)"}, {"All (*)"}};
++    OIC_LOG_V(DEBUG, TAG, "%s    href: %s", lead, r->href );
++    OIC_LOG_V(DEBUG, TAG, "%s    rel: %s", lead, r->rel );
++    OIC_LOG_V(DEBUG, TAG, "%s    types (%lu):", lead, r->typeLen);
++    for ( unsigned int i = 0; i < r->typeLen; i++ )
++        OIC_LOG_V(DEBUG, TAG, "%s        rel: %s", lead, r->types[i] );
++    OIC_LOG_V(DEBUG, TAG, "%s    interfaces (%lu):", lead, r->interfaceLen);
++    for ( unsigned int i = 0; i < r->interfaceLen; i++ )
++        OIC_LOG_V(DEBUG, TAG, "%s        rel: %s", lead, r->types[i] );
++    OIC_LOG_V(DEBUG, TAG, "%s    wildcard: %s", lead, wildcard[r->wildcard]);
++}
++
++static void logResourceList(OicSecRsrc_t *rl, char* lead)
++{
++    OicSecRsrc_t *cur;
++    int curIdx = 0;
++    LL_FOREACH(rl, cur)
++    {
++        OIC_LOG_V(DEBUG, TAG, "%s ... resource %d:", lead, curIdx);
++        logResource(cur,lead);
++        curIdx++;
++    }
++}
++
++void logAce( OicSecAce_t* ace, char* lead)
++{
++    char subjectType[3][12] = { {"Uuid"}, {"Role"}, {"Connection"}};
++    char connectionType[2][30] = { {"authenticated / encrypted"}, {"anonymous / unencrypted"}};
++
++    OIC_LOG_V(DEBUG, TAG, "%s Subject Type: %s", lead, subjectType[ace->subjectType]);
++    switch(ace->subjectType)
++    {
++        case OicSecAceUuidSubject:
++            OIC_LOG_V(DEBUG, TAG, "%s Subject UUID:", lead);
++            OIC_LOG_V(DEBUG, TAG, "%s ...............................................", lead);
++            OIC_LOG_BUFFER(DEBUG, TAG,  (const unsigned char *)&(ace->subjectuuid), sizeof(OicUuid_t));
++            OIC_LOG_V(DEBUG, TAG, "%s ...............................................", lead);
++            break;
++        case OicSecAceRoleSubject:
++            OIC_LOG_V(DEBUG, TAG, "%s Subject role.id: %s", lead, ace->subjectRole.id);
++            OIC_LOG_V(DEBUG, TAG, "%s Subject role.authority: %s", lead, ace->subjectRole.authority);
++            break;
++        case OicSecAceConntypeSubject:
++            OIC_LOG_V(DEBUG, TAG, "%s Connection Type: %s", lead, connectionType[ace->subjectConn]);
++            break;
++    }
++    OIC_LOG_V(DEBUG, TAG, "%s Resources:", lead);
++    logResourceList(ace->resources,"    ");
++    OIC_LOG_V(DEBUG, TAG, "%s Permission: %hu", lead, ace->permission);
++    OIC_LOG_V(DEBUG, TAG, "%s Ace Id: %hu", lead, ace->aceid);
++
++}
++
++void logAcl(OicSecAcl_t *acl)
++{
++    OicSecAce_t *curAce = NULL;
++    int curAceIdx = 0;
++
++    OIC_LOG(DEBUG, TAG, "=== Ace =========================================");
++
++    VERIFY_NOT_NULL( TAG, acl, ERROR);
++    OIC_LOG(DEBUG, TAG, "rowneruuid:");
++    OIC_LOG(DEBUG, TAG, "...............................................");
++    OIC_LOG_BUFFER(DEBUG, TAG,  (const unsigned char *)&(acl->rownerID.id), sizeof(OicUuid_t));
++    OIC_LOG(DEBUG, TAG, "...............................................");
++
++    LL_FOREACH(acl->aces, curAce)
++    {
++        OIC_LOG_V(DEBUG, TAG, "Ace Entry #%d:", curAceIdx);
++        logAce(curAce, "    ");
++        curAceIdx++;
++    }
++
++    exit:
++        OIC_LOG(DEBUG,   TAG, "=================================================");
++    return;
++}
++
++#endif
++
++void logCurrrentAcl(void) {
++#ifndef NDEBUG
++    logAcl(gAcl);
++#endif
++}
++
++
++
++
+diff --git a/resource/csdk/security/unittest/SConscript b/resource/csdk/security/unittest/SConscript
+index 1e103be0e..73b6980b1 100644
+--- a/resource/csdk/security/unittest/SConscript
++++ b/resource/csdk/security/unittest/SConscript
+@@ -99,6 +99,7 @@ unittest = srmtest_env.Program('unittest', [
+     'base64tests.cpp',
+     'pbkdf2tests.cpp',
+     'srmtestcommon.cpp',
++    'securitytestutility.cpp',
+     'crlresourcetest.cpp'
+ ])
+ 
+@@ -122,6 +123,9 @@ srmtest_env.Alias(
+ srmtest_env.Alias(
+     "install",
+     srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_unittest_default_acl.json'))
++srmtest_env.Alias(
++    "install",
++    srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_unittest_policyengine.json'))
+ srmtest_env.Alias(
+     "install",
+     srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_svr_db.json'))
+@@ -135,6 +139,9 @@ srmtest_env.Alias(
+ srmtest_env.Alias(
+     "install",
+     srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_unittest_default_acl.dat'))
++srmtest_env.Alias(
++    "install",
++    srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_unittest_policyengine.dat'))
+ srmtest_env.Alias(
+     "install",
+     srmtest_env.Install(unittest_build_dir, unittest_src_dir + 'oic_svr_db_prov.dat'))
+diff --git a/resource/csdk/security/unittest/oic_unittest_policyengine.dat b/resource/csdk/security/unittest/oic_unittest_policyengine.dat
+new file mode 100644
+index 0000000000000000000000000000000000000000..f4668a3a301627824f0b59d8aa95a2c19be2c9eb
+GIT binary patch
+literal 1618
+zcmbW1&2rN)5XUo3X85MVExq)_3C3}32Wa1<J<8JBma#35B$M`-1Dtq?bb8?t;L>Mc
+zpbr59oN_OgWjh)*ha}mV-DEfU?drdZZ!p5y`RLzuTt_OT|M?ma21<^GzhY5^DPXxw
+zFe?gqSwe~mRya5V#3={CDvm)cmL%a2B`%}bt+QzfJf}iXRvh%O-@C!021X3j!yff#
+zH&ouB1Yno2i`*bS?}>kRBNjce6cR}TIX>!`558|=Rx)ugzbxfe>W#-e?Z=k1k9rrW
+z8__HS?s}e`@a;rkCuTZve+9#SoS$2c(_W4B3hGPd8+twKiMRU_F$eRSjE_6yldnCJ
+zR23x`FN5~wsA##awqDF9EkoiWH=}VPEtz~<S-(|Q>sH!dw`KNch7O1Q(BJM2?FEfF
+zDp*ce0&hKZD>$u(juA&O7)_pbO%9iKlT%Ndqk`qSn%N|rWAw^Ezv$6dHu}WV=BQw~
+zu4bcO8|cR=XY&HMUZFSD=BQw~t`>5+Nb6_Ogiq9U3u&}q>LZONArg?$0-*Whp3T2t
+z!o(F4LsYH^6|7u^I6nwwJ_uPp3PnEJtNVN1y=k(kJyB1hv)daL#9|Ps0NDTwEFXb7
+zEm@@mK2Qwpsr_K~=Iy%^$E)91PUTOho}bk}Fog1_+8h-u*VXnqTdS-ZebdqI?*0Si
+CB}tqB
+
+literal 0
+HcmV?d00001
+
+diff --git a/resource/csdk/security/unittest/oic_unittest_policyengine.json b/resource/csdk/security/unittest/oic_unittest_policyengine.json
+new file mode 100644
+index 000000000..28f43c462
+--- /dev/null
++++ b/resource/csdk/security/unittest/oic_unittest_policyengine.json
+@@ -0,0 +1,105 @@
++{
++    "acl": {
++        "aclist2": [
++            {
++                "aceid": 1001,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [ { "href": "/oic/res" } ],
++                "permission": 2
++            },
++            {
++                "aceid": 1002,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [ { "href": "/oic/d" } ],
++                "permission": 8
++            },
++            {
++                "aceid": 1004,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [ { "href": "/oic/sec/doxm" } ],
++                "permission": 14
++            },
++            {
++                "aceid": 1005,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [ { "href": "/oic/sec/pstat" } ],
++                "permission": 25
++            },
++            {
++                "aceid": 2001,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [ { "href": "/oic/res" } ],
++                "permission": 24
++            },
++            {
++                "aceid": 2003,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [
++                    { "href": "/filler/11"}, { "href": "/filler/12"}, { "href": "/filler/13"}, { "href": "/filler/14"},
++                    { "href": "/oic/d" } ],
++                "permission": 3
++            },
++            {
++                "aceid": 2004,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [ { "href": "/oic/sec/acl2" } ],
++                "permission": 13
++            },
++            {
++                "aceid": 2005,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [ { "href": "/oic/sec/cred" } ],
++                "permission": 30
++            },
++            {
++                "aceid": 3001,
++                "subject": { "uuid": "33333333-3333-3333-3333-333333333333" },
++                "resources": [
++                    { "href": "/a/light" },
++                    { "href": "/filler/21"}, { "href": "/filler/22"},
++                    { "href": "/oic/p" },
++                    { "href": "/filler/23"}, { "href": "/filler/24"}
++                ],
++                "permission": 15
++            },
++            {
++                "aceid": 3002,
++                "subject": { "uuid": "31313131-3131-3131-3131-313131313131" },
++                "resources": [ { "href": "/a/garage" } ],
++                "permission": 12
++            },
++            {
++                "aceid": 4001,
++                "subject": { "uuid": "91919191-9191-9191-9191-919191919191" },
++                "resources": [{ "wc": "*" }],
++                "permission": 17
++            },
++            {
++                "aceid": 4002,
++                "subject": { "uuid": "81818181-8181-8181-8181-818181818181" },
++                "resources": [{ "wc": "+" }],
++                "permission": 10
++            }
++        ],
++        "rowneruuid": "10101010-1010-1010-1010-101010101010"
++    },
++    "pstat": {
++        "dos": { "s": 3, "p": false },
++        "isop": false,
++        "cm": 2,
++        "tm": 0,
++        "om": 4,
++        "sm": 4,
++        "rowneruuid": "10101010-1010-1010-1010-101010101010"
++    },
++    "doxm": {
++        "oxms": [0],
++        "oxmsel": 0,
++        "sct": 9,
++        "owned": false,
++        "deviceuuid": "12345678-1234-1234-1234-123456789012",
++        "devowneruuid": "20202020-2020-2020-2020-202020202020",
++        "rowneruuid": "10101010-1010-1010-1010-101010101010"
++    }
++}
++
+diff --git a/resource/csdk/security/unittest/policyengine.cpp b/resource/csdk/security/unittest/policyengine.cpp
+index 2c9eafa46..a5ac94c4d 100644
+--- a/resource/csdk/security/unittest/policyengine.cpp
++++ b/resource/csdk/security/unittest/policyengine.cpp
+@@ -1,6 +1,5 @@
+ //******************************************************************
+-//
+-// Copyright 2015 Intel Mobile Communications GmbH All Rights Reserved.
++// Copyright 2017 Cable Television Laboratories, Inc.
+ //
+ //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+ //
+@@ -18,100 +17,331 @@
+ //
+ //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+ 
++
+ #include <gtest/gtest.h>
+ #include "ocstack.h"
+ #include "cainterface.h"
++#include "oic_malloc.h"
++#include "secureresourcemanager.h"
++#include "security_internals.h"
++#include "srmutility.h"
+ #include "srmresourcestrings.h"
++#include "aclresource.h"
++#include "securitytestutility.h"
+ 
+ using namespace std;
+-
+-#define PE_UT_TAG "\tPE-UT-message: "
++#define TAG "PE-UT"
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+ #include "policyengine.h"
+-#include "doxmresource.h"
+-
+-// test parameters
+-// PEContext_t g_peContext;
++#include "psinterface.h"
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ 
+-OicUuid_t g_subjectIdA = {"SubjectA"};
+-OicUuid_t g_subjectIdB = {"SubjectB"};
+-OicUuid_t g_devOwner;
+-char g_resource1[] = "Resource1";
+-char g_resource2[] = "Resource2";
+-
+-extern OicSecDoxm_t *gDoxm;
+-
+-// These tests need to be rewritten; they do not cover internal ACE/request
+-// logic.
+-// See JIRA 1787 (https://jira.iotivity.org/browse/IOT-1787)
+-
+-//Policy Engine Core Tests
+-// TEST(PolicyEngineCore, InitPolicyEngine)
+-// {
+-//     EXPECT_EQ(OC_STACK_OK, InitPolicyEngine(&g_peContext));
+-// }
+-
+-// TODO - in order to unittest this we need InitDoxmResource() to put doxm
+-// into Owned state with a known owner.  This will have to be done post v1.1.
+-// TEST(PolicyEngineCore, CheckPermissionNoAcls)
+-// {
+-//     if(OC_STACK_OK == InitDoxmResource())
+-//     {
+-//         EXPECT_EQ(ACCESS_DENIED_SUBJECT_NOT_FOUND,
+-//             CheckPermission(&g_peContext,
+-//                             &g_subjectIdA,
+-//                             g_resource1,
+-//                             PERMISSION_READ));
+-//     }
+-//     else
+-//     {
+-//         printf("%s WARNING: InitDoxmResource() returned ERROR!\n", PE_UT_TAG);
+-//     }
+-// }
+-
+-// // TODO - in order to unittest this we need InitDoxmResource() to put doxm
+-// // into Owned state with a known owner.  This will have to be done post v1.1.
+-// TEST(PolicyEngineCore, CheckDevOwnerRequest)
+-// {
+-//     if(OC_STACK_OK == InitDoxmResource())
+-//     {
+-//         if(OC_STACK_OK == GetDoxmDevOwnerId(&g_devOwner))
+-//         {
+-//             printf("%s", PE_UT_TAG);
+-//             for(int i = 0; i < UUID_LENGTH; i++)
+-//             {
+-//                 printf("%d", g_devOwner.id[i]);
+-//             }
+-//             printf("\n");
+-//                 EXPECT_EQ(ACCESS_GRANTED,
+-//                     CheckPermission(&g_peContext,
+-//                         &g_devOwner,
+-//                         g_resource1,
+-//                         PERMISSION_FULL_CONTROL));
+-//         }
+-//         else
+-//         {
+-//             printf("%s WARNING: GetDoxmDevOwnerId() returned ERROR!\n", PE_UT_TAG);
+-//         }
+-//     }
+-//     else
+-//     {
+-//         printf("%s WARNING: InitDoxmResource() returned ERROR!\n", PE_UT_TAG);
+-//     }
+-// }
+-
+-// TEST(PolicyEngineCore, DeInitPolicyEngine)
+-// {
+-//     DeInitPolicyEngine(&g_peContext);
+-//     EXPECT_EQ(STOPPED, g_peContext.state);
+-//     EXPECT_EQ((uint16_t)0, g_peContext.permission);
+-//     EXPECT_EQ(ACCESS_DENIED_POLICY_ENGINE_ERROR, g_peContext.retVal);
+-// }
++// local helper fxns
++static FILE* server_fopen(const char *path, const char *mode);
++static OCStackResult loadSvrsFromDatFile( const char* datFile );
++static void checkAccessRespone( const char* test, const char* requestedAccess, const char* resourceUri, uint16_t permission, uint16_t expectedAccess, SRMAccessResponse_t response );
++static void testAccessAll( const char* test, const char* resourceUri, SubjectIdentityType_t subjectIdType, OicUuid_t* subjectUuid, OicSecSvrType_t resourceType, bool secureChannel,  uint16_t expectedAccess );
++
++// module vars
++static char gDatFile[50];
++
++
++//-----------------------------------------------------------------------------
++// Tests
++//-----------------------------------------------------------------------------
++
++// ## Done
++// Host reference matching
++// * Anonymous connection
++// * Authorized connection
++// * by Subject UUID
++//
++// ## In Progress
++// Wildcards
++//
++// ## TBD
++// Resoure Type Matching (rt)
++// Interface Matching (if)
++// Multiple Criteria Matching
++// Validity periods
++// Roles
++// State specific access rules
++// sacl ?
++// Implicit Access (not in spec)
++// What else ?
++
++#define EXPECT_C PERMISSION_CREATE // 1
++#define EXPECT_R PERMISSION_READ   // 2
++#define EXPECT_W PERMISSION_WRITE  // 4
++#define EXPECT_D PERMISSION_DELETE // 8
++#define EXPECT_N PERMISSION_NOTIFY // 16
++#define EXPECT_CR PERMISSION_CREATE | PERMISSION_READ   // 3
++#define EXPECT_RD PERMISSION_READ | PERMISSION_DELETE // 10
++#define EXPECT_WD PERMISSION_WRITE | PERMISSION_DELETE  // 12
++#define EXPECT_CN PERMISSION_CREATE | PERMISSION_NOTIFY // 17
++#define EXPECT_WN PERMISSION_WRITE | PERMISSION_NOTIFY  // 20
++#define EXPECT_DN PERMISSION_DELETE | PERMISSION_NOTIFY // 24
++#define EXPECT_CWD PERMISSION_CREATE | PERMISSION_WRITE | PERMISSION_DELETE  // 13
++#define EXPECT_RWD PERMISSION_READ | PERMISSION_WRITE | PERMISSION_DELETE    // 14
++#define EXPECT_CDN PERMISSION_CREATE | PERMISSION_DELETE | PERMISSION_NOTIFY // 25
++#define EXPECT_WDN PERMISSION_WRITE | PERMISSION_DELETE | PERMISSION_NOTIFY  // 28
++#define EXPECT_CRWD PERMISSION_CREATE | PERMISSION_READ | PERMISSION_WRITE | PERMISSION_DELETE  // 15
++#define EXPECT_CRDN PERMISSION_CREATE | PERMISSION_READ | PERMISSION_DELETE | PERMISSION_NOTIFY // 27
++#define EXPECT_RWDN PERMISSION_READ | PERMISSION_WRITE | PERMISSION_DELETE | PERMISSION_NOTIFY  // 30
++#define EXPECT_CRWDN PERMISSION_FULL_CONTROL
++#define EXPECT_NONE 0
++
++#define PE_UNITTEST_END_POINT_ADDR "fe80::7f6a:303e:8ac9:1841%enp0s5"
++
++TEST(PolicyEngine, ConnAnonymous)
++{
++    OCStackResult result = loadSvrsFromDatFile( "oic_unittest_policyengine.dat" );
++    EXPECT_EQ(OC_STACK_OK, result);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    OicUuid_t subjectUuid;
++    memset(&subjectUuid, 0, sizeof(OicUuid_t));
++
++    // core
++    testAccessAll( "ConnAnonymous", "/oic/res", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, false, EXPECT_R );
++    testAccessAll( "ConnAnonymous", "/oic/d",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, false, EXPECT_D );
++    testAccessAll( "ConnAnonymous", "/oic/p",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, false, EXPECT_NONE );
++
++    // svr
++    testAccessAll( "ConnAnonymous", "/oic/sec/doxm",  SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_DOXM_TYPE,  false, EXPECT_RWD );
++    testAccessAll( "ConnAnonymous", "/oic/sec/pstat", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_PSTAT_TYPE, false, EXPECT_CDN );
++    testAccessAll( "ConnAnonymous", "/oic/sec/roles", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_ROLES_TYPE, false, EXPECT_NONE );
++
++    exit: return;
++}
++
++TEST(PolicyEngine, ConnAuth)
++{
++    OCStackResult result = loadSvrsFromDatFile( "oic_unittest_policyengine.dat" );
++    EXPECT_EQ(OC_STACK_OK, result);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    OicUuid_t subjectUuid;
++    memset(&subjectUuid, 0, sizeof(OicUuid_t));
++
++    // core
++    testAccessAll( "ConnAuth", "/oic/res", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, true, EXPECT_DN );
++    testAccessAll( "ConnAuth", "/oic/d",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, true, EXPECT_CR );
++    testAccessAll( "ConnAuth", "/oic/p",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, true, EXPECT_NONE );
++
++    // svr
++    testAccessAll( "ConnAuth", "/oic/sec/acl2",  SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_ACL2_TYPE,  true, EXPECT_CWD );
++    testAccessAll( "ConnAuth", "/oic/sec/cred",  SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_CRED_TYPE,  true, EXPECT_RWDN );
++    testAccessAll( "ConnAuth", "/oic/sec/crl",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_CRL_TYPE,   true, EXPECT_NONE );
++
++    exit: return;
++}
++
++TEST(PolicyEngine, SubjectUUID)
++{
++    OCStackResult result = loadSvrsFromDatFile( "oic_unittest_policyengine.dat" );
++    EXPECT_EQ(OC_STACK_OK, result);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    OicUuid_t subjectUuid;
++
++    memset(&subjectUuid, 0x33, sizeof(OicUuid_t));
++    testAccessAll( "SubjectUUID", "/a/light", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_CRWD );
++    testAccessAll( "SubjectUUID", "/oic/p", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_CRWD );
++
++    memset(&subjectUuid, 0x31, sizeof(OicUuid_t));
++    testAccessAll( "SubjectUUID", "/a/light", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_NONE );
++    testAccessAll( "SubjectUUID", "/a/garage", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_WD );
++    testAccessAll( "SubjectUUID", "/a/garage2", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_NONE );
++
++    exit: return;
++}
++
++TEST(PolicyEngine, Wildcards)
++{
++
++    OCStackResult result = loadSvrsFromDatFile( "oic_unittest_policyengine.dat" );
++    EXPECT_EQ(OC_STACK_OK, result);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    OicUuid_t subjectUuid;
++
++    // Resource wildcard *
++    memset(&subjectUuid, 0x91, sizeof(OicUuid_t));
++    testAccessAll( "Wildcard All", "/oic/crl", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_CRL_TYPE, true, EXPECT_CN );
++    testAccessAll( "Wildcard All", "/oic/sec/roles",  SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, OIC_R_ROLES_TYPE,  true, EXPECT_CN );
++    testAccessAll( "Wildcard All", "/oic/p",   SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid, NOT_A_SVR_RESOURCE, true, EXPECT_CN );
++    testAccessAll( "Wildcard All", "/totally/made/up", SUBJECT_ID_TYPE_UUID,
++                    &subjectUuid,  NOT_A_SVR_RESOURCE, true, EXPECT_CN );
++
++    // Resource wildcard + (discovrable resources)
++    memset(&subjectUuid, 0x81, sizeof(OicUuid_t));
++
++    // Sec spec 13.11: All implemented SVRs shall be “discoverable"
++    // Access should be granted to roles since it is SVR, but it is not
++    // Comment out until fixed
++    // testAccessAll( "Wildcard Disc", "/oic/roles", SUBJECT_ID_TYPE_UUID,
++    //                 &subjectUuid, OIC_R_ROLES_TYPE, true, EXPECT_WN );
++
++    //TODO: add + testing for discoverable core resources
++
++    // Resource wildcard - (non discoverable resources)
++    // TBD
++
++    exit: return;
++}
++
++
++TEST(PolicyEngine, ImplicitAccess)
++{
++    // Implicit Access (not specified?)
++    // _______________________________
++    // * request from dev owner AND state = RFOTM | SRESET AND svr resource requested
++    // * request from resource owner
++    // * Ownership transfer session
++    // * Request from DOXS for svr
++    // * Request from AMS for pstat
++
++    // TBD
++
++    // exit: return;
++}
++
++//-----------------------------------------------------------------------------
++// Helpers
++//-----------------------------------------------------------------------------
++
++static void testAccessAll( const char* test, const char* resourceUri,
++                           SubjectIdentityType_t subjectIdType, OicUuid_t* subjectUuid,
++                           OicSecSvrType_t resourceType, bool secureChannel,  uint16_t expectedAccess )
++{
++    CAEndpoint_t endPoint;
++    SRMRequestContext_t ctx;
++
++    synthEndpoint( &endPoint, PE_UNITTEST_END_POINT_ADDR);
++    ctx.endPoint = &endPoint;
++
++    ctx.secureChannel = secureChannel;
++    strcpy(ctx.resourceUri, resourceUri);
++    ctx.resourceType=resourceType;
++    ctx.subjectIdType = subjectIdType;
++    memcpy(&ctx.subjectUuid, subjectUuid, sizeof(OicUuid_t));
++
++    // create
++    ctx.requestedPermission = PERMISSION_CREATE;
++    CheckPermission(&ctx);
++    checkAccessRespone( test, "CREATE", resourceUri, PERMISSION_CREATE, expectedAccess, ctx.responseVal );
++
++    // read
++    ctx.requestedPermission = PERMISSION_READ;
++    CheckPermission(&ctx);
++    checkAccessRespone( test, "READ  ", resourceUri, PERMISSION_READ, expectedAccess, ctx.responseVal );
++
++    // write
++    ctx.requestedPermission = PERMISSION_WRITE;
++    CheckPermission(&ctx);
++    checkAccessRespone( test, "WRITE ", resourceUri, PERMISSION_WRITE, expectedAccess, ctx.responseVal );
++
++    // delete
++    ctx.requestedPermission = PERMISSION_DELETE;
++    CheckPermission(&ctx);
++    checkAccessRespone( test, "DELETE", resourceUri, PERMISSION_DELETE, expectedAccess, ctx.responseVal );
++
++    // Notify
++    ctx.requestedPermission = PERMISSION_NOTIFY;
++    CheckPermission(&ctx);
++    checkAccessRespone( test, "NOTIFY", resourceUri, PERMISSION_NOTIFY, expectedAccess, ctx.responseVal );
++}
++
++static void checkAccessRespone( const char* test, const char* requestedAccess, const char* resourceUri,
++                                uint16_t permission, uint16_t expectedAccess, SRMAccessResponse_t response )
++{
++    if ( expectedAccess & permission )
++    {
++        OIC_LOG_V(DEBUG, TAG, "[%s] %s %s: Expected ACCESS_GRANTED, %s", test, requestedAccess, resourceUri,
++                  response & ACCESS_GRANTED_DEF ? "and it was" : "but it was not" );
++        EXPECT_TRUE(response & ACCESS_GRANTED_DEF);
++        EXPECT_FALSE(response & ACCESS_DENIED_DEF);
++    }
++    else
++    {
++        OIC_LOG_V(DEBUG, TAG, "[%s] %s %s: Expected ACCESS_DENIED, %s", test, requestedAccess, resourceUri,
++                  response & ACCESS_DENIED_DEF ? "and it was" : "but it was not" );
++        EXPECT_TRUE(response & ACCESS_DENIED_DEF);
++        EXPECT_FALSE(response & ACCESS_GRANTED_DEF);
++    }
++}
++
++static FILE* server_fopen(const char *path, const char *mode)
++{
++    if (0 == strcmp(path, OC_SECURITY_DB_DAT_FILE_NAME))
++    {
++        return fopen(gDatFile, mode);
++    }
++    else
++    {
++        return fopen(path, mode);
++    }
++}
++
++static OCStackResult loadSvrsFromDatFile( const char* datFile ) {
++
++    OCStackResult result = OC_STACK_OK;
++    uint8_t *data = NULL;
++    OicSecAcl_t *acl = NULL;
++    size_t size = 0;
++
++    // register the dat file
++    strcpy(gDatFile,datFile);
++    OCPersistentStorage ps = {server_fopen, fread, fwrite, fclose, remove};
++    result = OCRegisterPersistentStorageHandler(&ps);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    // load dat
++    result = GetSecureVirtualDatabaseFromPS(OIC_JSON_ACL_NAME, &data, &size);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++    VERIFY_SUCCESS(TAG, size > 0, ERROR);
++    VERIFY_NOT_NULL(TAG, data, ERROR);
++
++    // parse out ACL
++    acl = CBORPayloadToAcl(data, size);
++    OICFree(data);
++    VERIFY_NOT_NULL(TAG, acl, ERROR);
++
++    // 'Install' the ACL
++    result = SetDefaultACL(acl);
++    VERIFY_SUCCESS(TAG, OC_STACK_OK == result, ERROR);
++
++    logCurrrentAcl();
++
++    exit:
++        return result;
++
++}
+diff --git a/resource/csdk/security/unittest/securitytestutility.cpp b/resource/csdk/security/unittest/securitytestutility.cpp
+new file mode 100644
+index 000000000..66bf50e7d
+--- /dev/null
++++ b/resource/csdk/security/unittest/securitytestutility.cpp
+@@ -0,0 +1,32 @@
++//******************************************************************
++// Copyright 2017 Cable Television Laboratories, Inc.
++//
++//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++//
++//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
++#include <stdio.h>
++#include <string.h>
++#include "securitytestutility.h"
++
++void synthEndpoint (CAEndpoint_t* endPoint, const char* addr)
++{
++    endPoint->adapter = CA_DEFAULT_ADAPTER;
++    endPoint->flags = CA_DEFAULT_FLAGS;
++    strcpy(endPoint->addr, addr);
++    endPoint->remoteId[0] = '\0';
++    endPoint->port = 60019;
++    endPoint->ifindex = 2;
++}
+diff --git a/resource/csdk/security/unittest/securitytestutility.h b/resource/csdk/security/unittest/securitytestutility.h
+new file mode 100644
+index 000000000..a8c5f2201
+--- /dev/null
++++ b/resource/csdk/security/unittest/securitytestutility.h
+@@ -0,0 +1,26 @@
++//******************************************************************
++// Copyright 2017 Cable Television Laboratories, Inc.
++//
++//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++//
++//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
++#ifndef IOTVT_SECURITY_TEST_COMMON_H
++#define IOTVT_SECURITY_TEST_COMMON_H
++
++#include "cacommon.h"
++void synthEndpoint (CAEndpoint_t* endPoint, const char* addr);
++
++#endif //IOTVT_SECURITY_TEST_COMMON_H
+-- 
+2.16.1.windows.1
+

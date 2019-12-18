@@ -1,0 +1,32 @@
+From 618d60b4ccedb2d3b57d42276b3dc255850ce1c1 Mon Sep 17 00:00:00 2001
+From: "arya.k" <arya.kumar@samsung.com>
+Date: Fri, 1 Sep 2017 11:37:18 +0530
+Subject: [PATCH] [IOT - 2363] NULL derefrencing issue.
+
+Change-Id: I1ae1756a474fe2b4382e2bdf198f99a466a1e865
+Signed-off-by: arya.k <arya.kumar@samsung.com>
+---
+ resource/csdk/stack/src/ocpayloadparse.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/stack/src/ocpayloadparse.c b/resource/csdk/stack/src/ocpayloadparse.c
+index 3837c6a3a..995fa873d 100644
+--- a/resource/csdk/stack/src/ocpayloadparse.c
++++ b/resource/csdk/stack/src/ocpayloadparse.c
+@@ -1196,8 +1196,11 @@ static CborError OCParseSingleRepPayload(OCRepPayload **outPayload, CborValue *o
+ 
+ exit:
+     OICFree(name);
+-    OCRepPayloadDestroy(*outPayload);
+-    *outPayload = NULL;
++    if (NULL != outPayload)
++    {
++        OCRepPayloadDestroy(*outPayload);
++        *outPayload = NULL;
++    }
+     return err;
+ }
+ 
+-- 
+2.16.1.windows.1
+

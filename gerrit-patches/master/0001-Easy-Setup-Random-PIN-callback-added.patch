@@ -1,0 +1,158 @@
+From bd416c97fbf41bf77fb900abea56db38e04a2e0a Mon Sep 17 00:00:00 2001
+From: Abhishek Pandey <abhi.siso@samsung.com>
+Date: Wed, 31 Oct 2018 12:04:55 +0530
+Subject: [PATCH] [Easy Setup] Random PIN callback added
+
+[IOT-3224] Secure Provisioning / onboarding not working for easy setup samples.
+
+These are draft changes.
+
+Mediator side API modification is required to allow setting of PIN callback
+from application.
+
+Change-Id: I7d64c59eff293183e172be1a356f26a655fe61d7
+Signed-off-by: Abhishek Pandey <abhi.siso@samsung.com>
+---
+ .../mediator/richsdk/src/EnrolleeSecurity.cpp      | 25 ++++++++++++--
+ .../easy-setup/sampleapp/enrollee/linux/SConscript |  1 +
+ .../sampleapp/enrollee/linux/enrolleewifi.c        | 40 +++++++++++++++++++++-
+ 3 files changed, 63 insertions(+), 3 deletions(-)
+
+diff --git a/service/easy-setup/mediator/richsdk/src/EnrolleeSecurity.cpp b/service/easy-setup/mediator/richsdk/src/EnrolleeSecurity.cpp
+index b2ff3605c..f75fd8398 100644
+--- a/service/easy-setup/mediator/richsdk/src/EnrolleeSecurity.cpp
++++ b/service/easy-setup/mediator/richsdk/src/EnrolleeSecurity.cpp
+@@ -950,6 +950,19 @@ namespace OIC
+             return res;
+         }
+ 
++        void OnInputPinCB(OicUuid_t deviceId, char* pinBuf, size_t bufSize)
++        {
++            OC_UNUSED(deviceId);
++            if (pinBuf)
++            {
++                std::cout <<"INPUT PIN : ";
++                std::string ptr;
++                std::cin >> ptr;
++                OICStrcpy(pinBuf, bufSize, ptr.c_str());
++                return;
++            }
++        }
++
+         ESResult EnrolleeSecurity::performOwnershipTransfer()
+         {
+             OIC_LOG(DEBUG, ENROLEE_SECURITY_TAG, "performOwnershipTransfer IN.");
+@@ -957,8 +970,17 @@ namespace OIC
+             OCStackResult result = OC_STACK_ERROR;
+             ESResult res = ESResult::ES_ERROR;
+ 
++            InputPinCallbackHandle callbackHandle = nullptr;
++            result = OCSecure::registerInputPinCallback(OnInputPinCB, &callbackHandle);
++            if (result != OC_STACK_OK)
++            {
++                std::cout << "!!Error - registerInputPinCallback failed." << std::endl;
++            }
++
++            OIC_LOG(DEBUG, ENROLEE_SECURITY_TAG, "Input PIN Callback set");
++
+             OIC_LOG_V(INFO_PRIVATE, ENROLEE_SECURITY_TAG, "Transfering ownership for : %s ",
+-                    m_securedResource->getDeviceID().c_str());
++                  m_securedResource->getDeviceID().c_str());
+ 
+             OC::ResultCallBack ownershipTransferCb =
+                 std::bind(&EnrolleeSecurity::onEnrolleeSecuritySafetyCB,
+@@ -967,7 +989,6 @@ namespace OIC
+                           this, std::placeholders::_1, std::placeholders::_2, std::ref(res))),
+                           shared_from_this());
+ 
+-
+             OIC_LOG(DEBUG, ENROLEE_SECURITY_TAG, "doOwnershipTransfer is excuted");
+             result = m_securedResource->doOwnershipTransfer(ownershipTransferCb);
+ 
+diff --git a/service/easy-setup/sampleapp/enrollee/linux/SConscript b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+index 8da5286d8..fb3e3c00f 100644
+--- a/service/easy-setup/sampleapp/enrollee/linux/SConscript
++++ b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+@@ -48,6 +48,7 @@ enrollee_env.PrependUnique(CPPPATH=[
+     '#/resource/csdk/include',
+     '#/resource/csdk/security/include',
+     '#/resource/csdk/stack/include',
++    '#/resource/csdk/connectivity/api',
+     '#/extlibs/cjson',
+     '#/service/easy-setup/inc',
+     '#/service/easy-setup/enrollee/linux/wifi',
+diff --git a/service/easy-setup/sampleapp/enrollee/linux/enrolleewifi.c b/service/easy-setup/sampleapp/enrollee/linux/enrolleewifi.c
+index 3a8786b10..f6ff18fc4 100644
+--- a/service/easy-setup/sampleapp/enrollee/linux/enrolleewifi.c
++++ b/service/easy-setup/sampleapp/enrollee/linux/enrolleewifi.c
+@@ -28,6 +28,7 @@
+ #include <pthread.h>
+ #include <oic_string.h>
+ #include "oic_malloc.h"
++#include "pinoxmcommon.h"
+ 
+ #define TAG "ENROLLEE_SAMPLE"
+ 
+@@ -77,7 +78,7 @@ void ConnectRequestCbInApp(ESConnectRequest *connectRequest)
+         return ;
+     }
+ 
+-    for(int i = 0 ; i < connectRequest->numRequest ; ++i)
++    for(int i = 0; i < connectRequest->numRequest; ++i)
+     {
+         printf("connect : %d\n", connectRequest->connect[i]);
+     }
+@@ -158,6 +159,28 @@ FILE* server_fopen(const char *path, const char *mode)
+     }
+ }
+ 
++void DisplayPinCB(char *pin, size_t pinSize, void *context)
++{
++    (void)context;
++
++    if(NULL == pin || pinSize <= 0)
++    {
++        printf("Invalid PIN\n");
++        return;
++    }
++
++    printf("============================\n");
++    printf("    PIN CODE : %s\n", pin);
++    printf("============================\n");
++}
++
++void ClosePinDisplayCB(void)
++{
++    printf("============================\n");
++    printf("    PIN DISPLAY CLOSED.\n");
++    printf("============================\n");
++}
++
+ void EnableSecurity(void)
+ {
+     printf("Inside EnableSecurity API..\n");
+@@ -167,6 +190,21 @@ void EnableSecurity(void)
+     // Initialize Persistent Storage for SVR database
+     ps = (OCPersistentStorage){ server_fopen, fread, fwrite, fclose, unlink };
+     OCRegisterPersistentStorageHandler(&ps);
++
++    // Set callback to display random PIN.
++    SetDisplayPinWithContextCB(DisplayPinCB, NULL);
++
++    // Set callback to close PIN display can be registered.
++    // This callback will be invoked when random PIN based OTM is done.
++    SetClosePinDisplayCB(ClosePinDisplayCB);
++
++    // Set Random PIN policy.
++    // first param : byte length of random PIN ( 4 <= first param <= 32)
++    // second param : PIN type (This is bitmask)
++    if (OC_STACK_OK != SetRandomPinPolicy(8, NUM_PIN))
++    {
++        printf("Error: Failed to setting PIN policy\n");
++    }
+ }
+ 
+ void StartEasySetup(void)
+-- 
+2.16.1.windows.1
+

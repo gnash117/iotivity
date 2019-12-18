@@ -1,0 +1,32 @@
+From 2aa44a8e76bd04312c0b30c6f102c113c07846be Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=B6ren=20Tempel?= <tempel@uni-bremen.de>
+Date: Tue, 23 Oct 2018 11:25:28 +0200
+Subject: [PATCH 1/2] pluginServer: include sys/select.h
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+This header file includes the definition of the type `fd_set` which is
+used in various function defined in this file.
+
+Change-Id: I24d6441f7b14cb057386cf7409fb808514832060
+Signed-off-by: Sören Tempel <tempel@uni-bremen.de>
+---
+ bridging/common/pluginServer.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/bridging/common/pluginServer.cpp b/bridging/common/pluginServer.cpp
+index 0b15c10e3..4f16f37d1 100644
+--- a/bridging/common/pluginServer.cpp
++++ b/bridging/common/pluginServer.cpp
+@@ -28,6 +28,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <errno.h>
++#include <sys/select.h>
+ #include "iotivity_config.h"
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+-- 
+2.16.1.windows.1
+

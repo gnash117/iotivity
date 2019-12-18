@@ -1,0 +1,83 @@
+From ebffc555d11624651f9fbd6f10793922cd63792d Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Wed, 20 Feb 2019 09:00:56 -0700
+Subject: [PATCH] IOT-3266 Demote notification examples
+
+Change-Id: I151314ff4c89615c526bbb240f35c74845ab6f11
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ service/notification/SConscript                                   | 4 +++-
+ service/notification/examples/README.md                           | 8 ++++++++
+ .../notification/examples/android/NotiConsumerExample/SConscript  | 2 ++
+ .../notification/examples/android/NotiProviderExample/SConscript  | 2 ++
+ service/notification/examples/linux/SConscript                    | 1 +
+ 5 files changed, 16 insertions(+), 1 deletion(-)
+ create mode 100644 service/notification/examples/README.md
+
+diff --git a/service/notification/SConscript b/service/notification/SConscript
+index c2fb2d868..5f68045e3 100644
+--- a/service/notification/SConscript
++++ b/service/notification/SConscript
+@@ -151,4 +151,6 @@ if target_os == 'android':
+     SConscript('android/SConscript')
+ 
+ # Go to build sample apps
+-SConscript('examples/SConscript')
++env.AppendTarget('notification-examples', default=False)
++if "notification-examples" in COMMAND_LINE_TARGETS:
++    SConscript('examples/SConscript')
+diff --git a/service/notification/examples/README.md b/service/notification/examples/README.md
+new file mode 100644
+index 000000000..b707418b9
+--- /dev/null
++++ b/service/notification/examples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run:
++
++scons [options] notification-examples
+diff --git a/service/notification/examples/android/NotiConsumerExample/SConscript b/service/notification/examples/android/NotiConsumerExample/SConscript
+index cbc3849a3..668582947 100644
+--- a/service/notification/examples/android/NotiConsumerExample/SConscript
++++ b/service/notification/examples/android/NotiConsumerExample/SConscript
+@@ -90,6 +90,8 @@ cmdBuildNotificationConsumerApp = jdk_env.Gradle(
+         "app/src/main/java/org/iotivity/service/ns/sample/consumer/MainActivity.java",
+         "app/src/main/java/org/iotivity/service/ns/sample/consumer/ConsumerSample.java"
+     ])
++Alias('notification-examples', cmdBuildNotificationConsumerApp)
++
+ jdk_env.Clean(
+     cmdBuildNotificationConsumerApp,
+     '#/service/notification/examples/android/NotiConsumerExample/build')
+diff --git a/service/notification/examples/android/NotiProviderExample/SConscript b/service/notification/examples/android/NotiProviderExample/SConscript
+index d52b1459c..4b8a7d123 100644
+--- a/service/notification/examples/android/NotiProviderExample/SConscript
++++ b/service/notification/examples/android/NotiProviderExample/SConscript
+@@ -91,6 +91,8 @@ cmdBuildNotificationProviderApp = jdk_env.Gradle(
+         "app/src/main/java/org/iotivity/service/ns/sample/provider/NotiListener.java",
+         "app/src/main/java/org/iotivity/service/ns/sample/provider/ProviderSample.java"
+     ])
++Alias('notification-examples', cmdBuildNotificationConsumerApp)
++
+ jdk_env.Clean(
+     cmdBuildNotificationProviderApp,
+     '#/service/notification/examples/android/NotiProviderExample/build')
+diff --git a/service/notification/examples/linux/SConscript b/service/notification/examples/linux/SConscript
+index c31f816a4..c2cc4e447 100644
+--- a/service/notification/examples/linux/SConscript
++++ b/service/notification/examples/linux/SConscript
+@@ -98,6 +98,7 @@ notificationconsumer = notification_sample_consumer_env.Program(
+ i_notificationprovider = notification_sample_consumer_env.Install(
+     env.get('BUILD_DIR'), notificationconsumer)
+ examples += notificationconsumer
++Alias("notification-examples", examples)
+ 
+ if env.get('WITH_CLOUD') == True:
+     Export('providerCloudConnectorObj')
+-- 
+2.16.1.windows.1
+

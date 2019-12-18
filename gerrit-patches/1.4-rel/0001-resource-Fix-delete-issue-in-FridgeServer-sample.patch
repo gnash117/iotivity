@@ -1,0 +1,147 @@
+From f512d1cad0aa108a43b916c2e1f6fdd8f71b12bc Mon Sep 17 00:00:00 2001
+From: "jihwan.seo" <jihwan.seo@samsung.com>
+Date: Tue, 30 May 2017 14:10:57 +0900
+Subject: [PATCH] resource: Fix delete issue in FridgeServer sample
+
+Bug: https://jira.iotivity.org/browse/IOT-2379
+Change-Id: I7773a60a0ed58bb51cd9be6af80837f04d89d276
+Signed-off-by: jihwan.seo <jihwan.seo@samsung.com>
+(cherry picked from commit 6e03e30f40abdfe62afdf67b1cf7025a709ec0a7)
+---
+ resource/examples/fridgeserver.cpp | 100 ++++++++++---------------------------
+ 1 file changed, 25 insertions(+), 75 deletions(-)
+
+diff --git a/resource/examples/fridgeserver.cpp b/resource/examples/fridgeserver.cpp
+index d36bd97b2..b6692d5df 100644
+--- a/resource/examples/fridgeserver.cpp
++++ b/resource/examples/fridgeserver.cpp
+@@ -134,101 +134,51 @@ class DeviceResource : public Resource
+         OCEntityHandlerResult ehResult = OC_EH_ERROR;
+         if(request)
+         {
+-            // Get the header options from the request
+-            HeaderOptions headerOptions = request->getHeaderOptions();
+-            std::string clientAPIVersion;
+-            std::string clientToken;
+-
+-            // Get the message ID from the request
+-            std::cout << " MessageID: " << request->getMessageID() << std::endl;
+-
+-            // Search the header options map and look for API version and Client token
+-            for (auto it = headerOptions.begin(); it != headerOptions.end(); ++it)
+-            {
+-                uint16_t optionID = it->getOptionID();
+-                if(optionID == API_VERSION)
+-                {
+-                    clientAPIVersion = it->getOptionData();
+-                    std::cout << " Client API version: " << clientAPIVersion << std::endl;
+-                }
+-                else if(optionID == TOKEN)
+-                {
+-                    clientToken = it->getOptionData();
+-                    std::cout << " Client token: " << clientToken << std::endl;
+-                }
+-                else
+-                {
+-                    std::cout << " Invalid header option " << std::endl;
+-                }
+-            }
+-
+-            // In this case Server entity handler verifies API version
+-            // and client token. If they are valid, client requests are handled.
+-            if(clientAPIVersion == FRIDGE_CLIENT_API_VERSION && clientToken == FRIDGE_CLIENT_TOKEN)
++            if(request->getRequestHandlerFlag() == RequestHandlerFlag::RequestFlag)
+             {
+-                HeaderOptions serverHeaderOptions;
+-                try
+-                {
+-                    // Set API version from server side
+-                    HeaderOption::OCHeaderOption apiVersion(API_VERSION, FRIDGE_CLIENT_API_VERSION);
+-                    serverHeaderOptions.push_back(apiVersion);
+-                }
+-                catch(OCException& e)
+-                {
+-                    std::cout << "Error creating HeaderOption in server: " << e.what() << std::endl;
+-                }
++                auto pResponse = std::make_shared<OC::OCResourceResponse>();
++                pResponse->setRequestHandle(request->getRequestHandle());
++                pResponse->setResourceHandle(request->getResourceHandle());
+ 
+-                if(request->getRequestHandlerFlag() == RequestHandlerFlag::RequestFlag)
++                if(request->getRequestType() == "GET")
+                 {
+-                    auto pResponse = std::make_shared<OC::OCResourceResponse>();
+-                    pResponse->setRequestHandle(request->getRequestHandle());
+-                    pResponse->setResourceHandle(request->getResourceHandle());
+-                    pResponse->setHeaderOptions(serverHeaderOptions);
++                    std::cout<<"DeviceResource Get Request"<<std::endl;
+ 
+-                    if(request->getRequestType() == "GET")
++                    pResponse->setResponseResult(OC_EH_OK);
++                    pResponse->setResourceRepresentation(get(), "");
++                    if(OC_STACK_OK == OCPlatform::sendResponse(pResponse))
+                     {
+-                        std::cout<<"DeviceResource Get Request"<<std::endl;
+-
+-                        pResponse->setResponseResult(OC_EH_OK);
+-                        pResponse->setResourceRepresentation(get(), "");
+-                        if(OC_STACK_OK == OCPlatform::sendResponse(pResponse))
+-                        {
+-                            ehResult = OC_EH_OK;
+-                        }
++                        ehResult = OC_EH_OK;
+                     }
+-                    else if(request->getRequestType() == "DELETE")
++                }
++                else if(request->getRequestType() == "DELETE")
++                {
++                    std::cout<<"DeviceResource Delete Request"<<std::endl;
++                    if(deleteDeviceResource() == OC_STACK_OK)
+                     {
+-                        std::cout<<"DeviceResource Delete Request"<<std::endl;
+-                        if(deleteDeviceResource() == OC_STACK_OK)
+-                        {
+-
+-                            pResponse->setResponseResult(OC_EH_RESOURCE_DELETED);
+-                            ehResult = OC_EH_OK;
+-                        }
+-                        else
+-                        {
+-                            pResponse->setResponseResult(OC_EH_ERROR);
+-                            ehResult = OC_EH_ERROR;
+-                        }
+-                        OCPlatform::sendResponse(pResponse);
++
++                        pResponse->setResponseResult(OC_EH_RESOURCE_DELETED);
++                        ehResult = OC_EH_OK;
+                     }
+                     else
+                     {
+-                        std::cout <<"DeviceResource unsupported request type "
+-                        << request->getRequestType() << std::endl;
+                         pResponse->setResponseResult(OC_EH_ERROR);
+-                        OCPlatform::sendResponse(pResponse);
+                         ehResult = OC_EH_ERROR;
+                     }
++                    OCPlatform::sendResponse(pResponse);
+                 }
+                 else
+                 {
+-                    std::cout << "DeviceResource unsupported request flag" <<std::endl;
++                    std::cout <<"DeviceResource unsupported request type "
++                    << request->getRequestType() << std::endl;
++                    pResponse->setResponseResult(OC_EH_ERROR);
++                    OCPlatform::sendResponse(pResponse);
++                    ehResult = OC_EH_ERROR;
+                 }
+             }
+             else
+             {
+-                std::cout << "Unsupported/invalid header options/values" << std::endl;
++                std::cout << "DeviceResource unsupported request flag" <<std::endl;
+             }
+         }
+ 
+-- 
+2.16.1.windows.1
+

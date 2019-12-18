@@ -1,0 +1,36 @@
+From ba6931f45190c410cf8894c699c97508eebe919a Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Tue, 4 Oct 2016 10:37:48 +0200
+Subject: [PATCH] tizen: Enable TCP
+
+This change was applied downstream,
+so for tracking it is shared upstream,
+but I feel that if this feature should be turned on
+It should be done globally in build_common
+
+Change-Id: I56b8abcea1a3397f546ef0b8edc42711ff62b9d8
+Origin: https://gerrit.iotivity.org/gerrit/#/c/14655/
+Bug-Tizen: https://bugs.tizen.org/jira/browse/TINF-861
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+Origin: https://gerrit.iotivity.org/gerrit/#/c/15193/
+(cherry picked from commit d492aca3c5fc5f8da06161cfc056360cda33a026)
+---
+ tools/tizen/iotivity.spec | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/tizen/iotivity.spec b/tools/tizen/iotivity.spec
+index 815fc5097..edbbd3065 100644
+--- a/tools/tizen/iotivity.spec
++++ b/tools/tizen/iotivity.spec
+@@ -71,7 +71,7 @@ BuildRequires: python-accel-aarch64-cross-aarch64
+ %{!?WITH_CLOUD: %define WITH_CLOUD False}
+ %{!?WITH_MQ: %define WITH_MQ OFF}
+ %{!?WITH_PROXY: %define WITH_PROXY 1}
+-%{!?WITH_TCP: %define WITH_TCP 0}
++%{!?WITH_TCP: %define WITH_TCP 1}
+ %{!?MULTIPLE_OWNER: %define MULTIPLE_OWNER 1}
+ %{!?OIC_SUPPORT_TIZEN_TRACE: %define OIC_SUPPORT_TIZEN_TRACE False}
+ %define BUILD_DIR out/%{TARGET_OS}/%{TARGET_ARCH}/%{build_mode}/
+-- 
+2.16.1.windows.1
+

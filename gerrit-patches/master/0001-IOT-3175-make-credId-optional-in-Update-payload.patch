@@ -1,0 +1,825 @@
+From 31d98d2ca817929113c93642d5e13766f6bed287 Mon Sep 17 00:00:00 2001
+From: Nathan Heldt-Sheller <nathan.heldt-sheller@intel.com>
+Date: Sun, 3 Feb 2019 12:43:57 -0800
+Subject: [PATCH] [IOT-3175] make credId optional in Update payload
+
+In order to make credId optional, it was necessary to mark each
+cred entry that didn't have a payload with a reserved value.  Since
+the specification makes all uint16 values valid, we had to change
+the internal type to int to allow for an out-of-range reserved
+value indicating "unassgned ID".  This change percolated through
+a lot of files and I don't like it, but I couldn't think of a better
+way without modifying the specification.
+
+Change-Id: I7a3aacbe529a770260e1c53db3499b9682cfc2a4
+Signed-off-by: Nathan Heldt-Sheller <nathan.heldt-sheller@intel.com>
+---
+ .../experimental/securevirtualresourcetypes.h      |  2 +-
+ .../csdk/security/include/internal/credresource.h  |  4 +-
+ .../include/internal/secureresourceprovider.h      | 10 ++---
+ .../provisioning/include/ocprovisioningmanager.h   | 10 ++---
+ .../provisioning/sample/autoprovisioningclient.c   | 14 +++---
+ .../provisioning/sample/provisioningclient.c       |  4 +-
+ .../csdk/security/provisioning/src/cloud/csr.c     |  4 +-
+ .../provisioning/src/ocprovisioningmanager.c       | 10 ++---
+ .../provisioning/src/ownershiptransfermanager.c    |  2 +-
+ .../provisioning/src/secureresourceprovider.c      | 14 +++---
+ .../unittest/secureresourceprovider.cpp            | 26 +++++------
+ resource/csdk/security/src/credresource.c          | 52 +++++++++++++---------
+ resource/csdk/security/tool/json2cbor.c            |  2 +-
+ .../tool/svrdbeditor_src/svrdbeditorcred.c         | 16 +++----
+ .../provisioning/src/OCProvisioningManager.cpp     | 10 ++---
+ 15 files changed, 94 insertions(+), 86 deletions(-)
+
+diff --git a/resource/csdk/security/include/experimental/securevirtualresourcetypes.h b/resource/csdk/security/include/experimental/securevirtualresourcetypes.h
+index 0473d4ebd..0138d72d8 100644
+--- a/resource/csdk/security/include/experimental/securevirtualresourcetypes.h
++++ b/resource/csdk/security/include/experimental/securevirtualresourcetypes.h
+@@ -558,7 +558,7 @@ struct OicSecAmacl
+ struct OicSecCred
+ {
+     // <Attribute ID>:<Read/Write>:<Multiple/Single>:<Mandatory?>:<Type>
+-    uint16_t            credId;         // 0:R:S:Y:UINT16
++    int                 credId;         // 0:R:S:Y:UINT16; we use int to allow for reserved negative values internally
+     OicUuid_t           subject;        // 1:R:S:Y:oic.uuid
+     // If roleId.id is all zeroes, this property is not set.
+     OicSecRole_t        roleId;         // 2:R:M:N:oic.sec.roletype
+diff --git a/resource/csdk/security/include/internal/credresource.h b/resource/csdk/security/include/internal/credresource.h
+index 9d78beae2..6c87fe286 100644
+--- a/resource/csdk/security/include/internal/credresource.h
++++ b/resource/csdk/security/include/internal/credresource.h
+@@ -92,7 +92,7 @@ OicSecCred_t* GetCredResourceData(const OicUuid_t* subjectId);
+  * @return reference to @ref OicSecCred_t, if credential is found, else NULL, if credential
+  * not found.
+  */
+-OicSecCred_t* GetCredEntryByCredId(const uint16_t credId);
++OicSecCred_t* GetCredEntryByCredId(const int credId);
+ 
+ /**
+  * This function converts credential data into CBOR format, including only the
+@@ -189,7 +189,7 @@ OCStackResult RemoveCredential(const OicUuid_t *subject);
+  *
+  * @return ::OC_STACK_OK for success, or errorcode otherwise.
+  */
+-OCStackResult RemoveCredentialByCredId(uint16_t credId);
++OCStackResult RemoveCredentialByCredId(int credId);
+ 
+ #if defined(__WITH_DTLS__) || defined(__WITH_TLS__)
+ /**
+diff --git a/resource/csdk/security/provisioning/include/internal/secureresourceprovider.h b/resource/csdk/security/provisioning/include/internal/secureresourceprovider.h
+index f30e9410b..0d82ca354 100644
+--- a/resource/csdk/security/provisioning/include/internal/secureresourceprovider.h
++++ b/resource/csdk/security/provisioning/include/internal/secureresourceprovider.h
+@@ -167,7 +167,7 @@ OCStackResult SRPDeleteRoleCertificateByCredId(void *ctx, const OCProvisionDev_t
+  *            provisioning request recieves a response from first resource server.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult SRPProvisionTrustCertChain(void *ctx, OicSecCredType_t type, uint16_t credId,
++OCStackResult SRPProvisionTrustCertChain(void *ctx, OicSecCredType_t type, int credId,
+                                       const OCProvisionDev_t *selectedDeviceInfo,
+                                       OCProvisionResultCB resultCallback);
+ 
+@@ -195,7 +195,7 @@ OCStackResult SRPProvisionSecurityProfileInfo(void *ctx, OicSecSp_t *sp,
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+ OCStackResult SRPSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainSize,
+-                                        OicEncodingType_t encodingType,uint16_t *credId);
++                                        OicEncodingType_t encodingType,int *credId);
+ 
+ /**
+  * function to save own certificate chain into Cred of SVR.
+@@ -205,7 +205,7 @@ OCStackResult SRPSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainS
+  * @param[out] credId CredId of saved trust certificate chain in Cred of SVR.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult SRPSaveOwnCertChain(OicSecKey_t * cert, OicSecKey_t * key, uint16_t *credId);
++OCStackResult SRPSaveOwnCertChain(OicSecKey_t * cert, OicSecKey_t * key, int *credId);
+ 
+ /**
+  * function to save own role certificate into Cred of SVR.
+@@ -217,7 +217,7 @@ OCStackResult SRPSaveOwnCertChain(OicSecKey_t * cert, OicSecKey_t * key, uint16_
+  * @note The certificate public key must be the same as public key in the identity
+  *       certificate (installed by SRPSaveOwnCertChain).
+  */
+-OCStackResult SRPSaveOwnRoleCert(OicSecKey_t * cert, uint16_t *credId);
++OCStackResult SRPSaveOwnRoleCert(OicSecKey_t * cert, int *credId);
+ 
+ /**
+  * function to register callback, for getting notification for TrustCertChain change.
+@@ -381,7 +381,7 @@ OCStackResult SRPResetDevice(const OCProvisionDev_t* pTargetDev,
+  * @param[out] chainSize Size of trust certificate chain
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult SRPReadTrustCertChain(uint16_t credId, uint8_t **trustCertChain,
++OCStackResult SRPReadTrustCertChain(int credId, uint8_t **trustCertChain,
+                                      size_t *chainSize);
+ 
+ /**
+diff --git a/resource/csdk/security/provisioning/include/ocprovisioningmanager.h b/resource/csdk/security/provisioning/include/ocprovisioningmanager.h
+index f25338cbd..2916941a0 100644
+--- a/resource/csdk/security/provisioning/include/ocprovisioningmanager.h
++++ b/resource/csdk/security/provisioning/include/ocprovisioningmanager.h
+@@ -631,7 +631,7 @@ OCStackResult OC_CALL OCProvisionCRL(void* ctx, const OCProvisionDev_t *selected
+  *            provisioning request recieves a response from first resource server.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult OC_CALL OCProvisionTrustCertChain(void *ctx, OicSecCredType_t type, uint16_t credId,
++OCStackResult OC_CALL OCProvisionTrustCertChain(void *ctx, OicSecCredType_t type, int credId,
+                                       const OCProvisionDev_t *selectedDeviceInfo,
+                                       OCProvisionResultCB resultCallback);
+ 
+@@ -659,7 +659,7 @@ OCStackResult OC_CALL OCProvisionSecurityProfileInfo(void *ctx, OicSecSp_t *sp,
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+ OCStackResult OC_CALL OCSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainSize,
+-                                   OicEncodingType_t encodingType, uint16_t *credId);
++                                   OicEncodingType_t encodingType, int *credId);
+ 
+ /**
+  * Function to save an identity certificate chain into Cred of SVR.
+@@ -669,7 +669,7 @@ OCStackResult OC_CALL OCSaveTrustCertChain(const uint8_t *trustCertChain, size_t
+  * @param[out] credId CredId of saved certificate chain in Cred of SVR.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, uint16_t *credId);
++OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, int *credId);
+ 
+ /**
+  * Function to save own role certificate into Cred of SVR.
+@@ -681,7 +681,7 @@ OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, uint
+  * @note The certificate public key must be the same as public key in the identity
+  *       certificate (installed by OCSaveOwnCertChain).
+  */
+-OCStackResult OC_CALL OCSaveOwnRoleCert(const char* cert, uint16_t *credId);
++OCStackResult OC_CALL OCSaveOwnRoleCert(const char* cert, int *credId);
+ 
+ /**
+  * function to register callback, for getting notification for TrustCertChain change.
+@@ -704,7 +704,7 @@ void OC_CALL OCRemoveTrustCertChainNotifier(void);
+  * @param[out] chainSize Size of trust certificate chain
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult OC_CALL OCReadTrustCertChain(uint16_t credId, uint8_t **trustCertChain,
++OCStackResult OC_CALL OCReadTrustCertChain(int credId, uint8_t **trustCertChain,
+                                      size_t *chainSize);
+ 
+ /**
+diff --git a/resource/csdk/security/provisioning/sample/autoprovisioningclient.c b/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
+index 6eb897d0b..b768cd367 100644
+--- a/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
++++ b/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
+@@ -446,7 +446,7 @@ static int provisionTrustAnchor(int dev_num)
+     }
+ 
+     // Install the CA trust anchor locally
+-    uint16_t caCredId = 0;
++    int caCredId = 0;
+     OCStackResult rst = OCSaveTrustCertChain((const uint8_t*)g_caCertPem, strlen(g_caCertPem) + 1,
+         OIC_ENCODING_PEM, &caCredId);
+     if (OC_STACK_OK != rst)
+@@ -571,9 +571,9 @@ static int doGetRequest(const char* uri, int dev_num)
+         return -1;
+     }
+ 
+-    /* 
+-     * Make sure the OCDevAddr passed to OCDoRequest contains the remote peer's UUID, 
+-     * so that PSK lookup succeeds. 
++    /*
++     * Make sure the OCDevAddr passed to OCDoRequest contains the remote peer's UUID,
++     * so that PSK lookup succeeds.
+      */
+     if (!OCConvertUuidToString(device->doxm->deviceID.id, device->endpoint.remoteId))
+     {
+@@ -714,7 +714,7 @@ exit:
+ static int setupOwnCert(OicUuid_t* inputUuid)
+ {
+     OCUUIdentity deviceId = { 0 };
+-    uint16_t caCredId;
++    int caCredId;
+     char* serial = NULL;
+     size_t serialLen = 0;
+     size_t idPublicKeyLen = 0;
+@@ -781,7 +781,7 @@ static int setupOwnCert(OicUuid_t* inputUuid)
+         goto exit;
+     }
+ 
+-    uint16_t idCertCredId = 0;
++    int idCertCredId = 0;
+     res = OCSaveOwnCertChain(idCert, idKey, &idCertCredId);
+     if (res != OC_STACK_OK)
+     {
+@@ -862,7 +862,7 @@ static int setupOwnRoleCert(OicUuid_t* inputUuid, const char* role, const char*
+         goto exit;
+     }
+ 
+-    uint16_t roleCertCredId = 0;
++    int roleCertCredId = 0;
+     res = OCSaveOwnRoleCert(roleCert, &roleCertCredId);
+     if (res != OC_STACK_OK)
+     {
+diff --git a/resource/csdk/security/provisioning/sample/provisioningclient.c b/resource/csdk/security/provisioning/sample/provisioningclient.c
+index b47fd38ae..260c8c817 100644
+--- a/resource/csdk/security/provisioning/sample/provisioningclient.c
++++ b/resource/csdk/security/provisioning/sample/provisioningclient.c
+@@ -134,7 +134,7 @@ static int g_mot_enable_cnt;
+ #endif //MULTIPLE_OWNER
+ char* g_caKeyPem;   /* Test CA private key */
+ char* g_caCertPem;  /* Test CA certificate */
+-uint16_t g_caCredId = 0;   /* ID of CA's OCF identity cert */
++int g_caCredId = 0;   /* ID of CA's OCF identity cert */
+ char* g_csr;    /* Certificate signing request from device */
+ 
+ static bool g_doneCB;    /* Set to true by the callback to indicate it completed. */
+@@ -1130,7 +1130,7 @@ static int setupCA(void)
+         goto exit;
+     }
+ 
+-    uint16_t idCertCredId = 0;
++    int idCertCredId = 0;
+     res = OCSaveOwnCertChain(idCert, idKey, &idCertCredId);
+     if (res != OC_STACK_OK)
+     {
+diff --git a/resource/csdk/security/provisioning/src/cloud/csr.c b/resource/csdk/security/provisioning/src/cloud/csr.c
+index d894acfb1..93f4cd109 100644
+--- a/resource/csdk/security/provisioning/src/cloud/csr.c
++++ b/resource/csdk/security/provisioning/src/cloud/csr.c
+@@ -336,7 +336,7 @@ static OCStackResult HandleCertificateIssueRequest(void *ctx, void **data,
+         key.len = g_privateKey.len;
+         key.encoding = OIC_ENCODING_DER;
+ 
+-        uint16_t credId;
++        int credId;
+         result = SRPSaveOwnCertChain(&cert, &key, &credId);
+ 
+         OICClearMemory(g_privateKey.bytes, g_privateKey.len);
+@@ -361,7 +361,7 @@ static OCStackResult HandleCertificateIssueRequest(void *ctx, void **data,
+     }
+     else
+     {
+-        uint16_t credId;
++        int credId;
+         result = SRPSaveTrustCertChain(caCert.data, caCert.len, caCert.encoding, &credId);
+         if (result != OC_STACK_OK)
+         {
+diff --git a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+index ed513e8e3..41a0ab54f 100755
+--- a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
++++ b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+@@ -485,7 +485,7 @@ OCStackResult OC_CALL OCDeleteRoleCertificateByCredId(void *ctx, const OCProvisi
+     return SRPDeleteRoleCertificateByCredId(ctx, selectedDeviceInfo, resultCallback, credId);
+ }
+ 
+-OCStackResult OC_CALL OCReadTrustCertChain(uint16_t credId, uint8_t **trustCertChain,
++OCStackResult OC_CALL OCReadTrustCertChain(int credId, uint8_t **trustCertChain,
+                                            size_t *chainSize)
+ {
+     return SRPReadTrustCertChain(credId, trustCertChain, chainSize);
+@@ -1524,7 +1524,7 @@ OCStackResult OC_CALL OCSelectOwnershipTransferMethod(const OicSecOxm_t *support
+  *            provisioning request recieves a response from first resource server.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult OC_CALL OCProvisionTrustCertChain(void *ctx, OicSecCredType_t type, uint16_t credId,
++OCStackResult OC_CALL OCProvisionTrustCertChain(void *ctx, OicSecCredType_t type, int credId,
+                                                 const OCProvisionDev_t *selectedDeviceInfo,
+                                                 OCProvisionResultCB resultCallback)
+ {
+@@ -1559,7 +1559,7 @@ OCStackResult OC_CALL OCProvisionSecurityProfileInfo(void *ctx, OicSecSp_t *sp,
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+ OCStackResult OC_CALL OCSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainSize,
+-                                           OicEncodingType_t encodingType, uint16_t *credId)
++                                           OicEncodingType_t encodingType, int *credId)
+ {
+     return SRPSaveTrustCertChain(trustCertChain, chainSize, encodingType, credId);
+ }
+@@ -1572,7 +1572,7 @@ OCStackResult OC_CALL OCSaveTrustCertChain(const uint8_t *trustCertChain, size_t
+  * @param[out] credId CredId of saved certificate chain in Cred of SVR.
+  * @return  OC_STACK_OK in case of success and other value otherwise.
+  */
+-OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, uint16_t *credId)
++OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, int *credId)
+ {
+     OicSecKey_t ownCert = { 0 };
+     ownCert.data = (uint8_t*) cert;
+@@ -1597,7 +1597,7 @@ OCStackResult OC_CALL OCSaveOwnCertChain(const char* cert, const char* key, uint
+  * @note The certificate public key must be the same as public key in the identity
+  *       certificate (installed by OCSaveOwnCertChain).
+  */
+-OCStackResult OC_CALL OCSaveOwnRoleCert(const char* cert, uint16_t *credId)
++OCStackResult OC_CALL OCSaveOwnRoleCert(const char* cert, int *credId)
+ {
+     OicSecKey_t ownCert = { 0 };
+     ownCert.data = (uint8_t*)cert;
+diff --git a/resource/csdk/security/provisioning/src/ownershiptransfermanager.c b/resource/csdk/security/provisioning/src/ownershiptransfermanager.c
+index be952e965..09f02ed97 100644
+--- a/resource/csdk/security/provisioning/src/ownershiptransfermanager.c
++++ b/resource/csdk/security/provisioning/src/ownershiptransfermanager.c
+@@ -902,7 +902,7 @@ static OCStackResult SaveOwnerPSK(OCProvisionDev_t *selectedDeviceInfo)
+         //Finding previous ownerPSK.
+         const OicSecCred_t* credList = GetCredList();
+         const OicSecCred_t* prevCred = NULL;
+-        uint16_t credId = 0;
++        int credId = 0;
+         LL_FOREACH(credList, prevCred)
+         {
+             //OwnerPSK's type is SYMMETRIC_PAIR_WISE_KEY
+diff --git a/resource/csdk/security/provisioning/src/secureresourceprovider.c b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+index 2e084bea4..e458d5c32 100644
+--- a/resource/csdk/security/provisioning/src/secureresourceprovider.c
++++ b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+@@ -100,7 +100,7 @@ typedef struct TrustChainData
+     void *ctx;                                  /**< Pointer to user context.**/
+     const OCProvisionDev_t *targetDev;          /**< Pointer to OCProvisionDev_t.**/
+     OCProvisionResultCB resultCallback;         /**< Pointer to result callback.**/
+-    uint16_t credId;                            /**< Trust chain id to be provisioned.**/
++    int credId;                            /**< Trust chain id to be provisioned.**/
+     OCProvisionResult_t *resArr;                /**< Result array.**/
+     int numOfResults;                           /**< Number of results in result array.**/
+ } TrustChainData_t;
+@@ -1337,7 +1337,7 @@ static OCStackApplicationResult ProvisionSecurityProfileInfoCB(void *ctx, OCDoHa
+     return OC_STACK_DELETE_TRANSACTION;
+ }
+ 
+-OCStackResult SRPProvisionTrustCertChain(void *ctx, OicSecCredType_t type, uint16_t credId,
++OCStackResult SRPProvisionTrustCertChain(void *ctx, OicSecCredType_t type, int credId,
+         const OCProvisionDev_t *selectedDeviceInfo, OCProvisionResultCB resultCallback)
+ {
+     OIC_LOG_V(INFO, TAG, "IN %s", __func__);
+@@ -1443,7 +1443,7 @@ OCStackResult SRPProvisionSecurityProfileInfo(void *ctx, OicSecSp_t *sp,
+ }
+ 
+ OCStackResult SRPSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainSize,
+-                                            OicEncodingType_t encodingType, uint16_t *credId)
++                                            OicEncodingType_t encodingType, int *credId)
+ {
+     OIC_LOG(DEBUG, TAG, "IN SRPSaveTrustCertChain");
+     VERIFY_NOT_NULL_RETURN(TAG, trustCertChain, ERROR,  OC_STACK_INVALID_PARAM);
+@@ -1512,7 +1512,7 @@ OCStackResult SRPSaveTrustCertChain(const uint8_t *trustCertChain, size_t chainS
+     return res;
+ }
+ 
+-static OCStackResult saveCertChain(OicSecKey_t * cert, OicSecKey_t * key, uint16_t *credId, const char* usage)
++static OCStackResult saveCertChain(OicSecKey_t * cert, OicSecKey_t * key, int *credId, const char* usage)
+ {
+     OIC_LOG_V(DEBUG, TAG, "IN %s", __func__);
+     VERIFY_NOT_NULL_RETURN(TAG, cert, ERROR,  OC_STACK_INVALID_PARAM);
+@@ -1584,12 +1584,12 @@ static OCStackResult saveCertChain(OicSecKey_t * cert, OicSecKey_t * key, uint16
+     return res;
+ }
+ 
+-OCStackResult SRPSaveOwnCertChain(OicSecKey_t * cert, OicSecKey_t * key, uint16_t *credId)
++OCStackResult SRPSaveOwnCertChain(OicSecKey_t * cert, OicSecKey_t * key, int *credId)
+ {
+     return saveCertChain(cert, key, credId, PRIMARY_CERT);
+ }
+ 
+-OCStackResult SRPSaveOwnRoleCert(OicSecKey_t * cert, uint16_t *credId)
++OCStackResult SRPSaveOwnRoleCert(OicSecKey_t * cert, int *credId)
+ {
+     return saveCertChain(cert, NULL, credId, ROLE_CERT);
+ }
+@@ -4294,7 +4294,7 @@ OCStackResult SRPDeleteRoleCertificateByCredId(void* ctx, const OCProvisionDev_t
+     return ret;
+ }
+ 
+-OCStackResult SRPReadTrustCertChain(uint16_t credId, uint8_t **trustCertChain,
++OCStackResult SRPReadTrustCertChain(int credId, uint8_t **trustCertChain,
+                                      size_t *chainSize)
+ {
+     OIC_LOG(DEBUG, TAG, "IN SRPReadTrustCertChain");
+diff --git a/resource/csdk/security/provisioning/unittest/secureresourceprovider.cpp b/resource/csdk/security/provisioning/unittest/secureresourceprovider.cpp
+index 90a6d6a1a..5736a4569 100644
+--- a/resource/csdk/security/provisioning/unittest/secureresourceprovider.cpp
++++ b/resource/csdk/security/provisioning/unittest/secureresourceprovider.cpp
+@@ -122,7 +122,7 @@ TEST(SRPProvisionCredentialsTest, NullCallback)
+ TEST(SRPProvisionCredentialsTest, InvalidKeySize)
+ {
+     EXPECT_EQ(OC_STACK_INVALID_PARAM, SRPProvisionCredentials(NULL, credType,
+-                                                                0, &pDev1, &pDev2, NULL, NULL, NULL, 
++                                                                0, &pDev1, &pDev2, NULL, NULL, NULL,
+                                                                 &provisioningCB));
+ }
+ 
+@@ -261,7 +261,7 @@ static uint8_t keyData[] = {
+ TEST_F(SRPTest, SRPSaveTrustCertChainDER)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+ 
+     result = SRPSaveTrustCertChain(certData, sizeof(certData), OIC_ENCODING_DER, &credId);
+     EXPECT_EQ(OC_STACK_OK, result);
+@@ -270,7 +270,7 @@ TEST_F(SRPTest, SRPSaveTrustCertChainDER)
+ TEST_F(SRPTest, SRPSaveTrustCertChainPEM)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+ 
+     result = SRPSaveTrustCertChain(certData, sizeof(certData), OIC_ENCODING_PEM, &credId);
+     EXPECT_EQ(OC_STACK_OK, result);
+@@ -279,7 +279,7 @@ TEST_F(SRPTest, SRPSaveTrustCertChainPEM)
+ TEST_F(SRPTest, SRPSaveTrustCertChainNullCertData)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+ 
+     result = SRPSaveTrustCertChain(NULL, sizeof(certData), OIC_ENCODING_DER, &credId);
+ 
+@@ -298,7 +298,7 @@ TEST_F(SRPTest, SRPSaveTrustCertChainNullCredId)
+ TEST_F(SRPTest, SRPSaveOwnCertChainTest)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+     OicSecKey_t cert;
+     OicSecKey_t key;
+ 
+@@ -318,7 +318,7 @@ TEST_F(SRPTest, SRPSaveOwnCertChainTest)
+ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullCert)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+     OicSecKey_t key;
+ 
+     key.data = keyData;
+@@ -332,7 +332,7 @@ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullCert)
+ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullCertData)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+     OicSecKey_t cert;
+     OicSecKey_t key;
+ 
+@@ -349,7 +349,7 @@ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullCertData)
+ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullKey)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+     OicSecKey_t cert;
+ 
+     cert.data = certData;
+@@ -363,7 +363,7 @@ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullKey)
+ TEST_F(SRPTest, SRPSaveOwnCertChainTestNullKeyData)
+ {
+     int result;
+-    uint16_t credId;
++    int credId;
+     OicSecKey_t cert;
+     OicSecKey_t key;
+ 
+@@ -399,7 +399,7 @@ TEST(SRPProvisionTrustCertChainTest, SRPProvisionTrustCertChainNullSelectedDevic
+     int result;
+     int ctx;
+     OicSecCredType_t type = SIGNED_ASYMMETRIC_KEY;
+-    uint16_t credId = 0;
++    int credId = 0;
+ 
+     result = SRPProvisionTrustCertChain(&ctx, type, credId, NULL, provisioningCB);
+     EXPECT_EQ(OC_STACK_INVALID_PARAM, result);
+@@ -410,7 +410,7 @@ TEST(SRPProvisionTrustCertChainTest, SRPProvisionTrustCertChainNullResultCallbac
+     int result;
+     int ctx;
+     OicSecCredType_t type = SIGNED_ASYMMETRIC_KEY;
+-    uint16_t credId = 0;
++    int credId = 0;
+     OCProvisionDev_t deviceInfo;
+ 
+     result = SRPProvisionTrustCertChain(&ctx, type, credId, &deviceInfo, NULL);
+@@ -422,7 +422,7 @@ TEST(SRPProvisionTrustCertChainTest, SRPProvisionTrustCertChainInvalidOicSecCred
+     int result;
+     int ctx;
+     OicSecCredType_t type = PIN_PASSWORD;
+-    uint16_t credId = 0;
++    int credId = 0;
+     OCProvisionDev_t deviceInfo;
+ 
+     result = SRPProvisionTrustCertChain(&ctx, type, credId, &deviceInfo, provisioningCB);
+@@ -434,7 +434,7 @@ TEST_F(SRPTest, SRPProvisionTrustCertChainNoResource)
+     int result;
+     int ctx;
+     OicSecCredType_t type = SIGNED_ASYMMETRIC_KEY;
+-    uint16_t credId = 0;
++    int credId = 0;
+     OCProvisionDev_t deviceInfo;
+ 
+     result = SRPProvisionTrustCertChain(&ctx, type, credId, &deviceInfo, provisioningCB);
+diff --git a/resource/csdk/security/src/credresource.c b/resource/csdk/security/src/credresource.c
+index 899b260ed..b06750ac2 100644
+--- a/resource/csdk/security/src/credresource.c
++++ b/resource/csdk/security/src/credresource.c
+@@ -94,9 +94,11 @@ static const uint16_t CBOR_SIZE = 2048;
+ 
+ /** CRED size - Number of mandatory items. */
+ static const uint8_t CRED_ROOT_MAP_SIZE = 3;
+-static const uint8_t CRED_MAP_SIZE = 3;
++static const uint8_t CRED_MAP_SIZE = 2;
+ static const uint8_t ROLEID_MAP_SIZE = 1;
+ 
++static const int CREDID_UNASSIGNED = -1;
++
+ 
+ static OicSecCred_t        *gCred = NULL;
+ static OCResourceHandle    gCredHandle = NULL;
+@@ -112,7 +114,7 @@ typedef struct CredIdList CredIdList_t;
+ 
+ struct CredIdList
+ {
+-    uint16_t credId;
++    int credId;
+     CredIdList_t *next;
+ };
+ 
+@@ -755,15 +757,22 @@ OCStackResult CredToCBORPayloadPartial(const OicSecCred_t *credS, const OicUuid_
+         {
+             mapSize++;
+         }
++        if(CREDID_UNASSIGNED != cred->credId)
++        {
++            mapSize++;
++        }
+         cborEncoderResult = cbor_encoder_create_map(&credArray, &credMap, mapSize);
+         VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborEncoderResult, "Failed Adding Cred Map");
+ 
+-        //CredID -- Mandatory
+-        cborEncoderResult = cbor_encode_text_string(&credMap, OIC_JSON_CREDID_NAME,
+-            strlen(OIC_JSON_CREDID_NAME));
+-        VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborEncoderResult, "Failed Adding Cred Id Tag. ");
+-        cborEncoderResult = cbor_encode_int(&credMap, cred->credId);
+-        VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborEncoderResult, "Failed Adding Cred Id Value.");
++        //CredID -- optional
++        if(CREDID_UNASSIGNED != cred->credId)
++        {
++            cborEncoderResult = cbor_encode_text_string(&credMap, OIC_JSON_CREDID_NAME,
++                strlen(OIC_JSON_CREDID_NAME));
++            VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborEncoderResult, "Failed Adding Cred Id Tag. ");
++            cborEncoderResult = cbor_encode_int(&credMap, cred->credId);
++            VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborEncoderResult, "Failed Adding Cred Id Value.");
++        }
+ 
+         //Subject -- Mandatory
+         cborEncoderResult = cbor_encode_text_string(&credMap, OIC_JSON_SUBJECTID_NAME,
+@@ -1060,7 +1069,6 @@ OCStackResult CBORPayloadToCred(const uint8_t *cborPayload, size_t size,
+                 while (cbor_value_is_valid(&credArray))
+                 {
+                     credCount++;
+-                    //CredId -- Mandatory
+                     CborValue credMap = { .parser = NULL, .ptr = NULL, .remaining = 0, .extra = 0, .type = 0, .flags = 0 };
+                     cborFindResult = cbor_value_enter_container(&credArray, &credMap);
+                     VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborFindResult, "Failed Finding Cred Map.");
+@@ -1074,6 +1082,7 @@ OCStackResult CBORPayloadToCred(const uint8_t *cborPayload, size_t size,
+                     {
+                         cred = (OicSecCred_t *) OICCalloc(1, sizeof(OicSecCred_t));
+                         VERIFY_NOT_NULL(TAG, cred, ERROR);
++                        cred->credId = CREDID_UNASSIGNED; // default in case "credid" not found in payload
+                         OicSecCred_t *temp = headCred;
+                         while (temp->next)
+                         {
+@@ -1099,8 +1108,8 @@ OCStackResult CBORPayloadToCred(const uint8_t *cborPayload, size_t size,
+                             {
+                                 uint64_t credId = 0;
+                                 cborFindResult = cbor_value_get_uint64(&credMap, &credId);
+-                                VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborFindResult, "Failed Finding CredId.");
+-                                cred->credId = (uint16_t)credId;
++                                VERIFY_CBOR_SUCCESS_OR_OUT_OF_MEMORY(TAG, cborFindResult, "Failed Finding CredId value.");
++                                cred->credId = (int)credId;
+                             }
+                             // subjectid
+                             if (strcmp(name, OIC_JSON_SUBJECTID_NAME)  == 0)
+@@ -1362,7 +1371,7 @@ OicSecCred_t * GenerateCredential(const OicUuid_t * subject, OicSecCredType_t cr
+ 
+     //CredId is assigned before appending new cred to the existing
+     //credential list and updating svr database in AddCredential().
+-    cred->credId = 0;
++    cred->credId = CREDID_UNASSIGNED;
+ 
+     VERIFY_NOT_NULL(TAG, subject, ERROR);
+     memcpy(cred->subject.id, subject->id , sizeof(cred->subject.id));
+@@ -1603,7 +1612,7 @@ static int CmpCredId(const OicSecCred_t * first, const OicSecCred_t *second)
+  *
+  * @return next available credId if successful, else 0 for error.
+  */
+-static uint16_t GetCredId(void)
++static int GetCredId(void)
+ {
+     //Sorts credential list in incremental order of credId
+     /** @todo: Remove pragma for VS2013 warning; Investigate fixing LL_SORT macro */
+@@ -1615,7 +1624,7 @@ static uint16_t GetCredId(void)
+ #endif
+ 
+     OicSecCred_t *currentCred = NULL, *credTmp = NULL;
+-    uint16_t nextCredId = 1;
++    int nextCredId = 1;
+ 
+     LL_FOREACH_SAFE(gCred, currentCred, credTmp)
+     {
+@@ -1629,7 +1638,7 @@ static uint16_t GetCredId(void)
+         }
+     }
+ 
+-    VERIFY_SUCCESS(TAG, nextCredId < UINT16_MAX, ERROR);
++    VERIFY_SUCCESS(TAG, nextCredId < UINT16_MAX, ERROR); // even though we use int internally, an id should never exceed UINT16
+     return nextCredId;
+ 
+ exit:
+@@ -1734,7 +1743,7 @@ OCStackResult AddCredential(OicSecCred_t * newCred)
+         goto saveToDB;
+     }
+ 
+-    if (newCred->credId != 0)
++    if (newCred->credId != CREDID_UNASSIGNED)
+     {
+         //check if cred with such cred id exists
+         LL_FOREACH_SAFE(gCred, cred, tempCred)
+@@ -1839,7 +1848,7 @@ OCStackResult RemoveCredential(const OicUuid_t *subject)
+     return ret;
+ }
+ 
+-OCStackResult RemoveCredentialByCredId(uint16_t credId)
++OCStackResult RemoveCredentialByCredId(int credId)
+ {
+     OCStackResult ret = OC_STACK_ERROR;
+     OicSecCred_t *cred = NULL;
+@@ -1848,12 +1857,11 @@ OCStackResult RemoveCredentialByCredId(uint16_t credId)
+ 
+     OIC_LOG(INFO, TAG, "IN RemoveCredentialByCredId");
+ 
+-    if ( 0 == credId)
++    if (CREDID_UNASSIGNED == credId)
+     {
+         return OC_STACK_INVALID_PARAM;
+     }
+ 
+-
+     LL_FOREACH_SAFE(gCred, cred, tempCred)
+     {
+         if (cred->credId == credId)
+@@ -1972,7 +1980,7 @@ static bool GetCredIdsFromQueryString(const char *query, CredIdList_t **credid)
+                     OIC_LOG(ERROR, TAG, "Failed to allocate CredIdList_t element");
+                     break;
+                 }
+-                newCredIdElem->credId = (uint16_t)atoi(token);
++                newCredIdElem->credId = (int)atoi(token);
+ 
+                 LL_PREPEND(*credid, newCredIdElem);
+                 found = true;
+@@ -2804,12 +2812,12 @@ const OicSecCred_t* GetCredList(void)
+     return gCred;
+ }
+ 
+-OicSecCred_t* GetCredEntryByCredId(const uint16_t credId)
++OicSecCred_t* GetCredEntryByCredId(const int credId)
+ {
+     OicSecCred_t *cred = NULL;
+     OicSecCred_t *tmpCred = NULL;
+ 
+-   if ( 1 > credId)
++   if (CREDID_UNASSIGNED >= credId)
+     {
+        return NULL;
+     }
+diff --git a/resource/csdk/security/tool/json2cbor.c b/resource/csdk/security/tool/json2cbor.c
+index 6745d7013..f6e956688 100644
+--- a/resource/csdk/security/tool/json2cbor.c
++++ b/resource/csdk/security/tool/json2cbor.c
+@@ -1332,7 +1332,7 @@ static OicSecCred_t *JSONToCredBinWithRowner(const char *jsonStr,OicUuid_t *rown
+             {
+                 VERIFY_SUCCESS(TAG, cJSON_Number == jsonObj->type, ERROR);
+                 VERIFY_SUCCESS(TAG, jsonObj->valueint <= UINT16_MAX, ERROR);
+-                cred->credId = (uint16_t)jsonObj->valueint;
++                cred->credId = (int)jsonObj->valueint;
+             }
+ 
+             //subject -- Mandatory
+diff --git a/resource/csdk/security/tool/svrdbeditor_src/svrdbeditorcred.c b/resource/csdk/security/tool/svrdbeditor_src/svrdbeditorcred.c
+index d10a55400..b26da1517 100644
+--- a/resource/csdk/security/tool/svrdbeditor_src/svrdbeditorcred.c
++++ b/resource/csdk/security/tool/svrdbeditor_src/svrdbeditorcred.c
+@@ -253,7 +253,7 @@ static int ParseCertChain(mbedtls_x509_crt *crt, unsigned char *buf, size_t bufL
+ }
+ 
+ // TODO: Update to use credresource.c
+-static void ParseDerCaCert(ByteArray_t *crt, const char *usage, uint16_t credId)
++static void ParseDerCaCert(ByteArray_t *crt, const char *usage, int credId)
+ {
+     if (NULL == crt || NULL == usage)
+     {
+@@ -312,7 +312,7 @@ static void ParseDerCaCert(ByteArray_t *crt, const char *usage, uint16_t credId)
+ }
+ 
+ // TODO: Update to use credresource.c
+-static void ParseDerOwnCert(ByteArray_t *crt, const char *usage, uint16_t credId)
++static void ParseDerOwnCert(ByteArray_t *crt, const char *usage, int credId)
+ {
+     OIC_LOG_V(DEBUG, TAG, "In %s", __func__);
+     if (NULL == crt || NULL == usage)
+@@ -342,7 +342,7 @@ static void ParseDerOwnCert(ByteArray_t *crt, const char *usage, uint16_t credId
+     return;
+ }
+ 
+-inline void ParseDerKey(ByteArray_t *key, const char *usage, uint16_t credId)
++inline void ParseDerKey(ByteArray_t *key, const char *usage, int credId)
+ {
+     OIC_LOG_V(DEBUG, TAG, "In %s", __func__);
+     if (NULL == key || NULL == usage)
+@@ -1192,7 +1192,7 @@ static int ModifyCred(void)
+     int ret = 0;
+     int modifyMenu = 0;
+     OicSecCred_t *cred = NULL;
+-    uint16_t credId = 0;
++    int credId = 0;
+     OicUuid_t uuid = {.id = {0}};
+ 
+     PRINT_PROG("\n\nPlease select the menu you want to modify\n");
+@@ -1205,7 +1205,7 @@ static int ModifyCred(void)
+     {
+         case CRED_EDIT_SUBJECTUUID:
+             PrintCredList(GetCredList());
+-            credId = (uint16_t)InputNumber("\tPlease input the credential ID : ");
++            credId = (int)InputNumber("\tPlease input the credential ID : ");
+             cred = GetCredEntryByCredId(credId);
+             if (NULL == cred)
+             {
+@@ -1231,7 +1231,7 @@ static int ModifyCred(void)
+             break;
+         case CRED_EDIT_PSK:
+             PrintCredList(GetCredList());
+-            credId = (uint16_t)InputNumber("\tPlease input the credential ID : ");
++            credId = (int)InputNumber("\tPlease input the credential ID : ");
+             cred = GetCredEntryByCredId(credId);
+             if (NULL == cred)
+             {
+@@ -1287,7 +1287,7 @@ static int ModifyCred(void)
+ 
+ void HandleCredOperation(SubOperationType_t cmd)
+ {
+-    uint16_t credId = 0;
++    int credId = 0;
+     OCStackResult credResult = OC_STACK_ERROR;
+ 
+     if (SVR_EDIT_IDX_SIZE <= cmd)
+@@ -1326,7 +1326,7 @@ void HandleCredOperation(SubOperationType_t cmd)
+             }
+         case SVR_REMOVE:
+             PrintCredList(GetCredList());
+-            credId = (uint16_t)InputNumber("\tPlease input the credential ID : ");
++            credId = (int)InputNumber("\tPlease input the credential ID : ");
+ 
+             credResult = RemoveCredentialByCredId(credId);
+             if ( OC_STACK_RESOURCE_DELETED != credResult)
+diff --git a/resource/provisioning/src/OCProvisioningManager.cpp b/resource/provisioning/src/OCProvisioningManager.cpp
+index d9165ee63..ecac0d6c5 100644
+--- a/resource/provisioning/src/OCProvisioningManager.cpp
++++ b/resource/provisioning/src/OCProvisioningManager.cpp
+@@ -26,7 +26,7 @@
+ namespace OC
+ {
+     /**
+-     * Prevent multiple registrations of the input pin callback since the 
++     * Prevent multiple registrations of the input pin callback since the
+      * underlying IoTivity stack can only handle having one callback set
+      * at a time.
+      */
+@@ -1014,7 +1014,7 @@ namespace OC
+ 
+ #if defined(__WITH_DTLS__) || defined(__WITH_TLS__)
+     OCStackResult OCSecure::saveTrustCertChain(uint8_t *trustCertChain, size_t chainSize,
+-                                        OicEncodingType_t encodingType, uint16_t *credId)
++                                        OicEncodingType_t encodingType, int *credId)
+     {
+         if (!trustCertChain)
+         {
+@@ -1043,7 +1043,7 @@ namespace OC
+         return result;
+     }
+ 
+-    OCStackResult OCSecure::readTrustCertChain(uint16_t credId, uint8_t **trustCertChain,
++    OCStackResult OCSecure::readTrustCertChain(int credId, uint8_t **trustCertChain,
+             size_t *chainSize)
+     {
+         OCStackResult result;
+@@ -1062,7 +1062,7 @@ namespace OC
+         return result;
+     }
+ 
+-    void OCSecure::certCallbackWrapper(void* ctx, uint16_t credId, uint8_t *trustCertChain,
++    void OCSecure::certCallbackWrapper(void* ctx, int credId, uint8_t *trustCertChain,
+             size_t chainSize)
+     {
+         TrustCertChainContext* context = static_cast<TrustCertChainContext*>(ctx);
+@@ -1440,7 +1440,7 @@ namespace OC
+     }
+ 
+ #if defined(__WITH_DTLS__) || defined(__WITH_TLS__)
+-    OCStackResult OCSecureResource::provisionTrustCertChain(OicSecCredType_t type, uint16_t credId,
++    OCStackResult OCSecureResource::provisionTrustCertChain(OicSecCredType_t type, int credId,
+                     ResultCallBack resultCallback)
+     {
+         if (SIGNED_ASYMMETRIC_KEY != type)
+-- 
+2.16.1.windows.1
+

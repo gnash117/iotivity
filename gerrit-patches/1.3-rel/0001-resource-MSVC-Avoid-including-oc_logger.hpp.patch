@@ -1,0 +1,35 @@
+From f4716b83f5ad8dc87e599bdad07bf2cfd7ad360b Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Wed, 9 Aug 2017 14:04:14 +0200
+Subject: [PATCH] resource: MSVC: Avoid including oc_logger.hpp
+
+This header is pulling boost which might not be used,
+this will help iotivity-node-1.3.0
+
+Change-Id: Id45652cd442da4af8afb7aa56faf7436e14f5b91
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+Reviewed-on: https://gerrit.iotivity.org/gerrit/21833
+Tested-by: jenkins-iotivity <jenkins@iotivity.org>
+Reviewed-by: Dan Mihai <Daniel.Mihai@microsoft.com>
+(cherry picked from commit 1742a19535993d18a38aac4ced73b53bdbc75071)
+---
+ resource/include/OCApi.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/resource/include/OCApi.h b/resource/include/OCApi.h
+index 524dc51b3..268439194 100644
+--- a/resource/include/OCApi.h
++++ b/resource/include/OCApi.h
+@@ -36,7 +36,9 @@
+ #include "OCHeaderOption.h"
+ #include <OCException.h>
+ #include "StringConstants.h"
++#if ! defined(_MSC_VER)
+ #include "oc_logger.hpp"
++#endif
+ 
+ #include <OCRepresentation.h>
+ 
+-- 
+2.16.1.windows.1
+

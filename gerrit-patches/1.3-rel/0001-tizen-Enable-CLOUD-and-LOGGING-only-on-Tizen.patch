@@ -1,0 +1,62 @@
+From 030a32f68b67194e5f6c541e3d7722ecc059bb4b Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Thu, 16 Nov 2017 19:40:53 +0100
+Subject: [PATCH] tizen: Enable CLOUD and LOGGING only on Tizen
+
+Overloaded params might be later aligned to default like linux base
+
+Observed issue on fedora-24 for ARTIK7:
+
+  g++ -o .../mq_subscriber ...
+  .../messagequeue/mq_subscriber.o: In function `main':
+  .../mq_subscriber.cpp:322: undefined reference to \
+  `OC::OCResource::discoveryMQTopics...
+  collect2: error: ld returned 1 exit status
+
+Bug: https://jira.iotivity.org/browse/IOT-2241
+Forwarded: https://gerrit.iotivity.org/gerrit/#/c/23297/
+Origin: https://github.com/TizenTeam/iotivity/tree/sandbox/pcoval/on/master/fedora
+Change-Id: I0446dfa135d965280a0dec8a3f4f3e2f93ecdf28
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 8be4b5f607cd1b36b498f900ad9ed52e20facea3)
+---
+ tools/tizen/iotivity.spec | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/tools/tizen/iotivity.spec b/tools/tizen/iotivity.spec
+index c40ce9646..42be067fd 100755
+--- a/tools/tizen/iotivity.spec
++++ b/tools/tizen/iotivity.spec
+@@ -14,6 +14,9 @@ Source1002: %{name}-test.manifest
+ 
+ %if 0%{?tizen:1}
+ %define TARGET_OS tizen
++#TODO: align to default
++%define WITH_CLOUD 1
++%define LOGGING 1
+ %else
+ %define TARGET_OS linux
+ %endif
+@@ -70,16 +73,16 @@ BuildRequires: python-accel-aarch64-cross-aarch64
+ 
+ # Default values to be eventually overiden BEFORE or as gbs params:
+ %{!?ES_TARGET_ENROLLEE: %define ES_TARGET_ENROLLEE %{TARGET_OS}}
+-%{!?LOGGING: %define LOGGING 1}
++%{!?LOGGING: %define LOGGING 0}
+ %{!?RD_MODE: %define RD_MODE CLIENT}
+ %{!?RELEASE: %define RELEASE 1}
+ %{!?ROUTING: %define ROUTING EP}
+ %{!?SECURED: %define SECURED 1}
+ %{!?TARGET_ARCH: %define TARGET_ARCH %{_arch}}
+-%{!?TARGET_OS: %define TARGET_OS tizen}
++%{!?TARGET_OS: %define TARGET_OS linux}
+ %{!?TARGET_TRANSPORT: %define TARGET_TRANSPORT IP}
+ %{!?VERBOSE: %define VERBOSE 1}
+-%{!?WITH_CLOUD: %define WITH_CLOUD 1}
++%{!?WITH_CLOUD: %define WITH_CLOUD 0}
+ %{!?WITH_MQ: %define WITH_MQ OFF}
+ %{!?WITH_PROXY: %define WITH_PROXY 0}
+ %{!?WITH_TCP: %define WITH_TCP 0}
+-- 
+2.16.1.windows.1
+

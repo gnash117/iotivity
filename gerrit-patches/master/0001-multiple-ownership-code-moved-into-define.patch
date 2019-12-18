@@ -1,0 +1,34 @@
+From eeb046b7c6a15f9397c5b2304f41ff52fc73174e Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Fri, 22 Feb 2019 10:26:13 +0200
+Subject: [PATCH] multiple ownership code moved into define
+
+in the FreeData MOT_TYPE will compile when MULTIPLE_OWNER defined
+
+Change-Id: Ic26c24f659f5ab89f276873c2295ffeaf02812f3
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/provisioning/src/secureresourceprovider.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/resource/csdk/security/provisioning/src/secureresourceprovider.c b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+index 2e084bea4..7ab1c8857 100644
+--- a/resource/csdk/security/provisioning/src/secureresourceprovider.c
++++ b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+@@ -944,11 +944,13 @@ OCStackResult SetDOS(const Data_t *data, OicSecDeviceOnboardingState_t dos,
+             pTargetDev = ((CertData_t *)data->ctx)->targetDev;
+             break;
+         }
++#if defined(MULTIPLE_OWNER)
+         case MOT_TYPE:
+         {
+             pTargetDev = ((OTMContext_t *)data->ctx)->selectedDeviceInfo;
+             break;
+         }
++#endif //MULTIPLE_OWNER
+ #if defined(WITH_CLOUD)
+         case CLOUD_TYPE:
+         {
+-- 
+2.16.1.windows.1
+

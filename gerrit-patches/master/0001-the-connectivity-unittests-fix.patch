@@ -1,0 +1,52 @@
+From 20aa252845818f4b01429043aa1b95bb36badcc1 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Wed, 14 Aug 2019 13:07:04 +0300
+Subject: [PATCH] the connectivity unittests fix
+
+the connectivity unittests fix
+
+Change-Id: Ied51a6e4204b6d8758fbf3b12ea89f12d1b547d4
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/connectivity/test/ca_adapter_net_ssl.cpp | 2 +-
+ resource/csdk/connectivity/test/cacertprofiletest.cpp  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/resource/csdk/connectivity/test/ca_adapter_net_ssl.cpp b/resource/csdk/connectivity/test/ca_adapter_net_ssl.cpp
+index 5b0f53616..60df48d67 100644
+--- a/resource/csdk/connectivity/test/ca_adapter_net_ssl.cpp
++++ b/resource/csdk/connectivity/test/ca_adapter_net_ssl.cpp
+@@ -385,7 +385,7 @@ TEST_F(OCAA, CA_EncDeCryptSsl)
+     SslContext_t *backup = g_caSslContext;
+     g_caSslContext = NULL;
+     EXPECT_EQ(CA_STATUS_FAILED, CAencryptSsl(ep, data, dataLen));
+-    EXPECT_EQ(CA_STATUS_FAILED, CAdecryptSsl(sep, data, dataLen));
++    EXPECT_EQ(CA_STATUS_INVALID_PARAM, CAdecryptSsl(sep, data, dataLen));
+     g_caSslContext = backup;
+ 
+     EXPECT_EQ(CA_STATUS_INVALID_PARAM, CAdecryptSsl(sep, data, dataLen));
+diff --git a/resource/csdk/connectivity/test/cacertprofiletest.cpp b/resource/csdk/connectivity/test/cacertprofiletest.cpp
+index 03762180b..d93492337 100644
+--- a/resource/csdk/connectivity/test/cacertprofiletest.cpp
++++ b/resource/csdk/connectivity/test/cacertprofiletest.cpp
+@@ -278,7 +278,7 @@ TEST_F(CACertProfileTests, RootCAProfiles)
+         CP_INVALID_PUB_KEY_ALGORITHM,
+         CP_INVALID_ISSUER_SUBJ_MISMATCH,
+         CP_INVALID_KEY_USAGE_MISSING,
+-        CP_INVALID_KEY_USAGE_EXTRA,
++        CP_NO_VIOLATIONS,
+         CP_INVALID_BASIC_CONSTRAINTS_CA,
+         CP_INVALID_BASIC_CONSTRAINTS_PATH_LEN
+     };
+@@ -625,7 +625,7 @@ TEST_F(CACertProfileTests, ChainProfileValidation)
+     // Invalid chains
+     //
+ 
+-    violationsToGen = CP_NOT_YET_VALID | CP_INVALID_KEY_USAGE_EXTRA | CP_INVALID_KEY_USAGE_MISSING;
++    violationsToGen = CP_NOT_YET_VALID | CP_INVALID_KEY_USAGE_MISSING;
+     cpResult = GenerateTestCert(CERT_CA_ROOT, violationsToGen, &badRootCert);
+     violations = ValidateRootCACertProfile(&badRootCert);
+     EXPECT_TRUE(CP_STATUS_OK == cpResult);
+-- 
+2.16.1.windows.1
+

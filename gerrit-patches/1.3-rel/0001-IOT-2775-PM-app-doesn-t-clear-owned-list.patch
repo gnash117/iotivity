@@ -1,0 +1,77 @@
+From e864298aa5b09e2ea499823d1c25c31660652fab Mon Sep 17 00:00:00 2001
+From: Vitalii Irkha <v.irkha@samsung.com>
+Date: Tue, 21 Nov 2017 16:32:37 +0200
+Subject: [PATCH] [IOT-2775] PM app doesn't clear owned list
+
+Added call SRPResetDevice() for sending
+pstat request to reset Device
+
+Change-Id: I2b1d1bf38f74fd57e7963525ce7134559dabbd6a
+Signed-off-by: Vitalii Irkha <v.irkha@samsung.com>
+---
+ .../security/provisioning/src/ocprovisioningmanager.c | 19 +++++++++++++------
+ .../provisioning/src/secureresourceprovider.c         |  4 ++++
+ 2 files changed, 17 insertions(+), 6 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+index 9ac33bed1..ca09cf875 100644
+--- a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
++++ b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+@@ -766,12 +766,18 @@ OCStackResult OC_CALL OCRemoveDevice(void* ctx, unsigned short waitTimeForOwnedD
+         }
+     }
+ 
+-    res = RemoveDeviceInfoFromLocal(pTargetDev);
+-    if(OC_STACK_OK != res)
+-    {
+-        OIC_LOG(ERROR, TAG, "Filed to remove the device information from local.");
+-        goto error;
+-    }
++    /**
++     * Please don't remove commented bellow code
++     * till connectivity issue in CAcloseSslConnection will be fixed.
++     * More details see here https://jira.iotivity.org/browse/IOT-2454.
++     *
++     * res = RemoveDeviceInfoFromLocal(pTargetDev);
++     * if(OC_STACK_OK != res)
++     * {
++     *     OIC_LOG(ERROR, TAG, "Filed to remove the device information from local.");
++     *     goto error;
++     * }
++     */
+ 
+     if(OC_STACK_CONTINUE == resReq)
+     {
+@@ -783,6 +789,7 @@ OCStackResult OC_CALL OCRemoveDevice(void* ctx, unsigned short waitTimeForOwnedD
+         {
+             resultCallback(ctx, 0, NULL, false);
+         }
++        SRPResetDevice(pTargetDev, resultCallback);
+         res = OC_STACK_OK;
+     }
+ 
+diff --git a/resource/csdk/security/provisioning/src/secureresourceprovider.c b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+index eb367426f..b354a37d2 100644
+--- a/resource/csdk/security/provisioning/src/secureresourceprovider.c
++++ b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+@@ -2403,6 +2403,8 @@ static OCStackApplicationResult SRPRemoveDeviceCB(void *delDevCtx, OCDoHandle ha
+     OCStackResult res = OC_STACK_ERROR;
+ 
+     RemoveData_t* removeData = (RemoveData_t*)delDevCtx;
++    OCProvisionDev_t * pTargetDev = PMCloneOCProvisionDev(removeData->revokeTargetDev);
++    OCProvisionResultCB resultCallback = removeData->resultCallback;
+ 
+     if (clientResponse)
+     {
+@@ -2458,6 +2460,8 @@ static OCStackApplicationResult SRPRemoveDeviceCB(void *delDevCtx, OCDoHandle ha
+         OIC_LOG(ERROR, TAG, "SRPRemoveDevices received Null clientResponse");
+     }
+ 
++    SRPResetDevice(pTargetDev, resultCallback);
++
+     return OC_STACK_DELETE_TRANSACTION;
+ }
+ 
+-- 
+2.16.1.windows.1
+

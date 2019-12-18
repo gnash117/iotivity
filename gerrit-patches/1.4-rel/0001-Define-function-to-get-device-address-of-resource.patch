@@ -1,0 +1,52 @@
+From d60e3114e35b8b9dcef674ffbb26a3a8555f37d6 Mon Sep 17 00:00:00 2001
+From: Sahil Pai <sahil.pai1@samsung.com>
+Date: Wed, 4 Jul 2018 15:56:18 +0530
+Subject: [PATCH] Define function to get device address of resource
+
+Sending Ping message required device address 'm_devAddr' of resource.
+A new member function for class 'OCResource' has been defined to
+return the same.
+
+Change-Id: I751b3e2682dd29dc0a9c1c0b3afb4b2a700d5e41
+Signed-off-by: Sahil Pai <sahil.pai1@samsung.com>
+---
+ resource/include/OCResource.h | 6 ++++++
+ resource/src/OCResource.cpp   | 5 +++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/resource/include/OCResource.h b/resource/include/OCResource.h
+index c977a041d..adb53d23a 100644
+--- a/resource/include/OCResource.h
++++ b/resource/include/OCResource.h
+@@ -404,6 +404,12 @@ namespace OC
+                         const OCRepresentation& representation, const QueryParamsMap& queryParametersMap,
+                         PostCallback attributeHandler, QualityOfService QoS);
+ 
++        /**
++        * Function to get device address
++        * @return Returns pointer to const OCDevAddr
++        */
++        const OCDevAddr* getDeviceAddress(void);
++
+         /**
+         * Function to perform DELETE operation
+         *
+diff --git a/resource/src/OCResource.cpp b/resource/src/OCResource.cpp
+index a6a487e7d..6da11e605 100644
+--- a/resource/src/OCResource.cpp
++++ b/resource/src/OCResource.cpp
+@@ -605,6 +605,11 @@ OCStackResult OCResource::post(const std::string& resourceType,
+     return result_guard(post(rep, mapCpy, attributeHandler, QoS));
+ }
+ 
++const OCDevAddr* OCResource::getDeviceAddress(void)
++{
++    return &m_devAddr;
++}
++
+ OCStackResult OCResource::deleteResource(DeleteCallback deleteHandler, QualityOfService QoS)
+ {
+     return checked_guard(m_clientWrapper.lock(), &IClientWrapper::DeleteResource,
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,104 @@
+From a70aee8d864b42159ac47b32ab905e36cc329398 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Wed, 20 Feb 2019 10:43:18 -0700
+Subject: [PATCH] IOT-3266 Demote cloud samples
+
+Change-Id: Ia00d444015887254c49f045a09c61c04848098a7
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ cloud/SConscript                | 10 +++++++---
+ cloud/samples/README.md         |  8 ++++++++
+ cloud/samples/client/SConscript | 19 +++++++++++--------
+ 3 files changed, 26 insertions(+), 11 deletions(-)
+ create mode 100644 cloud/samples/README.md
+
+diff --git a/cloud/SConscript b/cloud/SConscript
+index 9e5a1b64c..98c6bd56b 100644
+--- a/cloud/SConscript
++++ b/cloud/SConscript
+@@ -26,7 +26,11 @@ Import('env')
+ 
+ target_os = env.get('TARGET_OS')
+ 
+-if target_os in ['linux']:
+-    # Build sample cloud client project
+-    if env.get('WITH_CLOUD') == True:
++if target_os not in ['linux']:
++    Return()
++
++# Build sample cloud client project
++if env.get('WITH_CLOUD') == True:
++    env.AppendTarget('cloud-samples', default=False)
++    if "cloud-samples" in COMMAND_LINE_TARGETS:
+         SConscript('samples/client/SConscript')
+diff --git a/cloud/samples/README.md b/cloud/samples/README.md
+new file mode 100644
+index 000000000..33289dd89
+--- /dev/null
++++ b/cloud/samples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run:
++
++scons [options] cloud-samples
+diff --git a/cloud/samples/client/SConscript b/cloud/samples/client/SConscript
+index eaae11045..c048b969f 100644
+--- a/cloud/samples/client/SConscript
++++ b/cloud/samples/client/SConscript
+@@ -99,16 +99,17 @@ if tlsOption is '1':
+ # Sample for the thin cloud device
+ ######################################################################
+ thin_room_light_src = ['thin_light/thin_room_light.cpp']
+-cc_sample_app_env.Program('thin_room_light', thin_room_light_src)
++samples = []
++samples += cc_sample_app_env.Program('thin_room_light', thin_room_light_src)
+ 
+ ######################################################################
+ # Samples for the air conditioner
+ ######################################################################
+ aircon_controlee_src = ['airconditioner/aircon_controlee.cpp']
+-cc_sample_app_env.Program('aircon_controlee', aircon_controlee_src)
++samples += cc_sample_app_env.Program('aircon_controlee', aircon_controlee_src)
+ 
+ aircon_controller_src = ['airconditioner/aircon_controller.cpp']
+-cc_sample_app_env.Program('aircon_controller', aircon_controller_src)
++samples += cc_sample_app_env.Program('aircon_controller', aircon_controller_src)
+ 
+ ######################################################################
+ # Samples for message queue
+@@ -119,21 +120,23 @@ if mqOption[0] is not 'OFF':
+     if set(['PUB']) == set(mqOption):
+         cc_sample_app_env.AppendUnique(CPPDEFINES=['MQ_PUBLISHER'])
+         mq_publisher_src = ['messagequeue/mq_publisher.cpp']
+-        cc_sample_app_env.Program('mq_publisher', mq_publisher_src)
++        samples += cc_sample_app_env.Program('mq_publisher', mq_publisher_src)
+     elif set(['SUB']) == set(mqOption):
+         cc_sample_app_env.AppendUnique(CPPDEFINES=['MQ_SUBSCRIBER'])
+         mq_subscriber_src = ['messagequeue/mq_subscriber.cpp']
+-        cc_sample_app_env.Program('mq_subscriber', mq_subscriber_src)
++        samples += cc_sample_app_env.Program('mq_subscriber', mq_subscriber_src)
+     else:
+         cc_sample_app_env.AppendUnique(CPPDEFINES=['MQ_PUBLISHER'])
+         mq_publisher_src = ['messagequeue/mq_publisher.cpp']
+-        cc_sample_app_env.Program('mq_publisher', mq_publisher_src)
++        samples += cc_sample_app_env.Program('mq_publisher', mq_publisher_src)
+         cc_sample_app_env.AppendUnique(CPPDEFINES=['MQ_SUBSCRIBER'])
+         mq_subscriber_src = ['messagequeue/mq_subscriber.cpp']
+-        cc_sample_app_env.Program('mq_subscriber', mq_subscriber_src)
++        samples += cc_sample_app_env.Program('mq_subscriber', mq_subscriber_src)
+ 
+ ######################################################################
+ # Samples for group and invite
+ ######################################################################
+ group_invite_src = ['group_invite/group_invite.cpp']
+-cc_sample_app_env.Program('group_invite_sample', group_invite_src)
++samples += cc_sample_app_env.Program('group_invite_sample', group_invite_src)
++
++Alias("cloud-samples", samples)
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,91 @@
+From bb687b6ec4879b67519a28dba146b5b7c2a7f6d2 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Thu, 7 Dec 2017 14:51:38 +0100
+Subject: [PATCH] resource: Add ACL to simpleclientserver
+
+This new ACL file is generic enough to fix examples dealing with
+unsecured resources.
+
+For reference on permissions check:
+https://openconnectivity.org/specs/OCF_Security_Specification_v1.3.0.pdf
+
+Bug: https://jira.iotivity.org/browse/IOT-2921
+Change-Id: I210cca4d72857abfb09d5f3291e6848836f38323
+Origin: https://gerrit.iotivity.org/gerrit/#/c/23687/
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+---
+ resource/examples/oic_svr_db_anon-clear.dat  | Bin 0 -> 169 bytes
+ resource/examples/oic_svr_db_anon-clear.json |  13 +++++++++++++
+ resource/examples/simpleclientserver.cpp     |  13 +++++++++++--
+ 3 files changed, 24 insertions(+), 2 deletions(-)
+ create mode 100644 resource/examples/oic_svr_db_anon-clear.dat
+ create mode 100644 resource/examples/oic_svr_db_anon-clear.json
+
+diff --git a/resource/examples/oic_svr_db_anon-clear.dat b/resource/examples/oic_svr_db_anon-clear.dat
+new file mode 100644
+index 0000000000000000000000000000000000000000..97ca0e36593bbf762c1b4a70cf17f8cd510367e7
+GIT binary patch
+literal 169
+zcmZ9GF%H5o3`IEx8w(RsGnC7)Cazl?1-r5nm5w<|rQU<1K`X?9zVx4-{_<boA>EdB
+z*g%%sx}pc9?l4#h5g{*k5av9O7(EL&kkBhBniK`Jx`YY*C61^MG9%&RDXL72S_*Z~
+h^R@k^+3{DuEoiP$2%Ng@MjNQFvMcp2c*8`D?+=@3J%0cI
+
+literal 0
+HcmV?d00001
+
+diff --git a/resource/examples/oic_svr_db_anon-clear.json b/resource/examples/oic_svr_db_anon-clear.json
+new file mode 100644
+index 000000000..3042f3f0f
+--- /dev/null
++++ b/resource/examples/oic_svr_db_anon-clear.json
+@@ -0,0 +1,13 @@
++{
++    "acl": {
++       "aclist2": [
++            {
++                "aceid": 0,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [{ "wc": "*" }],
++                "permission": 31
++            }
++        ],
++        "rowneruuid" : "32323232-3232-3232-3232-323232323232"
++    }
++}
+diff --git a/resource/examples/simpleclientserver.cpp b/resource/examples/simpleclientserver.cpp
+index d5fcd362a..afc5e94f3 100644
+--- a/resource/examples/simpleclientserver.cpp
++++ b/resource/examples/simpleclientserver.cpp
+@@ -300,6 +300,15 @@ struct FooResource
+ 
+ };
+ 
++static FILE* override_fopen(const char* path, const char* mode)
++{
++    static const char* CRED_FILE_NAME = "./oic_svr_db_anon-clear.dat";
++    char const * const filename
++        = (0 == strcmp(path, OC_SECURITY_DB_DAT_FILE_NAME)) ? CRED_FILE_NAME : path;
++    FILE* file = fopen(filename, mode);
++    return file;
++}
++
+ int main(int argc, char* argv[])
+ {
+     OCConnectivityType connectivityType = CT_ADAPTER_IP;
+@@ -337,11 +346,11 @@ int main(int argc, char* argv[])
+     {
+         printUsage();
+     }
+-
++    OCPersistentStorage ps {override_fopen, fread, fwrite, fclose, unlink };
+     PlatformConfig cfg {
+         OC::ServiceType::InProc,
+         OC::ModeType::Both,
+-        nullptr
++        &ps
+     };
+ 
+     OCPlatform::Configure(cfg);
+-- 
+2.16.1.windows.1
+

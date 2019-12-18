@@ -1,0 +1,36 @@
+From 3587cd187640b3bbb421f4b467641fecc7fafc30 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Mon, 18 Feb 2019 10:32:38 +0200
+Subject: [PATCH] certificate chain pointer check
+
+certificate chain pointer check in debug mode
+
+Change-Id: I071443b447a1f32188614727ade7151fb288e744
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/src/credresource.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/resource/csdk/security/src/credresource.c b/resource/csdk/security/src/credresource.c
+index 899b260ed..e45cdea12 100644
+--- a/resource/csdk/security/src/credresource.c
++++ b/resource/csdk/security/src/credresource.c
+@@ -3786,9 +3786,12 @@ void GetCaCert(ByteArrayLL_t * chain, const char * usage)
+     }
+ 
+ #ifndef NDEBUG
+-    OIC_LOG(DEBUG, TAG_LOG, "==== Cert being returned ===================================");
+-    LogCert ( chain->cert->data, chain->cert->len, OIC_ENCODING_PEM, TAG_LOG );
+-    OIC_LOG(DEBUG, TAG_LOG, "============================================================");
++    if (chain && chain->cert)
++    {
++        OIC_LOG(DEBUG, TAG_LOG, "==== Cert being returned ===================================");
++        LogCert ( chain->cert->data, chain->cert->len, OIC_ENCODING_PEM, TAG_LOG );
++        OIC_LOG(DEBUG, TAG_LOG, "============================================================");
++    }
+ #endif
+     OIC_LOG_V(DEBUG, TAG, "Out %s", __func__);
+     return;
+-- 
+2.16.1.windows.1
+

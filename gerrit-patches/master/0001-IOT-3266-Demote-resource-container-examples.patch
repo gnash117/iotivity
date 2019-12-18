@@ -1,0 +1,161 @@
+From d757eaf072bf212bd6796d015ed6c7e1152bb405 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 17:30:10 -0700
+Subject: [PATCH] IOT-3266 Demote resource container examples
+
+Updated: build remains default-build for tizen, else we have
+to rejigger the construction of the package.
+
+Change-Id: I00749c24a7973f5818827dec92628528843824fe
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ service/resource-container/README.md               |  8 ++++
+ service/resource-container/SConscript              | 45 ++++++++++++++--------
+ .../src/inputSensors/HeightSensorApp/SConscript    |  3 +-
+ .../src/inputSensors/WeightSensorApp/SConscript    |  3 +-
+ .../src/inputSensors/THSensorApp/SConscript        |  3 +-
+ .../src/inputSensors/THSensorApp1/SConscript       |  3 +-
+ 6 files changed, 40 insertions(+), 25 deletions(-)
+ create mode 100644 service/resource-container/README.md
+
+diff --git a/service/resource-container/README.md b/service/resource-container/README.md
+new file mode 100644
+index 000000000..97c76cff0
+--- /dev/null
++++ b/service/resource-container/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] containersample
+diff --git a/service/resource-container/SConscript b/service/resource-container/SConscript
+index 6bf4c1617..c8e239802 100644
+--- a/service/resource-container/SConscript
++++ b/service/resource-container/SConscript
+@@ -163,6 +163,31 @@ if target_os in ['android']:
+     resource_container_env.AppendUnique(
+         LINKFLAGS=['-Wl,-soname,librcs_container.so'])
+ 
++######################################################################
++# build resource container unit tests
++######################################################################
++if lib_env.get('WITH_TEST') and target_os in ('linux'):
++    SConscript('unittests/SConscript')
++
++######################################################################
++# Build Container Java SDK
++######################################################################
++if target_os == 'android':
++    SConscript('android/SConscript')
++
++######################################################################
++# build samples if requested
++# This step should remain last because we bail out here 
++# if samples were not requested.
++#
++# tizen includes these in the rpm package that is built, so unlike the
++# other targets, this build is on by default for tizen.
++######################################################################
++
++env.AppendTarget('containersample', default=False)
++if "containersample" not in COMMAND_LINE_TARGETS and target_os not in ['tizen']:
++    Return()
++
+ ######################################################################
+ # build discomfort index sensor sample bundle
+ ######################################################################
+@@ -266,12 +291,6 @@ else:
+     hue_resource_bundle_env.UserInstallTargetLib(HueBundle, 'libHueBundle')
+ lib_env = conf2.Finish()
+ 
+-######################################################################
+-# build resource container unit tests
+-######################################################################
+-if lib_env.get('WITH_TEST') and target_os in ('linux'):
+-    SConscript('unittests/SConscript')
+-
+ ######################################################################
+ # Build Container Sample
+ ######################################################################
+@@ -293,8 +312,7 @@ if target_os not in ['ios']:
+     containersampleapp = containersample_env.Program('ContainerSample',
+                                                      containersampleapp_src)
+     Alias("containersample", containersampleapp)
+-    env.AppendTarget('containersample')
+-    examples += containersampleapp;
++    examples += containersampleapp
+ 
+     ######################################################################
+     # Build Container Sample Client
+@@ -306,14 +324,7 @@ if target_os not in ['ios']:
+     containersampleclient_src = ['examples/ContainerSampleClient.cpp']
+     containersampleclientapp = containersample_env.Program(
+         'ContainerSampleClient', containersampleclient_src)
+-    Alias("containersampleclient", containersampleclientapp)
+-    env.AppendTarget('containersampleclient')
+-    examples += containersampleclientapp;
++    Alias("containersample", containersampleclientapp)
++    examples += containersampleclientapp
+ 
+ containersample_env.UserInstallTargetExtra(examples)
+-######################################################################
+-# Build Container Java SDK
+-######################################################################
+-if target_os == 'android':
+-    SConscript('android/SConscript')
+-
+diff --git a/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript b/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
+index 19b7482b8..b825bacaf 100644
+--- a/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
++++ b/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
+@@ -36,6 +36,5 @@ if 'rt' in linux_sample_env.get('LIBS'):
+ ######################################################################
+ heightsensorapp = linux_sample_env.Program('HeightSensorApp',
+                                            'src/HeightSensorApp.cpp')
+-Alias("heightsensorapp_sample", heightsensorapp)
+-env.AppendTarget('heightsensorapp')
++Alias("containersample", heightsensorapp)
+ linux_sample_env.UserInstallTargetExtra(heightsensorapp)
+diff --git a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
+index 1f2805fb9..2fa6168cc 100644
+--- a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
++++ b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
+@@ -36,6 +36,5 @@ if 'rt' in linux_sample_env.get('LIBS'):
+ ######################################################################
+ weightsensorapp = linux_sample_env.Program('WeightSensorApp',
+                                            'src/WeightSensorApp.cpp')
+-Alias("weightsensorapp_sample", weightsensorapp)
+-env.AppendTarget('weightsensorapp')
++Alias("containersample", weightsensorapp)
+ linux_sample_env.UserInstallTargetExtra(weightsensorapp)
+diff --git a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
+index 690aaf811..7f46da4dd 100644
+--- a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
++++ b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
+@@ -36,6 +36,5 @@ if 'rt' in linux_sample_env.get('LIBS'):
+ ######################################################################
+ thsensorapp = linux_sample_env.Program('THSensorApp',
+                                        'src/ThingResourceServer.cpp')
+-Alias("thsensorapp_sample", thsensorapp)
+-env.AppendTarget('thsensorapp_sample')
++Alias("containersample", thsensorapp)
+ linux_sample_env.UserInstallTargetExtra(thsensorapp)
+diff --git a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
+index fc249ef85..4e90156d3 100644
+--- a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
++++ b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
+@@ -36,6 +36,5 @@ if 'rt' in linux_sample_env.get('LIBS'):
+ ######################################################################
+ thsensorapp1 = linux_sample_env.Program('THSensorApp1',
+                                         'src/ThingResourceServer1.cpp')
+-Alias("thsensorapp1_sample", thsensorapp1)
+-env.AppendTarget('thsensorapp1_sample')
++Alias("containersample", thsensorapp1)
+ linux_sample_env.UserInstallTargetExtra(thsensorapp1)
+-- 
+2.16.1.windows.1
+

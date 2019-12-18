@@ -1,0 +1,3505 @@
+From 3f878454fde7a0109ac921b692a0a965da8b1b38 Mon Sep 17 00:00:00 2001
+From: Lauren Jeong <jy.jeong@lge.com>
+Date: Thu, 10 May 2018 14:10:11 +0900
+Subject: [PATCH] Add iotivity sampler app for webOS
+
+- Add iotivity sampler app which is using enact
+- Add iotivity-node sample codes for iotivity server and client
+
+Change-Id: I56b444f9d6274221a3b7fffd150d478b7d1c7a5b
+Signed-off-by: Lauren Jeong <jy.jeong@lge.com>
+---
+ .../webos/com.example.app.iotivity/appinfo.json    |  11 +
+ .../com.example.app.iotivity/npm-shrinkwrap.json   | 258 +++++++++++
+ .../webos/com.example.app.iotivity/package.json    |  45 ++
+ .../client-lowlevel.js                             | 249 +++++++++++
+ .../com.example.service.iotivity.client/client.txt | 310 ++++++++++++++
+ .../com.example.service.iotivity.client.json       |   3 +
+ .../com.example.service.iotivity.client.api.json   |  14 +
+ ...m.example.service.iotivity.client.manifest.json |  13 +
+ .../com.example.service.iotivity.client.perm.json  |   3 +
+ .../com.example.service.iotivity.client.role.json  |  12 +
+ .../com.example.service.iotivity.client.service    |   3 +
+ .../com.example.service.iotivity.client/main.js    | 474 +++++++++++++++++++++
+ .../oic_svr_db_client.dat                          | Bin 0 -> 917 bytes
+ .../oic_svr_db_client.json                         |  61 +++
+ .../package.json                                   |   4 +
+ .../com.example.service.iotivity.server.json       |   3 +
+ .../com.example.service.iotivity.server.api.json   |  12 +
+ ...m.example.service.iotivity.server.manifest.json |  13 +
+ .../com.example.service.iotivity.server.perm.json  |   3 +
+ .../com.example.service.iotivity.server.role.json  |  12 +
+ .../com.example.service.iotivity.server.service    |   3 +
+ .../com.example.service.iotivity.server/main.js    | 273 ++++++++++++
+ .../mock-sensor.js                                 |  59 +++
+ .../oic_svr_db_server.dat                          | Bin 0 -> 1371 bytes
+ .../oic_svr_db_server.json                         |  90 ++++
+ .../package.json                                   |   4 +
+ .../server-lowlevel.js                             | 226 ++++++++++
+ .../com.example.service.iotivity.server/server.txt | 167 ++++++++
+ .../webos/com.example.app.iotivity/src/App/App.js  |  27 ++
+ .../com.example.app.iotivity/src/App/App.less      |   3 +
+ .../com.example.app.iotivity/src/App/package.json  |   3 +
+ .../src/actions/ActionCreators.js                  | 269 ++++++++++++
+ .../src/actions/ActionTypes.js                     |  10 +
+ .../webos/com.example.app.iotivity/src/index.js    |  40 ++
+ .../src/reducer/Reducer.js                         |  45 ++
+ .../com.example.app.iotivity/src/views/Client.js   | 204 +++++++++
+ .../src/views/MainPanel.js                         |  31 ++
+ .../com.example.app.iotivity/src/views/Server.js   | 186 ++++++++
+ 38 files changed, 3143 insertions(+)
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/npm-shrinkwrap.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/package.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client-lowlevel.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client.txt
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/com.example.service.iotivity.client.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.api.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.manifest.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.perm.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.role.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.service
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/main.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.dat
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/package.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/com.example.service.iotivity.server.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.api.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.manifest.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.perm.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.role.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.service
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/main.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/mock-sensor.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.dat
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/package.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server.txt
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
+ create mode 100755 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
+ create mode 100755 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/package.json
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionCreators.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionTypes.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/index.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/reducer/Reducer.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Client.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/MainPanel.js
+ create mode 100644 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Server.js
+
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
+new file mode 100644
+index 000000000..e276121ab
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
+@@ -0,0 +1,11 @@
++{
++    "id": "com.example.app.iotivity",
++    "version": "1.0.0",
++    "vendor": "LGE",
++    "type": "web",
++    "main": "index.html",
++    "title": "IOTIVITY SAMPLER",
++    "icon": "icon.png",
++    "uiRevision": 2,
++    "requiredPermissions": ["all"]
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/npm-shrinkwrap.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/npm-shrinkwrap.json
+new file mode 100644
+index 000000000..097210db3
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/npm-shrinkwrap.json
+@@ -0,0 +1,258 @@
++{
++  "name": "com.example.app.iotivity",
++  "version": "1.0.0",
++  "dependencies": {
++    "@enact/core": {
++      "version": "1.15.0",
++      "from": "@enact/core@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/core/-/core-1.15.0.tgz"
++    },
++    "@enact/i18n": {
++      "version": "1.15.0",
++      "from": "@enact/i18n@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/i18n/-/i18n-1.15.0.tgz"
++    },
++    "@enact/moonstone": {
++      "version": "1.15.0",
++      "from": "@enact/moonstone@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/moonstone/-/moonstone-1.15.0.tgz"
++    },
++    "@enact/spotlight": {
++      "version": "1.15.0",
++      "from": "@enact/spotlight@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/spotlight/-/spotlight-1.15.0.tgz"
++    },
++    "@enact/ui": {
++      "version": "1.15.0",
++      "from": "@enact/ui@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/ui/-/ui-1.15.0.tgz"
++    },
++    "@enact/webos": {
++      "version": "1.15.0",
++      "from": "@enact/webos@^1.8.0",
++      "resolved": "https://registry.npmjs.org/@enact/webos/-/webos-1.15.0.tgz"
++    },
++    "asap": {
++      "version": "2.0.6",
++      "from": "asap@~2.0.3",
++      "resolved": "https://registry.npmjs.org/asap/-/asap-2.0.6.tgz"
++    },
++    "change-emitter": {
++      "version": "0.1.6",
++      "from": "change-emitter@^0.1.2",
++      "resolved": "https://registry.npmjs.org/change-emitter/-/change-emitter-0.1.6.tgz"
++    },
++    "classnames": {
++      "version": "2.2.5",
++      "from": "classnames@~2.2.5",
++      "resolved": "https://registry.npmjs.org/classnames/-/classnames-2.2.5.tgz"
++    },
++    "core-js": {
++      "version": "1.2.7",
++      "from": "core-js@^1.0.0",
++      "resolved": "https://registry.npmjs.org/core-js/-/core-js-1.2.7.tgz"
++    },
++    "create-react-class": {
++      "version": "15.6.3",
++      "from": "create-react-class@^15.6.0",
++      "resolved": "https://registry.npmjs.org/create-react-class/-/create-react-class-15.6.3.tgz"
++    },
++    "dom-walk": {
++      "version": "0.1.1",
++      "from": "dom-walk@^0.1.0",
++      "resolved": "https://registry.npmjs.org/dom-walk/-/dom-walk-0.1.1.tgz"
++    },
++    "eases": {
++      "version": "1.0.8",
++      "from": "eases@~1.0.8",
++      "resolved": "https://registry.npmjs.org/eases/-/eases-1.0.8.tgz"
++    },
++    "encoding": {
++      "version": "0.1.12",
++      "from": "encoding@^0.1.11",
++      "resolved": "https://registry.npmjs.org/encoding/-/encoding-0.1.12.tgz"
++    },
++    "fbjs": {
++      "version": "0.8.16",
++      "from": "fbjs@^0.8.16",
++      "resolved": "https://registry.npmjs.org/fbjs/-/fbjs-0.8.16.tgz"
++    },
++    "for-each": {
++      "version": "0.3.2",
++      "from": "for-each@^0.3.2",
++      "resolved": "https://registry.npmjs.org/for-each/-/for-each-0.3.2.tgz"
++    },
++    "global": {
++      "version": "4.3.2",
++      "from": "global@~4.3.0",
++      "resolved": "https://registry.npmjs.org/global/-/global-4.3.2.tgz"
++    },
++    "hoist-non-react-statics": {
++      "version": "1.2.0",
++      "from": "hoist-non-react-statics@^1.0.0",
++      "resolved": "https://registry.npmjs.org/hoist-non-react-statics/-/hoist-non-react-statics-1.2.0.tgz"
++    },
++    "iconv-lite": {
++      "version": "0.4.19",
++      "from": "iconv-lite@~0.4.13",
++      "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.19.tgz"
++    },
++    "invariant": {
++      "version": "2.2.4",
++      "from": "invariant@~2.2.2",
++      "resolved": "https://registry.npmjs.org/invariant/-/invariant-2.2.4.tgz"
++    },
++    "is-function": {
++      "version": "1.0.1",
++      "from": "is-function@^1.0.1",
++      "resolved": "https://registry.npmjs.org/is-function/-/is-function-1.0.1.tgz"
++    },
++    "is-stream": {
++      "version": "1.1.0",
++      "from": "is-stream@^1.0.1",
++      "resolved": "https://registry.npmjs.org/is-stream/-/is-stream-1.1.0.tgz"
++    },
++    "isomorphic-fetch": {
++      "version": "2.2.1",
++      "from": "isomorphic-fetch@^2.1.1",
++      "resolved": "https://registry.npmjs.org/isomorphic-fetch/-/isomorphic-fetch-2.2.1.tgz"
++    },
++    "js-tokens": {
++      "version": "3.0.2",
++      "from": "js-tokens@^3.0.0",
++      "resolved": "https://registry.npmjs.org/js-tokens/-/js-tokens-3.0.2.tgz"
++    },
++    "lodash": {
++      "version": "4.17.5",
++      "from": "lodash@^4.17.5",
++      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.5.tgz"
++    },
++    "lodash-es": {
++      "version": "4.17.7",
++      "from": "lodash-es@^4.17.5",
++      "resolved": "https://registry.npmjs.org/lodash-es/-/lodash-es-4.17.7.tgz"
++    },
++    "loose-envify": {
++      "version": "1.3.1",
++      "from": "loose-envify@^1.0.0",
++      "resolved": "https://registry.npmjs.org/loose-envify/-/loose-envify-1.3.1.tgz"
++    },
++    "min-document": {
++      "version": "2.19.0",
++      "from": "min-document@^2.19.0",
++      "resolved": "https://registry.npmjs.org/min-document/-/min-document-2.19.0.tgz"
++    },
++    "node-fetch": {
++      "version": "1.7.3",
++      "from": "node-fetch@^1.0.1",
++      "resolved": "https://registry.npmjs.org/node-fetch/-/node-fetch-1.7.3.tgz"
++    },
++    "object-assign": {
++      "version": "4.1.1",
++      "from": "object-assign@^4.1.1",
++      "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz"
++    },
++    "parse-headers": {
++      "version": "2.0.1",
++      "from": "parse-headers@^2.0.0",
++      "resolved": "https://registry.npmjs.org/parse-headers/-/parse-headers-2.0.1.tgz"
++    },
++    "process": {
++      "version": "0.5.2",
++      "from": "process@~0.5.1",
++      "resolved": "https://registry.npmjs.org/process/-/process-0.5.2.tgz"
++    },
++    "promise": {
++      "version": "7.3.1",
++      "from": "promise@^7.1.1",
++      "resolved": "https://registry.npmjs.org/promise/-/promise-7.3.1.tgz"
++    },
++    "prop-types": {
++      "version": "15.6.1",
++      "from": "prop-types@^15.5.10",
++      "resolved": "https://registry.npmjs.org/prop-types/-/prop-types-15.6.1.tgz"
++    },
++    "ramda": {
++      "version": "0.24.1",
++      "from": "ramda@~0.24.1",
++      "resolved": "https://registry.npmjs.org/ramda/-/ramda-0.24.1.tgz"
++    },
++    "react": {
++      "version": "15.6.2",
++      "from": "react@^15.6.1",
++      "resolved": "https://registry.npmjs.org/react/-/react-15.6.2.tgz"
++    },
++    "react-dom": {
++      "version": "15.6.2",
++      "from": "react-dom@^15.6.1",
++      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-15.6.2.tgz"
++    },
++    "react-redux": {
++      "version": "5.0.7",
++      "from": "react-redux@^5.0.7",
++      "resolved": "https://registry.npmjs.org/react-redux/-/react-redux-5.0.7.tgz",
++      "dependencies": {
++        "hoist-non-react-statics": {
++          "version": "2.5.0",
++          "from": "hoist-non-react-statics@^2.5.0",
++          "resolved": "https://registry.npmjs.org/hoist-non-react-statics/-/hoist-non-react-statics-2.5.0.tgz"
++        }
++      }
++    },
++    "recompose": {
++      "version": "0.23.5",
++      "from": "recompose@~0.23.5",
++      "resolved": "https://registry.npmjs.org/recompose/-/recompose-0.23.5.tgz"
++    },
++    "redux": {
++      "version": "3.7.2",
++      "from": "redux@^3.7.2",
++      "resolved": "https://registry.npmjs.org/redux/-/redux-3.7.2.tgz"
++    },
++    "redux-thunk": {
++      "version": "2.2.0",
++      "from": "redux-thunk@^2.2.0",
++      "resolved": "https://registry.npmjs.org/redux-thunk/-/redux-thunk-2.2.0.tgz"
++    },
++    "setimmediate": {
++      "version": "1.0.5",
++      "from": "setimmediate@^1.0.5",
++      "resolved": "https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz"
++    },
++    "symbol-observable": {
++      "version": "1.2.0",
++      "from": "symbol-observable@^1.0.4",
++      "resolved": "https://registry.npmjs.org/symbol-observable/-/symbol-observable-1.2.0.tgz"
++    },
++    "trim": {
++      "version": "0.0.1",
++      "from": "trim@0.0.1",
++      "resolved": "https://registry.npmjs.org/trim/-/trim-0.0.1.tgz"
++    },
++    "ua-parser-js": {
++      "version": "0.7.17",
++      "from": "ua-parser-js@^0.7.9",
++      "resolved": "https://registry.npmjs.org/ua-parser-js/-/ua-parser-js-0.7.17.tgz"
++    },
++    "warning": {
++      "version": "3.0.0",
++      "from": "warning@~3.0.0",
++      "resolved": "https://registry.npmjs.org/warning/-/warning-3.0.0.tgz"
++    },
++    "whatwg-fetch": {
++      "version": "2.0.3",
++      "from": "whatwg-fetch@>=0.10.0",
++      "resolved": "https://registry.npmjs.org/whatwg-fetch/-/whatwg-fetch-2.0.3.tgz"
++    },
++    "xhr": {
++      "version": "2.4.1",
++      "from": "xhr@~2.4.0",
++      "resolved": "https://registry.npmjs.org/xhr/-/xhr-2.4.1.tgz"
++    },
++    "xtend": {
++      "version": "4.0.1",
++      "from": "xtend@^4.0.0",
++      "resolved": "https://registry.npmjs.org/xtend/-/xtend-4.0.1.tgz"
++    }
++  }
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/package.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/package.json
+new file mode 100644
+index 000000000..c09a70a1f
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/package.json
+@@ -0,0 +1,45 @@
++{
++  "name": "com.example.app.iotivity",
++  "version": "1.0.0",
++  "description": "iotivity sample app with enact framework",
++  "author": "jy.jeong@lge.com",
++  "main": "src/index.js",
++  "scripts": {
++    "serve": "enact serve",
++    "pack": "enact pack",
++    "pack-p": "enact pack -p",
++    "watch": "enact pack --watch",
++    "clean": "enact clean",
++    "lint": "enact lint .",
++    "license": "enact license",
++    "test": "enact test start --single-run --browsers PhantomJS",
++    "test-json": "enact test start --single-run --browsers PhantomJS --reporters json",
++    "test-watch": "enact test start --browsers PhantomJS"
++  },
++  "license": "LGE",
++  "private": true,
++  "repository": "",
++  "enact": {
++    "isomorphic": true,
++    "ri": {
++      "baseSize": 24
++    }
++  },
++  "eslintConfig": {
++    "extends": "enact"
++  },
++  "dependencies": {
++    "@enact/core": "^1.8.0",
++    "@enact/i18n": "^1.8.0",
++    "@enact/moonstone": "^1.8.0",
++    "@enact/spotlight": "^1.8.0",
++    "@enact/ui": "^1.8.0",
++    "@enact/webos": "^1.8.0",
++    "prop-types": "^15.5.10",
++    "react": "^15.6.1",
++    "react-dom": "^15.6.1",
++    "react-redux": "^5.0.7",
++    "redux": "^3.7.2",
++    "redux-thunk": "^2.2.0"
++  }
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client-lowlevel.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client-lowlevel.js
+new file mode 100644
+index 000000000..590c7c6de
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client-lowlevel.js
+@@ -0,0 +1,249 @@
++/* ******************************************************************
++ *
++ * Copyright (c) 2018 LG Electronics, Inc.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ */
++var intervalId, handleReceptacle = {}, iotivity = require("iotivity-node/lowlevel");
++var StorageHandler = require("iotivity-node/lib/CustomStorageHandler");
++var observeHandles = [];
++var observeCount = 0;
++
++returnNoResponse = function(callback) {
++    setTimeout(function() {
++        console.log("No response");
++        callback({});
++        clearInterval( intervalId );
++        iotivity.OCStop();
++    }, 5000, null);
++};
++
++function assembleRequestUrl( eps, path ) {
++    var endpoint;
++    var endpointIndex;
++    var result;
++    for ( endpointIndex in eps ) {
++        endpoint = eps[ endpointIndex ];
++        if ( endpoint.tps  === "coaps" ) {
++            result = ( endpoint.tps + "://" +
++            ( endpoint.family & iotivity.OCTransportFlags.OC_IP_USE_V6 ? "[" : "" ) +
++            endpoint.addr.replace( /[%].*$/, "" ) +
++            ( endpoint.family & iotivity.OCTransportFlags.OC_IP_USE_V6 ? "]" : "" ) +
++            ":" + endpoint.port ) + path;
++            console.log( "GET request to " + result );
++            return result;
++        }
++    }
++    throw new Error( "No secure endpoint found!" );
++}
++
++module.exports.startDiscovery = function(callback) {
++
++    console.log("Issuing discovery request");
++
++    iotivity.OCInit(null, 0, iotivity.OCMode.OC_CLIENT );
++    clearInterval( intervalId );
++    intervalId = setInterval(function() {
++        iotivity.OCProcess();
++    }, 1000);
++
++    // Discover resources and list them
++    iotivity.OCDoResource(
++
++        // The bindings fill in this object
++        handleReceptacle,
++
++        iotivity.OCMethod.OC_REST_DISCOVER,
++
++        // Standard path for discovering resources
++        iotivity.OC_MULTICAST_DISCOVERY_URI,
++
++        // There is no destination
++        null,
++
++        // There is no payload
++        null,
++        iotivity.OCConnectivityType.CT_DEFAULT,
++        iotivity.OCQualityOfService.OC_HIGH_QOS,
++        function(handle, response) {
++            console.log("Discovery response: "+ JSON.stringify(response, null, 4));
++            callback(response);
++            return iotivity.OCStackApplicationResult.OC_STACK_KEEP_TRANSACTION;
++        },
++
++        // There are no header options
++        null
++    );
++
++    returnNoResponse(callback);
++};
++
++module.exports.getResource = function(uri, destination, question, callback) {
++
++    console.log("Sending GET request");
++    var getHandleReceptacle = {};
++    var payload = {
++        "type":iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
++        "values":{"question":question}
++    };
++
++    var getResourceHandler = function( handle, response ) {
++        var resources = response && response.payload && response.payload.resources,
++            resourceCount = resources ? resources.length : 0;
++
++        for (var index = 0; index < resourceCount; index++ ) {
++            if ( resources[ index ].uri === uri ) {
++                iotivity.OCDoResource(
++                    getHandleReceptacle,
++                    iotivity.OCMethod.OC_REST_GET,
++                    assembleRequestUrl( resources[ index ].eps, uri),
++                    destination,
++                    payload,
++                    iotivity.OCConnectivityType.CT_DEFAULT,
++                    iotivity.OCQualityOfService.OC_HIGH_QOS,
++                    function( handle, response ){
++                        console.log( "Received response to GET request:" );
++                        console.log( JSON.stringify( response, null, 4 ) );
++                        callback( response );
++                        setTimeout(function() {
++                            clearInterval( intervalId );
++                            iotivity.OCStop();
++                        }, 1000, null);
++                        return iotivity.OCStackApplicationResult.OC_STACK_DELETE_TRANSACTION;
++                    },
++                    null
++                );
++            }
++        }
++        return iotivity.OCStackApplicationResult.OC_STACK_DELETE_TRANSACTION;
++    };
++
++    iotivity.OCRegisterPersistentStorageHandler(StorageHandler("oic_svr_db_client.dat"));
++    iotivity.OCInit(null, 0, iotivity.OCMode.OC_CLIENT_SERVER );
++    clearInterval( intervalId );
++    intervalId = setInterval(function() {
++        iotivity.OCProcess();
++    }, 1000);
++
++    iotivity.OCDoResource(
++        getHandleReceptacle,
++        iotivity.OCMethod.OC_REST_DISCOVER,
++        iotivity.OC_MULTICAST_DISCOVERY_URI,
++        null,
++        null,
++        iotivity.OCConnectivityType.CT_DEFAULT,
++        iotivity.OCQualityOfService.OC_HIGH_QOS,
++        getResourceHandler,
++        null
++    );
++
++    returnNoResponse(callback);
++};
++
++module.exports.deleteResource = function(uri, destination, callback) {
++
++    console.log("Sending DELETE request");
++    var deleteHandleReceptacle = {};
++    var deleteResponseHandler = function( handle, response ) {
++        console.log( "Received response to DELETE request:" );
++        console.log( JSON.stringify( response, null, 4 ) );
++        callback( response );
++        return iotivity.OCStackApplicationResult.OC_STACK_DELETE_TRANSACTION;
++    };
++
++    iotivity.OCRegisterPersistentStorageHandler(StorageHandler("oic_svr_db_client.dat"));
++    iotivity.OCInit(null, 0, iotivity.OCMode.OC_CLIENT_SERVER );
++    clearInterval( intervalId );
++    intervalId = setInterval(function() {
++        iotivity.OCProcess();
++    }, 1000);
++
++    iotivity.OCDoResource(
++        deleteHandleReceptacle,
++        iotivity.OCMethod.OC_REST_DELETE,
++        uri,
++        destination,
++        null,
++        iotivity.OCConnectivityType.CT_DEFAULT,
++        iotivity.OCQualityOfService.OC_HIGH_QOS,
++        deleteResponseHandler,
++        null
++    );
++
++    returnNoResponse(callback);
++};
++
++module.exports.observeResource = function(uri, destination, callback) {
++
++    console.log( "Observing " + uri );
++    var observeHandleReceptacle = {};
++    var observeResponseHandler = function( handle, response ) {
++        console.log( "Received response to OBSERVE request:" );
++        console.log( JSON.stringify( response, null, 4 ) );
++        callback(response);
++        return iotivity.OCStackApplicationResult.OC_STACK_KEEP_TRANSACTION;
++    };
++
++    iotivity.OCRegisterPersistentStorageHandler(StorageHandler("oic_svr_db_client.dat"));
++    iotivity.OCInit(null, 0, iotivity.OCMode.OC_CLIENT_SERVER );
++    clearInterval( intervalId );
++    intervalId = setInterval(function() {
++        iotivity.OCProcess();
++    }, 1000);
++
++    iotivity.OCDoResource(
++        observeHandleReceptacle,
++        iotivity.OCMethod.OC_REST_OBSERVE,
++        uri,
++        destination,
++        null,
++        iotivity.OCConnectivityType.CT_DEFAULT,
++        iotivity.OCQualityOfService.OC_HIGH_QOS,
++        observeResponseHandler,
++        null
++    );
++
++    observeHandles[observeCount] = {
++        uri: uri,
++        handle: observeHandleReceptacle.handle
++    };
++    observeCount++;
++};
++
++module.exports.cancelObservation = function(uri) {
++    console.log( "Cancel observation " + uri );
++
++    for (var index = 0; index < observeCount; index++){
++        if (observeHandles[index].uri === uri){
++            iotivity.OCCancel(observeHandles[index].handle, iotivity.OCQualityOfService.OC_HIGH_QOS, null );
++            observeCount--;
++            observeHandles.splice(index, 1);
++            break;
++        }
++    }
++
++    clearInterval( intervalId );
++    iotivity.OCStop();
++};
++
++//Exit gracefully when node service is killed
++process.on( "exit", function() {
++    // Tear down the processing loop and stop iotivity
++    clearInterval( intervalId );
++    iotivity.OCStop();
++    console.log("=== client teardown ===");
++} );
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client.txt b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client.txt
+new file mode 100644
+index 000000000..6461d121a
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/client.txt
+@@ -0,0 +1,310 @@
++API Docs - com.example.service.iotivity.client
++
++
++discoverResources
++
++    Discovering available resources from all devices.
++
++    @b Syntax
++    luna://com.example.service.iotivity.client/discoverResources
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        none
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "discoveryResponse" : object,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              discoveryResponse
++    List of discoverd resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        discoveryResponse |Required       |object | list of all resources from all devices
++
++    @b Examples:
++    @code
++    luna-send -n 5 -f luna://com.example.service.iotivity.client/discoverResources '{}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "discoveryResponse": {
++            ...
++        },
++        "returnValue": true
++    }
++    @endcode
++
++
++
++getResource
++
++    Fetch the value of resource from specified URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/getResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++        question    |Required       |string | payload with specifiied question
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              response
++    Detailed information.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Optional       |object | value of requested resource
++        errorText         |Optional       |object | value of error text
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/getResource '{"uri":"/a/fan", "question":"abc","destination": {"adapter": 1,"flags": 32,"ifindex": 2,"port": 54406,"addr": "fe80::ba27:ebff:fe04:f661%eth0"}}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true,
++        "response": {
++            "devAddr": {
++                "adapter": 1,
++                "flags": 82,
++                "ifindex": 0,
++                "port": 34711,
++                "addr": "10.177.242.177"
++            },
++            "connType": 65618,
++            "addr": {
++                "adapter": 1,
++                "flags": 82,
++                "ifindex": 0,
++                "port": 34711,
++                "addr": "10.177.242.177"
++            },
++            "sequenceNumber": 16777216,
++            "result": 0,
++            "identity": [
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49
++            ],
++            "payload": {
++                "type": 4,
++                "values": {
++                    "answer": "123"
++                }
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
++
++
++deleteResource
++
++    Delete resource from specified URI
++
++    @b Syntax
++    luna://com.example.service.iotivity.client/deleteResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string | uri which is removed
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              response
++    Detailed information for removed resources.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Optional       |object | value of requested resource
++        errorText         |Optional       |string | value of error text
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/deleteResource '{"uri":"/a/fan","destination":{"adapter":1,"flags":32,"ifindex":0,"port":35128,"addr":"fe80::ba27:ebff:fe04:f661%eth0"}}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true,
++        "response": {
++            "sequenceNumber": 16777216,
++            "identity": [
++            ],
++            "devAddr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 35128,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "connType": 65568,
++            "result": 2,
++            "addr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 35128,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
++
++
++observeResource
++
++    Observe the value of resource from specified URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/observeResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        subscribe   |Required       |boolean |
++        uri         |Required       |string |
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              response
++    Detailed information for removed resources.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Required       |object | value of requested resource
++        errorText         |Optional       |string | value of error text
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/observeResource '{"uri":"/a/fan","destination":{"adapter":1,"flags":32,"ifindex":0,"port":58941,"addr":"fe80::ba27:ebff:fe04:f661%eth0"},"subscribe":true}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "subscribed": true,
++        "returnValue": true,
++        "response": {
++            "devAddr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 58941,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "connType": 65568,
++            "addr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 58941,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "sequenceNumber": 23,
++            "result": 0,
++            "identity": [
++            ],
++            "payload": {
++                "type": 4,
++                "values": {
++                    "someOtherValue": "Espoo",
++                    "someValue": 18
++                }
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/com.example.service.iotivity.client.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/com.example.service.iotivity.client.json
+new file mode 100644
+index 000000000..b353e54cf
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/com.example.service.iotivity.client.json
+@@ -0,0 +1,3 @@
++{
++  "services" : ["com.example.service.iotivity.client"]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.api.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.api.json
+new file mode 100644
+index 000000000..b0cfca98f
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.api.json
+@@ -0,0 +1,14 @@
++{
++  "public": [
++	"com.example.service.iotivity.client/discoverResources",
++	"com.example.service.iotivity.client/getResource",
++	"com.example.service.iotivity.client/observeResource",
++	"com.example.service.iotivity.client/deleteResource",
++  ],
++  "private": [
++	"com.example.service.iotivity.client/discoverResources",
++	"com.example.service.iotivity.client/getResource",
++	"com.example.service.iotivity.client/observeResource",
++	"com.example.service.iotivity.client/deleteResource",
++  ]
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.manifest.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.manifest.json
+new file mode 100644
+index 000000000..e62142f6c
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.manifest.json
+@@ -0,0 +1,13 @@
++{
++    "roleFiles": [
++        "/usr/share/luna-service2/roles.d/com.example.service.iotivity.client.role.json"
++    ],
++    "id": "com.example.service.iotivity.client",
++    "version": "1.0.0",
++    "clientPermissionFiles": [
++        "/usr/share/luna-service2/client-permissions.d/com.example.service.iotivity.client.perm.json"
++    ],
++    "serviceFiles": [
++        "/usr/share/luna-service2/services.d/com.example.service.iotivity.client.service"
++    ]
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.perm.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.perm.json
+new file mode 100644
+index 000000000..0cc65aad3
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.perm.json
+@@ -0,0 +1,3 @@
++{
++  "com.example.service.iotivity.client" : ["activities.manage"]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.role.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.role.json
+new file mode 100644
+index 000000000..c0f59a027
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.role.json
+@@ -0,0 +1,12 @@
++{
++    "appId" : "com.example.service.iotivity.client",
++    "allowedNames" : ["com.example.service.iotivity.client"],
++    "type" : "regular",
++    "permissions" : [
++	{
++	    "service" : "com.example.service.iotivity.client",
++	    "inbound" : ["*"],
++	    "outbound" : ["*"]
++	}
++    ]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.service b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.service
+new file mode 100644
+index 000000000..cfb62ef86
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/files/sysbus/com.example.service.iotivity.client.service
+@@ -0,0 +1,3 @@
++[D-BUS Service]
++Name = com.example.service.iotivity.client
++Exec = /usr/bin/run-js-service /usr/palm/services/com.example.service.iotivity.client
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/main.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/main.js
+new file mode 100644
+index 000000000..c7f9417b3
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/main.js
+@@ -0,0 +1,474 @@
++/* ******************************************************************
++ *
++ * Copyright (c) 2018 LG Electronics, Inc.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ */
++var Service = require('webos-service');
++var service = new Service('com.example.service.iotivity.client');
++
++var subscriptions = {};
++
++var client = require('./client-lowlevel');
++
++function isEmpty(obj) {
++    for ( var key in obj) {
++        if (obj.hasOwnProperty(key))
++            return false;
++    }
++    return true;
++};
++
++function subscriptionCallback(response) {
++    for (var i in subscriptions){
++        if (subscriptions.hasOwnProperty(i)) {
++            var s = subscriptions[i];
++            s.respond({
++                response : response,
++                returnValue : true,
++                subscribed : true
++            });
++        }
++    }
++};
++
++function validateUri(_uri){
++    if(_uri.charAt(0)!="/")
++        return "/"+_uri;
++    else return _uri;
++}
++
++/*
++    Discovering available resources from all devices.
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/discoverResources
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        none
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "discoveryResponse" : object,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              discoveryResponse
++    List of discoverd resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        discoveryResponse |Required       |object | list of all resources from all devices
++
++    @b Examples:
++    @code
++    luna-send -n 5 -f luna://com.example.service.iotivity.client/discoverResources '{}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "discoveryResponse": {
++            ...
++        },
++        "returnValue": true
++    }
++    @endcode
++*/
++service.register("discoverResources", function(message) {
++    client.startDiscovery(function(response) {
++        message.respond({
++            discoveryResponse : response,
++            returnValue : true
++        });
++    });
++});
++
++/*
++    Fetch the value of resource from specified URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/getResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++        question    |Required       |string | payload with specifiied question
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              response
++    Detailed information.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Optional       |object | value of requested resource
++        errorText         |Optional       |object | value of error text
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/getResource '{"uri":"/a/fan", "question":"abc","destination": {"adapter": 1,"flags": 32,"ifindex": 2,"port": 54406,"addr": "fe80::ba27:ebff:fe04:f661%eth0"}}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true,
++        "response": {
++            "devAddr": {
++                "adapter": 1,
++                "flags": 82,
++                "ifindex": 0,
++                "port": 34711,
++                "addr": "10.177.242.177"
++            },
++            "connType": 65618,
++            "addr": {
++                "adapter": 1,
++                "flags": 82,
++                "ifindex": 0,
++                "port": 34711,
++                "addr": "10.177.242.177"
++            },
++            "sequenceNumber": 16777216,
++            "result": 0,
++            "identity": [
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49,
++                49
++            ],
++            "payload": {
++                "type": 4,
++                "values": {
++                    "answer": "123"
++                }
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
++*/
++service.register("getResource", function(message) {
++    var uri = message.payload.uri;
++    var question = message.payload.question;
++    var destination = message.payload.destination;
++
++    if(!uri){
++        message.respond({
++            errorText : "invalid uri",
++            returnValue : false
++        });
++        return;
++    }
++    else if(!destination
++        || !destination.adapter
++        || !destination.flags
++        || !destination.port
++        || !destination.addr ){
++        message.respond({
++            errorText : "invalid destination formats",
++            returnValue : false
++        });
++        return;
++    }
++    else if(!question){
++        message.respond({
++            errorText : "invalid question",
++            returnValue : false
++        });
++        return;
++    }
++
++    client.getResource(validateUri(uri), destination, question, function(response) {
++        message.respond({
++            response : response,
++            returnValue : true
++        });
++    });
++});
++
++/*
++    Delete resource from specified URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/deleteResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string | uri which is removed
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              response
++    Detailed information for removed resources.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Optional       |object | value of requested resource
++        errorText         |Optional       |string | value of error text
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/deleteResource '{"uri":"/a/fan","destination":{"adapter":1,"flags":32,"ifindex":0,"port":35128,"addr":"fe80::ba27:ebff:fe04:f661%eth0"}}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true,
++        "response": {
++            "sequenceNumber": 16777216,
++            "identity": [
++            ],
++            "devAddr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 35128,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "connType": 65568,
++            "result": 2,
++            "addr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 35128,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
++*/
++service.register("deleteResource", function(message) {
++    var uri = message.payload.uri;
++    var destination = message.payload.destination;
++    if(!uri){
++        message.respond({
++            errorText : "invalid uri",
++            returnValue : false
++        });
++        return;
++    }
++    else if(!destination
++        || !destination.adapter
++        || !destination.flags
++        || !destination.port
++        || !destination.addr ){
++        message.respond({
++            errorText : "invalid destination formats",
++            returnValue : false
++        });
++        return;
++    }
++    client.deleteResource(validateUri(uri), destination, function(response) {
++        message.respond({
++            response : response,
++            returnValue : true
++        });
++    });
++});
++
++/*
++    Observe the value of resource from specified URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.client/observeResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        subscribe   |Required       |boolean |
++        uri         |Required       |string |
++        destination |Required       |object | target device address include adapter, flags, ifindex, port and addr
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "response" : object,
++        "errorText" : string
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful.
++    @param              response
++    Detailed information for removed resources.
++    @param              errorText
++    Describes the error if call was not succesful.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        response          |Required       |object | value of requested resource
++        errorText         |Optional       |string | value of error text
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -n 1 -f luna://com.example.service.iotivity.client/observeResource '{"uri":"/a/fan","destination":{"adapter":1,"flags":32,"ifindex":0,"port":58941,"addr":"fe80::ba27:ebff:fe04:f661%eth0"},"subscribe":true}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "subscribed": true,
++        "returnValue": true,
++        "response": {
++            "devAddr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 58941,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "connType": 65568,
++            "addr": {
++                "adapter": 1,
++                "flags": 32,
++                "ifindex": 2,
++                "port": 58941,
++                "addr": "fe80::ba27:ebff:fe04:f661%eth0"
++            },
++            "sequenceNumber": 23,
++            "result": 0,
++            "identity": [
++            ],
++            "payload": {
++                "type": 4,
++                "values": {
++                    "someOtherValue": "Espoo",
++                    "someValue": 18
++                }
++            },
++            "resourceUri": "/a/fan"
++        }
++    }
++    @endcode
++*/
++var clientObserve = service.register("observeResource");
++clientObserve.on("request", function(message) {
++    var uri = message.payload.uri;
++    var destination = message.payload.destination;
++    if(!uri){
++        message.respond({
++            errorText : "invalid uri",
++            returnValue : false,
++            subscribed : false
++        });
++        return;
++    }
++    else if(!destination
++        || !destination.adapter
++        || !destination.flags
++        || !destination.port
++        || !destination.addr ){
++        message.respond({
++            errorText : "invalid destination formats",
++            returnValue : false,
++            subscribed : false
++        });
++        return;
++    }
++    if (message.isSubscription) {
++        subscriptions[message.uniqueToken] = message;
++        client.observeResource(validateUri(uri), destination, subscriptionCallback);
++    } else {
++        message.respond({
++            returnValue : false,
++            subscribed : false,
++        });
++    }
++});
++clientObserve.on("cancel", function(message) {
++    delete subscriptions[message.uniqueToken];
++    var uri = message.payload.uri;
++    client.cancelObservation(uri);
++    message.respond({
++        returnValue : true,
++        subscribed : false
++    });
++});
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.dat b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.dat
+new file mode 100644
+index 0000000000000000000000000000000000000000..091d84dc8620cc97454e0dcb8f905f14c5753316
+GIT binary patch
+literal 917
+zcmcIiJ95G>5CuY$d!)q-P~`?GQ<73%t+9+PX|yt*(wSTY#!b$Uf>Wf)IYOOi!DN_>
+zi-b(%k>0$OHBawpcOW2t=-$_}fQtP1u|@%?WOqhooFVv43Px+cwwMWR^Z;@cPB|n~
+zIzW2b$kbty4vm6gs2*u@pz@s9BPk9$gfNt5Rb&=jp@@{xy+*j#CS3Y-0B&vle+XyJ
+zEH%2aRC0AQ8BK0^4qBGeUhI681;3GtLTck!C6!^Sk|-90xzdQ1yztZIGe|>QL07`Q
+zOGU=+V<<YY57QL=n2P>I>hq)eL8MJya=6pi9RpRJgaPvo5cq3kw{o9JTqwYwyUxRb
+zUj}uNw<cM>dYiQm2@d7-twu(w>Vz>g?7V5%FGr*BUL$_T?+cgsOZg;sc6V-_S_qF)
+ic(F}UgON(lJf|F5H98d{Czg``xqE5GUmUV}tHV#kkwJO@
+
+literal 0
+HcmV?d00001
+
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.json
+new file mode 100644
+index 000000000..54aeceedb
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/oic_svr_db_client.json
+@@ -0,0 +1,61 @@
++{
++    "acl": {
++        "aclist2": [
++            {
++                "aceid": 1,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [
++                    { "href": "/oic/res" },
++                    { "href": "/oic/d" },
++                    { "href": "/oic/p" },
++                    { "href": "/oic/sec/doxm" }
++                ],
++                "permission": 2
++            },
++            {
++                "aceid": 2,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [
++                    { "href": "/oic/res" },
++                    { "href": "/oic/d" },
++                    { "href": "/oic/p" },
++                    { "href": "/oic/sec/doxm" }
++                ],
++                "permission": 2
++            }
++        ],
++        "rowneruuid" : "31393139-3139-3139-3139-313931393139"
++    },
++    "pstat": {
++        "dos": {"s": 3, "p": false},
++        "isop": true,
++        "rowneruuid": "31393139-3139-3139-3139-313931393139",
++        "cm": 0,
++        "tm": 0,
++        "om": 4,
++        "sm": 4
++        },
++    "doxm": {
++        "oxms": [0],
++        "oxmsel": 0,
++        "sct": 9,
++        "owned": true,
++        "deviceuuid": "31393139-3139-3139-3139-313931393139",
++        "devowneruuid": "31393139-3139-3139-3139-313931393139",
++        "rowneruuid": "31393139-3139-3139-3139-313931393139"
++    },
++    "cred": {
++        "creds": [
++            {
++                "credid": 1,
++                "subjectuuid": "31313131-3131-3131-3131-313131313131",
++                "credtype": 1,
++                "privatedata": {
++                    "data": "BBBBBBBBBBBBBBBB",
++                    "encoding": "oic.sec.encoding.raw"
++                }
++            }
++        ],
++        "rowneruuid": "31393139-3139-3139-3139-313931393139"
++    }
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/package.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/package.json
+new file mode 100644
+index 000000000..6b3539b32
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.client/package.json
+@@ -0,0 +1,4 @@
++{
++   "name" : "com.example.service.iotivity.client",
++   "main" : "main.js"
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/com.example.service.iotivity.server.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/com.example.service.iotivity.server.json
+new file mode 100644
+index 000000000..6ed74bd42
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/com.example.service.iotivity.server.json
+@@ -0,0 +1,3 @@
++{
++  "services" : ["com.example.service.iotivity.server"]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.api.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.api.json
+new file mode 100644
+index 000000000..93e3e476f
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.api.json
+@@ -0,0 +1,12 @@
++{
++  "public": [
++	"com.example.service.iotivity.server/startServer",
++	"com.example.service.iotivity.server/createResource",
++	"com.example.service.iotivity.server/deleteResource",
++  ],
++  "private": [
++	"com.example.service.iotivity.server/startServer",
++	"com.example.service.iotivity.server/createResource",
++	"com.example.service.iotivity.server/deleteResource",
++  ]
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.manifest.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.manifest.json
+new file mode 100644
+index 000000000..0234aefe9
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.manifest.json
+@@ -0,0 +1,13 @@
++{
++    "roleFiles": [
++        "/usr/share/luna-service2/roles.d/com.example.service.iotivity.server.role.json"
++    ],
++    "id": "com.example.service.iotivity.server",
++    "version": "1.0.0",
++    "clientPermissionFiles": [
++        "/usr/share/luna-service2/client-permissions.d/com.example.service.iotivity.server.perm.json"
++    ],
++    "serviceFiles": [
++        "/usr/share/luna-service2/services.d/com.example.service.iotivity.server.service"
++    ]
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.perm.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.perm.json
+new file mode 100644
+index 000000000..5141520bb
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.perm.json
+@@ -0,0 +1,3 @@
++{
++  "com.example.service.iotivity.server" : ["activities.manage"]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.role.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.role.json
+new file mode 100644
+index 000000000..7a4452c35
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.role.json
+@@ -0,0 +1,12 @@
++{
++    "appId" : "com.example.service.iotivity.server",
++    "allowedNames" : ["com.example.service.iotivity.server"],
++    "type" : "regular",
++    "permissions" : [
++	{
++	    "service" : "com.example.service.iotivity.server",
++	    "inbound" : ["*"],
++	    "outbound" : ["*"]
++	}
++    ]
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.service b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.service
+new file mode 100644
+index 000000000..20571c2f7
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/files/sysbus/com.example.service.iotivity.server.service
+@@ -0,0 +1,3 @@
++[D-BUS Service]
++Name = com.example.service.iotivity.server
++Exec = /usr/bin/run-js-service /usr/palm/services/com.example.service.iotivity.server
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/main.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/main.js
+new file mode 100644
+index 000000000..91dc15720
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/main.js
+@@ -0,0 +1,273 @@
++/* ******************************************************************
++ *
++ * Copyright (c) 2018 LG Electronics, Inc.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ */
++var Service = require('webos-service');
++var service = new Service('com.example.service.iotivity.server');
++
++var subscriptions = {};
++
++var server = require('./server-lowlevel');
++
++function isEmpty(obj) {
++    for ( var key in obj) {
++        if (obj.hasOwnProperty(key))
++            return false;
++    }
++    return true;
++};
++
++function subscriptionCallback(response) {
++    for (var i in subscriptions){
++        if (subscriptions.hasOwnProperty(i)) {
++            var s = subscriptions[i];
++            s.respond({
++                response : response,
++                returnValue : true,
++                subscribed : true
++            });
++        }
++    }
++};
++
++function validateUri(_uri){
++    if(_uri.charAt(0)!="/")
++        return "/"+_uri;
++    else return _uri;
++}
++
++/*
++    To Start iotivity server with iotivity-node
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/startServer
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type    | Description
++        ----------------------------------------------------------
++        subscribe   |Required       |boolean |
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "subscribed" : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        subscribed        |Required       |boolean| value of requested resource
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -i -f luna://com.example.service.iotivity.server/startServer '{"subscribe":true}'&
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "resources": [
++        ],
++        "subscribed": true,
++        "returnValue": true
++    }
++    {
++        "resources": [
++            {
++                "interfaces": [
++                    "oic.if.baseline"
++                ],
++                "types": [
++                    "core.fan"
++                ],
++                "uri": "a/fan"
++            }
++        ],
++        "subscribed": true,
++        "returnValue": true
++    }
++    @endcode
++*/
++var serverDiscoverable = service.register("startServer");
++serverDiscoverable.on("request", function(message) {
++    if (message.isSubscription) {
++        if (isEmpty(subscriptions)){
++            subscriptions[message.uniqueToken] = message;
++            server.startServer(subscriptionCallback);
++        } else {
++            subscriptions[message.uniqueToken] = message;
++        }
++    } else {
++        message.respond({
++            returnValue : false,
++            subscribed : false
++        });
++    }
++});
++serverDiscoverable.on("cancel", function(message) {
++    delete subscriptions[message.uniqueToken];
++    if (isEmpty(subscriptions))
++        server.stopServer();
++    message.respond({returnValue : true});
++});
++
++/*
++    To create resource
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/createResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++        types       |Required       |string |
++        question    |Required       |string |
++        answer      |Required       |string |
++        observable  |Required       |boolean|
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -1 -f luna://com.example.service.iotivity.server/createResource '{"uri":"a/fan","question":"abc","answer":"123","observable":true,"types":"core.fan"}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true
++    }
++    @endcode
++*/
++service.register("createResource", function(message){
++    var uri = message.payload.uri;
++    var types = message.payload.types;
++    var interfaces = message.payload.interfaces;
++    var observable = message.payload.observable;
++    var q = message.payload.question;
++    var a = message.payload.answer;
++
++    if( !uri || !types || !q || !a ){
++        message.respond({
++            errorText : "invalid destination formats",
++            returnValue : false,
++            subscribed : false
++        });
++    }
++    else{
++        server.createResource(validateUri(uri), types, q, a, observable, subscriptionCallback);
++        message.respond({ returnValue : true });
++    }
++});
++
++/*
++    To delete resource with specific URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/deleteResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -1 -f luna://com.example.service.iotivity.server/deleteResource '{"uri":"/a/fan"}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true
++    }
++    @endcode
++*/
++service.register("deleteResource", function(message){
++    var uri = message.payload.uri;
++    if(!uri){
++        message.respond({
++            errorText : "invalid uri",
++            returnValue : false,
++            subscribed : false
++        });
++        return;
++    }
++    else{
++        server.deleteResource(validateUri(uri), subscriptionCallback);
++        message.respond({ returnValue : true });
++    }
++});
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/mock-sensor.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/mock-sensor.js
+new file mode 100644
+index 000000000..d30f5a3f6
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/mock-sensor.js
+@@ -0,0 +1,59 @@
++// Copyright 2016 Intel Corporation
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++// This mock sensor implementation triggers an event with some data every once in a while
++
++// Return a random integer between 0 and @upperLimit
++function randomInteger( upperLimit ) {
++	return Math.round( Math.random() * upperLimit );
++}
++
++var _ = {
++	extend: require( "iotivity-node/node_modules/lodash.assignin" ),
++	bind: require( "iotivity-node/node_modules/lodash.bind" )
++};
++
++var possibleStrings = [
++		"Helsinki",
++		"Espoo",
++		"Tampere",
++		"Oulu",
++		"Mikkeli",
++		"Ii"
++	];
++
++var MockSensor = function MockSensor() {
++	function trigger() {
++		this.emit( "change", this.currentData() );
++		setTimeout( _.bind( trigger, this ), randomInteger( 1000 ) + 1000 );
++	}
++	if ( !this._isMockSensor ) {
++		return new MockSensor();
++	}
++	setTimeout( _.bind( trigger, this ), randomInteger( 1000 ) + 1000 );
++};
++
++require( "util" ).inherits( MockSensor, require( "events" ).EventEmitter );
++
++_.extend( MockSensor.prototype, {
++	_isMockSensor: true,
++	currentData: function() {
++		return {
++			someValue: Math.round( Math.random() * 42 ),
++			someOtherValue: possibleStrings[ randomInteger( possibleStrings.length - 1 ) ]
++		};
++	}
++} );
++
++module.exports = MockSensor;
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.dat b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.dat
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8d5f722996cf127d80b07b6c49fd9dfab658eeb
+GIT binary patch
+literal 1371
+zcmcIjL2lbH5VRfl&>!@cORtt>3JKsBv=7K3Ia1t}MOh*Rl8T+9i}oQ2T%he2ddMsK
+zljPiTZ8>!e0ufS_1i4yL+?iQ&?*$jt)#$@!?ya<rec2!vC}B9aZC0Xiw}sG3xtj({
+zuC$tn3b~O6t!|A#`}r0MgLx5aDPq66bMvhWhfcF|>g|q25rbaUWrL=c)=I5L9q=dw
+z+`3{S%uVC|Bk)NGIG}jFSH<I;s{;k^PCE(XP^5r_mm|G-iUe&dVf8+prZXCoz_j1{
+zo1+e(h<RMedEuUsEsb6(G*5A-{`{2U9#6DHJu_}y`fH9%<R1&mWWLtq$~?-r#Y!r~
+z#yajUm)`|wd&lhwZyrEe-8^QZ9%RlBU5_(ck6(qp*r9JhLhwLu>hjk;8M_|jWUv|t
+zE8JToweVO1UQ2=fRagGNVWL>N?GrLb({3kauhQ0KmZ*oM{RUwWu7=+>NFVmo*PN^`
+z)J0dQounT83OY#@JzO+KUUP@Q9ltA32@O)s9i`cqXtZC53||8M^YKU5a$mSo!|IeJ
+z)3f9}O)ir2#J89wvsp4@$pvHN?^%wHSoV0v|G@HR*ZQ)2eqlW_cu)$I%ix9m0SOe`
+A_W%F@
+
+literal 0
+HcmV?d00001
+
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.json
+new file mode 100644
+index 000000000..6a3e227c4
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/oic_svr_db_server.json
+@@ -0,0 +1,90 @@
++{
++    "acl": {
++        "aclist2": [
++            {
++                "aceid": 1,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [
++                    { "href": "/oic/res" },
++                    { "href": "/oic/d" },
++                    { "href": "/oic/p" },
++                    { "href": "/oic/sec/doxm" }
++                ],
++                "permission": 2
++            },
++            {
++                "aceid": 2,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [
++                    { "href": "/oic/res" },
++                    { "href": "/oic/d" },
++                    { "href": "/oic/p" },
++                    { "href": "/oic/sec/doxm" }
++                ],
++                "permission": 2
++            },
++            {
++                "aceid": 3,
++                "subject": { "conntype": "anon-clear" },
++                "resources": [{ "href": "/a/fan" }],
++                "permission": 31
++            },
++			{
++                "aceid": 4,
++                "subject": { "conntype": "auth-crypt" },
++                "resources": [{ "href": "/a/fan" }],
++                "permission": 31
++            },
++            {
++                "aceid": 5,
++                "subject": { "uuid": "31393139-3139-3139-3139-313931393139" },
++                "resources": [{ "href": "/a/light" }],
++                "permission": 31
++            }
++        ],
++        "rowneruuid" : "31313131-3131-3131-3131-313131313131"
++    },
++    "pstat": {
++        "dos": {"s": 3, "p": false},
++        "isop": true,
++        "rowneruuid": "31313131-3131-3131-3131-313131313131",
++        "cm": 0,
++        "tm": 0,
++        "om": 4,
++        "sm": 4
++        },
++    "doxm": {
++        "oxms": [0],
++        "oxmsel": 0,
++        "sct": 9,
++        "owned": true,
++        "deviceuuid": "31313131-3131-3131-3131-313131313131",
++        "devowneruuid": "32323232-3232-3232-3232-323232323232",
++        "rowneruuid": "31313131-3131-3131-3131-313131313131"
++    },
++    "cred": {
++        "creds": [
++            {
++                "credid": 1,
++                "subjectuuid": "32323232-3232-3232-3232-323232323232",
++                "credtype": 1,
++                "period": "20150630T060000/20990920T220000",
++                "privatedata": {
++                    "data": "AAAAAAAAAAAAAAAA",
++                    "encoding": "oic.sec.encoding.raw"
++                }
++            },
++            {
++                "credid": 2,
++                "subjectuuid": "31393139-3139-3139-3139-313931393139",
++                "credtype": 1,
++                "period": "20150630T060000/20990920T220000",
++                "privatedata": {
++                    "data": "BBBBBBBBBBBBBBBB",
++                    "encoding": "oic.sec.encoding.raw"
++                }
++            }
++        ],
++        "rowneruuid": "32323232-3232-3232-3232-323232323232"
++    }
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/package.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/package.json
+new file mode 100644
+index 000000000..1dc53216d
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/package.json
+@@ -0,0 +1,4 @@
++{
++   "name" : "com.example.service.iotivity.server",
++   "main" : "main.js"
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
+new file mode 100644
+index 000000000..171fec439
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
+@@ -0,0 +1,226 @@
++/* ******************************************************************
++ *
++ * Copyright (c) 2018 LG Electronics, Inc.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++ */
++var intervalId, initialResourceCount;
++var iotivity = require("iotivity-node/lowlevel");
++var StorageHandler = require("iotivity-node/lib/CustomStorageHandler");
++
++module.exports.startServer = function(resourceCallback) {
++    console.log("Starting OCF stack in server mode");
++
++    iotivity.OCRegisterPersistentStorageHandler(StorageHandler("oic_svr_db_server.dat"));
++
++    // Start iotivity and set up the processing loop
++    iotivity.OCInit(null, 0, iotivity.OCMode.OC_SERVER);
++
++    intervalId = setInterval(function() {
++        iotivity.OCProcess();
++    }, 1000);
++
++    iotivity.OCSetPropertyValue(iotivity.OCPayloadType.PAYLOAD_TYPE_DEVICE,
++                    iotivity.OC_RSRVD_SPEC_VERSION, "res.1.3.0");
++    iotivity.OCSetPropertyValue(iotivity.OCPayloadType.PAYLOAD_TYPE_DEVICE,
++                    iotivity.OC_RSRVD_DATA_MODEL_VERSION, "webosose.1.0.0");
++    iotivity.OCSetPropertyValue(iotivity.OCPayloadType.PAYLOAD_TYPE_DEVICE,
++                    iotivity.OC_RSRVD_DEVICE_NAME, "server.example");
++    iotivity.OCSetPropertyValue(iotivity.OCPayloadType.PAYLOAD_TYPE_PLATFORM,
++                    iotivity.OC_RSRVD_MFG_NAME, "lge-iotivity-node");
++
++    console.log("Server ready");
++
++    var countReceptacle = {};
++    var result = iotivity.OCGetNumberOfResources(countReceptacle);
++    initialResourceCount = countReceptacle.count;
++    updateServerStatus(resourceCallback);
++
++};
++
++module.exports.createResource = function(uri, types, q, a, observable, resourceCallback) {
++    console.log("Registering resources");
++
++    var handleReceptacle = {};
++    var observerIds = [];
++    var properties = iotivity.OCResourceProperty.OC_DISCOVERABLE
++        | iotivity.OCResourceProperty.OC_SECURE;
++
++    if(observable){
++        properties= properties|iotivity.OCResourceProperty.OC_OBSERVABLE;
++    }
++
++    var sensor = require( "./mock-sensor" )()
++        .on( "change", function( data ) {
++            iotivity.OCNotifyListOfObservers(
++                handleReceptacle.handle,
++                observerIds,
++                {
++                    type: iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
++                    values: data
++                },
++                iotivity.OCQualityOfService.OC_HIGH_QOS );
++        }
++    );
++
++    iotivity.OCCreateResource(
++
++        // The bindings fill in this object
++        handleReceptacle,
++        types,
++        iotivity.OC_RSRVD_INTERFACE_DEFAULT,
++        uri,
++        function( flag, request ) {
++            console.log( "Entity handler called with flag = " + flag + " and the following request:" );
++            console.log( JSON.stringify( request, null, 4 ) );
++
++            // If we find the magic question in the request, we return the magic answer
++            if ( request && request.payload && request.payload.values &&
++                request.payload.values.question===q) {
++                iotivity.OCDoResponse( {
++                    requestHandle: request.requestHandle,
++                    resourceHandle: request.resource,
++                    ehResult: iotivity.OCEntityHandlerResult.OC_EH_OK,
++                    payload: {
++                        type: iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
++                        values: {
++                            "answer": a
++                        }
++                    },
++                    resourceUri: uri,
++                    sendVendorSpecificHeaderOptions: []
++                } );
++
++                return iotivity.OCEntityHandlerResult.OC_EH_OK;
++            }
++            if ( request && request.method === iotivity.OCMethod.OC_REST_DELETE ) {
++
++                var result = iotivity.OCDeleteResource( handleReceptacle.handle );
++
++                console.log( "OCDeleteResource() has resulted in " + result );
++
++                iotivity.OCDoResponse( {
++                    requestHandle: request.requestHandle,
++                    resourceHandle: null,
++                    ehResult: result ?
++                        iotivity.OCEntityHandlerResult.OC_EH_ERROR :
++                        iotivity.OCEntityHandlerResult.OC_EH_RESOURCE_DELETED,
++                    payload: null,
++                    resourceUri: uri,
++                    sendVendorSpecificHeaderOptions: []
++                } );
++
++                return iotivity.OCEntityHandlerResult.OC_EH_OK;
++            }
++            if ( flag & iotivity.OCEntityHandlerFlag.OC_OBSERVE_FLAG ) {
++                if ( request.obsInfo.obsId !== 0 ) {
++                    if ( request.obsInfo.action === iotivity.OCObserveAction.OC_OBSERVE_REGISTER ) {
++
++                        // Add new observer to list.
++                        observerIds.push( request.obsInfo.obsId );
++                    } else if ( request.obsInfo.action ===
++                            iotivity.OCObserveAction.OC_OBSERVE_DEREGISTER ) {
++
++                        // Remove requested observer from list.
++                        observerIdIndex = observerIds.indexOf( request.obsInfo.obsId );
++                        if ( observerIdIndex >= 0 ) {
++                            observerIds.splice( observerIdIndex, 1 );
++                        }
++                    }
++                }
++            }
++            if ( request.requestHandle ) {
++                iotivity.OCDoResponse( {
++                    requestHandle: request.requestHandle,
++                    resourceHandle: request.resource,
++                    ehResult: iotivity.OCEntityHandlerResult.OC_EH_OK,
++                    payload: {
++                        type: iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
++                        values: sensor.currentData()
++                    },
++                    resourceUri: uri,
++                    sendVendorSpecificHeaderOptions: []
++                } );
++            }
++
++        // By default we error out
++        return iotivity.OCEntityHandlerResult.OC_EH_OK;
++    }, properties);
++
++    console.log(uri + " resource ready");
++
++    updateServerStatus(resourceCallback);
++};
++
++function updateServerStatus(resourceCallback) {
++    var countReceptacle = {};
++    var result = iotivity.OCGetNumberOfResources(countReceptacle);
++    var resources = [];
++    for (var index = initialResourceCount; index < countReceptacle.count; index++) {
++        var resource = {};
++        resource.types = [];
++        resource.interfaces = [];
++
++        var handle = iotivity.OCGetResourceHandle(index);
++        resource.uri = iotivity.OCGetResourceUri(handle);
++
++        var countRecep = {};
++        result = iotivity.OCGetNumberOfResourceTypes(handle, countRecep);
++        for (var i = 0; i < countRecep.count; i++) {
++            resource.types[i] = iotivity.OCGetResourceTypeName(handle, i);
++        }
++
++        result = iotivity.OCGetNumberOfResourceInterfaces(handle, countRecep);
++        for (i = 0; i < countRecep.count; i++) {
++            resource.interfaces[i] = iotivity.OCGetResourceInterfaceName(handle, i);
++        }
++
++        resources[index - initialResourceCount] = resource;
++    }
++    resourceCallback(resources);
++};
++
++module.exports.stopServer = function() {
++    // Tear down the processing loop and stop iotivity
++    clearInterval(intervalId);
++    iotivity.OCStop();
++    console.log("=== server teardown ===");
++};
++
++module.exports.deleteResource = function(uri, resourceCallback) {
++    var countReceptacle = {};
++    var handle;
++
++    var result = iotivity.OCGetNumberOfResources(countReceptacle);
++    var count = countReceptacle.count;
++    for (var index = initialResourceCount; index < count; index++) {
++        handle = iotivity.OCGetResourceHandle(index);
++        if (uri == null) {
++            iotivity.OCDeleteResource(handle);
++            index--;
++            count--;
++            continue;
++        }
++
++        if (uri == iotivity.OCGetResourceUri(handle)) {
++            iotivity.OCDeleteResource(handle);
++            break;
++        }
++    }
++
++    updateServerStatus(resourceCallback);
++};
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server.txt b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server.txt
+new file mode 100644
+index 000000000..35144825c
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server.txt
+@@ -0,0 +1,167 @@
++API Docs - com.exampel.service.iotivity.server
++
++
++startServer
++
++    To Start iotivity server with iotivity-node
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/startServer
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type    | Description
++        ----------------------------------------------------------
++        subscribe   |Required       |boolean |
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++        "subscribed" : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++        subscribed        |Required       |boolean| value of requested resource
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -i -f luna://com.example.service.iotivity.server/startServer '{"subscribe":true}'&
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "resources": [
++        ],
++        "subscribed": true,
++        "returnValue": true
++    }
++    {
++        "resources": [
++            {
++                "interfaces": [
++                    "oic.if.baseline"
++                ],
++                "types": [
++                    "core.fan"
++                ],
++                "uri": "a/fan"
++            }
++        ],
++        "subscribed": true,
++        "returnValue": true
++    }
++    @endcode
++
++
++createResource
++
++    To create resource
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/createResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++        types       |Required       |string |
++        question    |Required       |string |
++        answer      |Required       |string |
++        observable  |Optional       |boolean|
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -1 -f luna://com.example.service.iotivity.server/createResource '{"uri":"a/fan","question":"abc","answer":"123","observable":true,"types":"core.fan"}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true
++    }
++    @endcode
++
++
++deleteResource
++
++    To delete resource with specific URI
++
++    @b Syntax \n
++    luna://com.example.service.iotivity.server/deleteResource
++
++    @code
++    {
++    }
++    @endcode
++    @param
++        Parameter   |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        uri         |Required       |string |
++
++    @return
++    <b> For a call: </b>
++    @code
++    {
++        "returnValue"   : boolean,
++    }
++
++    @endcode
++    @param              returnValue
++    Indicates if the call was succesful or not.
++    @param              subscribed
++    Detailed information for removed resources.
++
++        Parameter         |Requirement    |Type   | Description
++        ----------------------------------------------------------
++        returnValue       |Required       |boolean| true means success, false means faild
++    @remarks
++    The \e returnValue will be true as long as the syntax is correct, even if the process ID is not a valid one.
++
++    @b Examples:
++    @code
++    luna-send -1 -f luna://com.example.service.iotivity.server/deleteResource '{"uri":"/a/fan"}'
++    @endcode
++
++    Example response for a succesful call:
++    @code
++    {
++        "returnValue": true
++    }
++    @endcode
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
+new file mode 100644
+index 000000000..47081fe93
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
+@@ -0,0 +1,27 @@
++import kind from '@enact/core/kind';
++import MoonstoneDecorator from '@enact/moonstone/MoonstoneDecorator';
++import Panels from '@enact/moonstone/Panels';
++import React from 'react';
++
++import MainPanel from '../views/MainPanel';
++
++import css from './App.less';
++
++const App = kind({
++	name: 'App',
++
++	styles: {
++		css,
++		className: 'app'
++	},
++
++	render: (props) => (
++		<div {...props}>
++			<Panels>
++				<MainPanel />
++			</Panels>
++		</div>
++	)
++});
++
++export default MoonstoneDecorator(App);
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
+new file mode 100755
+index 000000000..23782defd
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
+@@ -0,0 +1,3 @@
++.app {
++	// styles can be put here
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/package.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/package.json
+new file mode 100755
+index 000000000..add0ba2a3
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/package.json
+@@ -0,0 +1,3 @@
++{
++	"main": "App.js"
++}
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionCreators.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionCreators.js
+new file mode 100644
+index 000000000..a7ea88583
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionCreators.js
+@@ -0,0 +1,269 @@
++import * as actions from './ActionTypes';
++import LS2Request from '@enact/webos/LS2Request';
++
++const ls2instances = {};
++
++export const LS2RequestSingleton = {
++	instance: function (skey, preventRepeat) {
++		if (preventRepeat && ls2instances[skey]) {
++			return false;
++		}
++
++		ls2instances[skey] = ls2instances[skey] || new LS2Request();
++		return ls2instances[skey];
++	},
++	deleteInstance: function (skey) {
++		ls2instances[skey] = null;
++	}
++};
++
++export function actionUpdateServerState (tf) {
++	return {
++		type: actions.UPDATE_SERVER,
++		payload: {"enabled":tf}
++	};
++}
++
++export function actionUpdateDiscoveredList (res) {
++	if(!res.addr){
++		setTimeout(function() {
++			const ls = LS2RequestSingleton.instance('discoverResources');
++			if (ls) {
++				ls.cancel();
++				LS2RequestSingleton.deleteInstance('discoverResources');
++			}
++		}, 5000, null)
++		return {
++			type: actions.SHOW_RESOURCES_LIST,
++			payload: res
++		};
++	}
++	else{
++		return {
++			type: actions.UPDATE_DISCOVERED_RESOURCES,
++			payload: res
++		};
++	}
++}
++
++export function actionResetDiscoveredList () {
++	return {
++		type: actions.RESET_DISCOVERED_RESOURCES,
++	};
++}
++
++export function actionEnableServerResourceControlUI(){
++	return {
++		type: actions.SHOW_SERVER_RESOURCE_CONTROL_UI,
++	};
++}
++
++export function actionDisableServerResourceControlUI(){
++	return {
++		type: actions.HIDE_SERVER_RESOURCE_CONTROL_UI,
++	};
++}
++
++export function actionEnableClientResourceControlUI(){
++	return {
++		type: actions.SHOW_CLIENT_RESOURCE_CONTROL_UI,
++	};
++}
++
++export function actionDisableClientResourceControlUI(){
++	return {
++		type: actions.HIDE_CLIENT_RESOURCE_CONTROL_UI,
++	};
++}
++
++export function actionUpdateGetResourceResults(result){
++	return {
++		type: actions.UPDATE_GET_RESOURCE_RESULTS,
++		payload: result
++	};
++}
++
++export function actionUpdateObserveResourceResults(result){
++	return {
++		type: actions.UPDATE_OBSERVE_RESOURCE_RESULTS,
++		payload: result
++	};
++}
++
++export const createToast = params => {
++	console.log('createToast');
++	return new LS2Request().send({
++		service: 'luna://com.webos.notification/',
++		method: 'createToast',
++		parameters:{noaction:true, message:params},
++		onComplete: (res) => {
++			console.log(res);
++			return;
++		}
++	});
++};
++
++export const startServer = (dispatch) =>  {
++	const ls = LS2RequestSingleton.instance('startServer', true);
++	if (ls) {
++		ls.send({
++			service: 'luna://com.example.service.iotivity.server/',
++			method: 'startServer',
++			parameters: {
++				subscribe: true
++			},
++			onComplete: (res) => {
++				if (res.subscribed) {
++					dispatch(actionUpdateServerState(true));
++					return;
++				}
++			},
++		});
++	}
++};
++
++export const stopServer = (dispatch) =>  {
++	const ls = LS2RequestSingleton.instance('startServer');
++	if (ls) {
++		ls.cancel();
++		dispatch(actionUpdateServerState(false));
++		dispatch(actionResetDiscoveredList([]));
++		LS2RequestSingleton.deleteInstance('startServer');
++	}
++};
++
++export const discoverResources = (dispatch) =>  {
++	const ls = LS2RequestSingleton.instance('discoverResources', true);
++	if (ls) {
++		ls.send({
++			service: 'luna://com.example.service.iotivity.client/',
++			method: 'discoverResources',
++			parameters: {
++				subscribe: true
++			},
++			onComplete: (res) => {
++				dispatch(actionUpdateDiscoveredList(res.discoveryResponse));
++			},
++		});
++	}
++};
++
++export const resetDiscoveredList = (dispatch) =>  {
++	const ls = LS2RequestSingleton.instance('discoverResources');
++	const ls2 = LS2RequestSingleton.instance('observeResource');
++	if (ls) {
++		ls.cancel();
++		dispatch(actionResetDiscoveredList([]));
++		LS2RequestSingleton.deleteInstance('discoverResources');
++	}
++	if (ls2) {
++		ls2.cancel();
++		dispatch(actionResetDiscoveredList([]));
++		LS2RequestSingleton.deleteInstance('observeResource');
++	}
++};
++
++export const createResource = params => dispatch => {
++	console.log('createResource');
++	return new LS2Request().send({
++		service: 'luna://com.example.service.iotivity.server/',
++		method: 'createResource',
++		parameters:params,
++		onComplete: (res) => {
++			if(res.returnValue){
++				createToast(params.uri +" resource is ready");
++				console.log(res);
++				dispatch(actionEnableServerResourceControlUI());
++				return;
++			}
++		}
++	});
++};
++
++export const deleteResource = params => dispatch => {
++	console.log('deleteServerResource');
++	return new LS2Request().send({
++		service: 'luna://com.example.service.iotivity.server/',
++		method: 'deleteResource',
++		parameters:params,
++		onComplete: (res) => {
++			if(res.returnValue){
++				createToast(params.uri +" resource is deleted");
++				console.log(res);
++				dispatch(actionEnableServerResourceControlUI());
++				return;
++			}
++		}
++	});
++};
++
++export const getResource = params => dispatch => {
++	console.log('getResource');
++	return new LS2Request().send({
++		service: 'luna://com.example.service.iotivity.client/',
++		method: 'getResource',
++		parameters:params,
++		onComplete: (res) => {
++			console.log(res);
++			if(res.response.payload){
++				dispatch(actionUpdateGetResourceResults(res.response));
++			}
++			else{
++				createToast("Fail to get resource");
++				dispatch(actionEnableClientResourceControlUI());
++			}
++			return;
++		}
++	});
++};
++
++export const requestDeleteResource = params => dispatch => {
++	console.log('requestDeleteResource');
++	return new LS2Request().send({
++		service: 'luna://com.example.service.iotivity.client/',
++		method: 'deleteResource',
++		parameters:params,
++		onComplete: (res) => {
++			if(res.returnValue){
++				createToast(params.uri +" resource is deleted");
++				console.log(res);
++				dispatch(actionDisableClientResourceControlUI());
++				return;
++			}
++		}
++	});
++};
++
++export const observeResource = params => dispatch => {
++	const ls = LS2RequestSingleton.instance('observeResource', true);
++	if (ls) {
++		ls.send({
++			service: 'luna://com.example.service.iotivity.client/',
++			method: 'observeResource',
++			parameters: {
++				subscribe:true,
++				uri:params.uri,
++				destination:params.destination
++			},
++			onComplete: (res) => {
++				console.log(res);
++				if(res.response.payload){
++					dispatch(actionUpdateGetResourceResults(res.response));
++				}
++				else{
++					createToast("Fail to observe resource");
++					dispatch(actionEnableClientResourceControlUI());
++				}
++				return;
++			}
++		});
++	}
++};
++
++export const stopObserveResource = () =>  {
++	const ls = LS2RequestSingleton.instance('observeResource');
++	if (ls) {
++		ls.cancel();
++		LS2RequestSingleton.deleteInstance('observeResource');
++	}
++};
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionTypes.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionTypes.js
+new file mode 100644
+index 000000000..0db73d2da
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/actions/ActionTypes.js
+@@ -0,0 +1,10 @@
++export const UPDATE_SERVER = 'UPDATE_SERVER';
++export const UPDATE_DISCOVERED_RESOURCES = 'UPDATE_DISCOVERED_RESOURCES';
++export const RESET_DISCOVERED_RESOURCES = 'RESET_DISCOVERED_RESOURCES';
++export const HIDE_SERVER_RESOURCE_CONTROL_UI = 'HIDE_SERVER_RESOURCE_CONTROL_UI';
++export const SHOW_SERVER_RESOURCE_CONTROL_UI = 'SHOW_SERVER_RESOURCE_CONTROL_UI';
++export const HIDE_CLIENT_RESOURCE_CONTROL_UI = 'HIDE_CLIENT_RESOURCE_CONTROL_UI';
++export const SHOW_CLIENT_RESOURCE_CONTROL_UI = 'SHOW_CLIENT_RESOURCE_CONTROL_UI';
++export const UPDATE_GET_RESOURCE_RESULTS='UPDATE_GET_RESOURCE_RESULTS';
++export const UPDATE_OBSERVE_RESOURCE_RESULTS='UPDATE_OBSERVE_RESOURCE_RESULTS';
++export const SHOW_RESOURCES_LIST='SHOW_RESOURCES_LIST';
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/index.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/index.js
+new file mode 100644
+index 000000000..34af1bedb
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/index.js
+@@ -0,0 +1,40 @@
++import React from 'react';
++import {render} from 'react-dom';
++import {createStore, applyMiddleware, compose} from 'redux';
++import {Provider} from 'react-redux';
++import reducer from './reducer/Reducer';
++import thunkMiddleware from 'redux-thunk';
++
++import App from './App';
++
++const composeEnhancers = (typeof window === 'object' && window.__REDUX_DEVTOOLS_EXTENSION_COMPOSE__) || compose;
++
++function configureStore (initialState) {
++	const ret = createStore(
++		reducer,
++		initialState,
++		composeEnhancers(
++			applyMiddleware(thunkMiddleware)
++		)
++	);
++
++	return ret;
++}
++
++const store = configureStore();
++
++let appElement = (
++	<Provider store={store}>
++		<App />
++	</Provider>
++);
++
++// In a browser environment, render instead of exporting
++if (typeof window !== 'undefined') {
++	render(
++		appElement,
++		document.getElementById('root')
++	);
++}
++
++export default appElement;
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/reducer/Reducer.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/reducer/Reducer.js
+new file mode 100644
+index 000000000..1244a0960
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/reducer/Reducer.js
+@@ -0,0 +1,45 @@
++import * as actions from './../actions/ActionTypes';
++
++const initialState = {
++	serverEnabled:false,
++	discoveredResources:null,
++	showDiscoveredResources:false,
++	enableServerResourceControlUI:true,
++	enableClientResourceControlUI:true,
++	detailResourceInfo:null,
++};
++
++let arr=[];
++
++export function reducer (state = initialState, action) {
++	switch (action.type) {
++		case actions.UPDATE_SERVER:
++			return Object.assign({}, state, {serverEnabled: action.payload.enabled});
++		case actions.UPDATE_DISCOVERED_RESOURCES:
++			if(action.payload.addr){
++				arr.push(action.payload);
++				return Object.assign({}, state, {discoveredResources: arr});
++			}
++			return state;
++		case actions.SHOW_RESOURCES_LIST:
++			return Object.assign({}, state, {showDiscoveredResources: true});
++		case actions.RESET_DISCOVERED_RESOURCES:
++			arr=[];
++			return Object.assign({}, state, {showDiscoveredResources: false, discoveredResources: null, detailResourceInfo:null});
++		case actions.HIDE_SERVER_RESOURCE_CONTROL_UI:
++			return Object.assign({}, state, {enableServerResourceControlUI: false});
++		case actions.SHOW_SERVER_RESOURCE_CONTROL_UI:
++			return Object.assign({}, state, {enableServerResourceControlUI: true});
++		case actions.HIDE_CLIENT_RESOURCE_CONTROL_UI:
++			return Object.assign({}, state, {enableClientResourceControlUI: false});
++		case actions.SHOW_CLIENT_RESOURCE_CONTROL_UI:
++			return Object.assign({}, state, {enableClientResourceControlUI: true, detailResourceInfo:null});
++		case actions.UPDATE_GET_RESOURCE_RESULTS:
++		case actions.UPDATE_OBSERVE_RESOURCE_RESULTS:
++			return Object.assign({}, state, {detailResourceInfo: action.payload.payload});
++		default:
++			return state;
++	}
++}
++
++export default reducer;
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Client.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Client.js
+new file mode 100644
+index 000000000..7357f6942
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Client.js
+@@ -0,0 +1,204 @@
++import React from 'react';
++import {connect} from 'react-redux';
++import PropTypes from 'prop-types';
++
++import Button from '@enact/moonstone/Button';
++import Divider from '@enact/moonstone/Divider';
++import CheckboxItem from '@enact/moonstone/CheckboxItem';
++import BodyText from '@enact/moonstone/BodyText';
++import SpotlightContainerDecorator from '@enact/moonstone/Scroller';
++import ExpandableInput from '@enact/moonstone/ExpandableInput';
++
++import * as ActionCreators from '../actions/ActionCreators';
++
++import Changeable from '@enact/ui/Changeable';
++import {Group} from '@enact/ui/Group';
++import {Layout} from '@enact/ui/Layout';
++
++const SelectableGroup = Changeable({mutable: true}, Group);
++let discoveredItems=[];
++
++class Client extends React.Component {
++	constructor (props) {
++		super(props);
++		this.state = {
++			isSelectDiscoveredItem:false,
++			selectedDiscoveredItemIndex:null,
++			resourceUri:null,
++			resourceQuestion:null,
++			requestResourceCompleted:true,
++		};
++	}
++	componentWillReceiveProps (props) {
++		console.log(props);
++		if(props.discoveredResources&&props.discoveredResources.length>0){
++			discoveredItems=[];
++			for(let i=0; i<props.discoveredResources.length; i++){
++				discoveredItems.push({
++					value:props.discoveredResources[i],
++					children:props.discoveredResources[i].addr.addr+" (port:"+props.discoveredResources[i].addr.port+")",
++				});
++			}
++		}
++		else {
++			discoveredItems=[];
++			this.setState({
++				isSelectDiscoveredItem:false,
++			});
++		}
++	}
++	resourceUriChanged(ev){
++		this.setState({
++			resourceUri: ev.value,
++			requestResourceCompleted:false,
++		});
++		console.log(this.state.resourceUri);
++	}
++	resourceQuestionChanged(ev){
++		this.setState({
++			resourceQuestion: ev.value,
++			requestResourceCompleted:false,
++		});
++		console.log(this.state.resourceQuestion);
++	}
++	getResource(){
++		let param={
++			uri:this.state.resourceUri,
++			question:this.state.resourceQuestion,
++			destination:this.state.selectedDiscoveredItemIndex.addr
++		}
++		this.props.actionDisableClientResourceControlUI();
++		this.props.getResource(param);
++		this.setState({
++			resourceUri: null,
++			resourceQuestion: null,
++			requestResourceCompleted:true,
++			isSelectDiscoveredItem:false,
++			selectedDiscoveredItemIndex: null,
++		});
++	}
++	requestDeleteResource(){
++		let param={
++			uri:this.state.resourceUri,
++			destination:this.state.selectedDiscoveredItemIndex.addr
++		}
++		this.props.actionDisableClientResourceControlUI();
++		this.props.requestDeleteResource(param);
++		this.setState({
++			resourceUri: null,
++			resourceQuestion: null,
++			resourceCompleted:true,
++			isSelectDiscoveredItem:false,
++			selectedDiscoveredItemIndex: null,
++		});
++	}
++	requestObserveResource(){
++		let param={
++			uri:this.state.resourceUri,
++			destination:this.state.selectedDiscoveredItemIndex.addr,
++		}
++		this.props.actionDisableClientResourceControlUI();
++		this.props.requestObserveResource(param);
++		this.setState({
++			resourceUri: null,
++			resourceQuestion: null,
++			resourceCompleted:true,
++			isSelectDiscoveredItem:false,
++			selectedDiscoveredItemIndex: null,
++		});
++	}
++	onSelectedResource (ev){
++		console.log(ev);
++		for(let i=0 ; i<this.props.discoveredResources.length; i++){
++			if(JSON.stringify(this.props.discoveredResources[i]).indexOf(ev.data.slice(0,30))>0){
++				console.log(this.props.discoveredResources[i]);
++				this.setState({
++					isSelectDiscoveredItem:true,
++					selectedDiscoveredItemIndex:this.props.discoveredResources[i]
++				});
++				console.log(this.state.selectedDiscoveredItemIndex);
++			}
++		}
++		this.props.actionEnableClientResourceControlUI();
++	}
++	render() {
++		const {discoveredResources,showDiscoveredResources,enableClientResourceControlUI,detailResourceInfo,...rest} = this.props;
++		const onToggleHandler=this.onSelectedResource.bind(this);
++		const onResourceUriChanged = this.resourceUriChanged.bind(this);
++		const onResourceQuestionChanged = this.resourceQuestionChanged.bind(this);
++		const onGetResourceTapped = this.getResource.bind(this);
++		const onDeleteResourceTapped = this.requestDeleteResource.bind(this);
++		const onObserveResourceTapped = this.requestObserveResource.bind(this);
++		return(
++			<div>
++				<Layout align="start">
++					{showDiscoveredResources?
++					<SpotlightContainerDecorator focusableScrollbar style={{"height":210+"px"}} direction="both" horizontalScrollbar="auto" verticalScrollbar="auto">
++						<SelectableGroup
++							childComponent={CheckboxItem}
++							onSelect={onToggleHandler}
++							selectedProp="selected"
++							select="radio"
++						>
++						{discoveredItems}
++						</SelectableGroup>
++						<div style={{"paddingTop": 9+"px"}} >
++							<Button small onClick={this.props.resetDiscoveredList}>OK</Button>
++						</div>
++
++					</SpotlightContainerDecorator>
++					:<Button small onClick={this.props.discoverResources}>Discover Resources</Button>
++					}
++				</Layout>
++				<Divider />
++				<Layout align="start">
++					{this.state.isSelectDiscoveredItem&&enableClientResourceControlUI?
++					<SpotlightContainerDecorator focusableScrollbar style={{"height":600+"px"}} direction="both" horizontalScrollbar="auto" verticalScrollbar="auto">
++						<div>{JSON.stringify(this.state.selectedDiscoveredItemIndex.payload,null,4)}</div>
++						<ExpandableInput title="uri" onChange={onResourceUriChanged} />
++						<ExpandableInput title="question" onChange={onResourceQuestionChanged} />
++						<div style={{"paddingTop": 9+"px"}}>
++							<Button disabled={this.state.resourceUri&&this.state.resourceQuestion?false:true} small onClick={onGetResourceTapped}>get resource</Button>
++							<Button disabled={this.state.resourceUri?false:true} small onClick={onDeleteResourceTapped}>delete resource</Button>
++							<Button disabled={this.state.resourceUri?false:true} small onClick={onObserveResourceTapped}>observe resource</Button>
++						</div>
++					</SpotlightContainerDecorator>
++					:null}
++					{detailResourceInfo?
++					<SpotlightContainerDecorator focusableScrollbar style={{"height":600+"px"}} direction="both" horizontalScrollbar="auto" verticalScrollbar="auto">
++						<BodyText>{JSON.stringify(detailResourceInfo,null,4)}</BodyText>
++					</SpotlightContainerDecorator>
++					:null}
++				</Layout>
++			</div>
++		)
++	}
++}
++Client.propTypes = {
++	getResource: PropTypes.func,
++	requestDeleteResource: PropTypes.func,
++	requestObserveResource: PropTypes.func,
++	discoverResources: PropTypes.func,
++	resetDiscoveredList: PropTypes.func,
++	actionDisableCreateResourceUI: PropTypes.func,
++};
++const mapDispatchToProps = (dispatch) => {
++	return {
++		getResource: (params) => dispatch(ActionCreators.getResource(params)),
++		requestDeleteResource: (params) => dispatch(ActionCreators.requestDeleteResource(params)),
++		requestObserveResource: (params) => dispatch(ActionCreators.observeResource(params)),
++		discoverResources: () => ActionCreators.discoverResources(dispatch),
++		resetDiscoveredList: () => ActionCreators.resetDiscoveredList(dispatch),
++		actionDisableClientResourceControlUI: () => dispatch(ActionCreators.actionDisableClientResourceControlUI()),
++		actionEnableClientResourceControlUI: () => dispatch(ActionCreators.actionEnableClientResourceControlUI()),
++	};
++};
++let mapStateToProps = (state) => {
++	return {
++		discoveredResources:state.discoveredResources,
++		showDiscoveredResources:state.showDiscoveredResources,
++		detailResourceInfo:state.detailResourceInfo,
++		enableClientResourceControlUI:state.enableClientResourceControlUI,
++	};
++};
++export default connect(mapStateToProps, mapDispatchToProps)(Client);
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/MainPanel.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/MainPanel.js
+new file mode 100644
+index 000000000..26b85fc2c
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/MainPanel.js
+@@ -0,0 +1,31 @@
++import React from 'react';
++import kind from '@enact/core/kind';
++
++import {Panel, Header} from '@enact/moonstone/Panels';
++import Divider from '@enact/moonstone/Divider';
++
++import Server from './Server';
++import Client from './Client';
++
++import {Layout, Cell} from '@enact/ui/Layout';
++
++const MainPanel = kind({
++	name: 'MainPanel',
++	render: () => (
++		<Panel>
++			<Header title="iotivity sampler" type="compact" />
++			<Layout align="start">
++				<Cell>
++					<Divider casing="word">Server role</Divider>
++					<Server />
++				</Cell>
++				<Cell>
++					<Divider casing="word">Client role</Divider>
++					<Client />
++				</Cell>
++			</Layout>
++		</Panel>
++	)
++});
++
++export default MainPanel;
+\ No newline at end of file
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Server.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Server.js
+new file mode 100644
+index 000000000..eb501680e
+--- /dev/null
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/views/Server.js
+@@ -0,0 +1,186 @@
++import React from 'react';
++import {connect} from 'react-redux';
++import PropTypes from 'prop-types';
++
++import {MarqueeText} from '@enact/moonstone/Marquee';
++import Button from '@enact/moonstone/Button';
++import Divider from '@enact/moonstone/Divider';
++import ExpandableList from '@enact/moonstone/ExpandableList';
++import ExpandableInput from '@enact/moonstone/ExpandableInput';
++import SwitchItem from '@enact/moonstone/SwitchItem';
++
++import * as ActionCreators from '../actions/ActionCreators';
++
++import {Layout, Cell} from '@enact/ui/Layout';
++
++class Server extends React.Component {
++	constructor (props) {
++		super(props);
++		this.state = {
++			resourceUri: null,
++			resourceType: null,
++			resourceQuestion: null,
++			resourceAnswer:null,
++			resourceUpdateCompleted:true,
++			resourceObservable:false,
++		};
++	}
++	resourceTypeChanged(ev){
++		this.setState({
++			resourceType: ev.data,
++			resourceUpdateCompleted:false,
++		});
++		console.log(this.state.resourceType);
++	}
++	resourceUriChanged(ev){
++		this.setState({
++			resourceUri: ev.value,
++			resourceUpdateCompleted:false,
++		});
++		console.log(this.state.resourceUri);
++	}
++	resourceQuestionChanged(ev){
++		this.setState({
++			resourceQuestion: ev.value,
++			resourceUpdateCompleted:false,
++		});
++		console.log(this.state.resourceQuestion);
++	}
++	resourceAnswerChanged(ev){
++		this.setState({
++			resourceAnswer: ev.value,
++			resourceUpdateCompleted:false,
++		});
++		console.log(this.state.resourceAnswer);
++	}
++	resourceObservableChanged(ev){
++		//console.log(ev);
++		this.setState({
++			resourceObservable: ev.selected,
++			resourceUpdateCompleted:false,
++		});
++		console.log(this.state.resourceObservable);
++	}
++	createResource(){
++		let param={
++			uri:this.state.resourceUri,
++			question:this.state.resourceQuestion,
++			answer:this.state.resourceAnswer,
++			types:this.state.resourceType,
++			observable:this.state.resourceObservable
++		}
++		this.props.actionDisableServerResourceControlUI();
++		this.props.createResource(param);
++		this.setState({
++			resourceUri: null,
++			resourceType: null,
++			resourceQuestion: null,
++			resourceAnswer:null,
++			resourceObservable:false,
++			resourceUpdateCompleted:true,
++		});
++	}
++	deleteResource(){
++		let param={
++			uri:this.state.resourceUri,
++		}
++		this.props.actionDisableServerResourceControlUI();
++		this.props.deleteResource(param);
++		this.setState({
++			resourceUri: null,
++			resourceType: null,
++			resourceQuestion: null,
++			resourceAnswer:null,
++			resourceUpdateCompleted:true,
++		});
++	}
++	render() {
++		const {serverEnabled, enableServerResourceControlUI} = this.props;
++		const onResourceUriChanged = this.resourceUriChanged.bind(this);
++		const onResourceQuestionChanged = this.resourceQuestionChanged.bind(this);
++		const onResourceAnswerChanged = this.resourceAnswerChanged.bind(this);
++		const onResourceTypeChanged = this.resourceTypeChanged.bind(this);
++		const onObservableResourceChanged = this.resourceObservableChanged.bind(this);
++		const onCreateResourceTapped = this.createResource.bind(this);
++		const onDeleteResourceTapped = this.deleteResource.bind(this);
++		return(
++			<div>
++				<Layout align="start">
++					<Cell shrink>
++						{serverEnabled?
++							<Button small onClick={this.props.stopServer}>stop server</Button>
++							:<Button small onClick={this.props.startServer}>start server</Button>
++						}
++					</Cell>
++					<Cell>
++						{serverEnabled?
++							<div style={{"lineHeight":60+"px"}}>
++								<MarqueeText marqueeOn="render">Server is running</MarqueeText>
++							</div>
++							:null
++						}
++					</Cell>
++				</Layout>
++				<Layout align="start">
++					<Cell>
++					<Divider />
++					{(serverEnabled&&enableServerResourceControlUI)?
++						<div>
++							<ExpandableInput title="uri" onChange={onResourceUriChanged} />
++							<ExpandableList
++								closeOnSelect
++								onSelect={onResourceTypeChanged}
++								select={'radio'}
++								title={'type'}
++							>
++							{[
++								{disabled:false, children: 'core.fan'},
++								{disabled:false, children: 'core.light'},
++							]}
++							</ExpandableList>
++							<ExpandableInput title="question" noneText="ex) How many angels can dance on the head of a pin?" onChange={onResourceQuestionChanged} />
++							<ExpandableInput title="answer" noneText="ex) As many as wanting." onChange={onResourceAnswerChanged} />
++							<SwitchItem disabled={false} onToggle={onObservableResourceChanged}>observable</SwitchItem>
++							<div style={{"paddingTop": 9+"px"}}>
++								<Button
++									disabled={this.state.resourceQuestion&&this.state.resourceAnswer&&this.state.resourceUri&&this.state.resourceType?false:true}
++									small
++									onClick={onCreateResourceTapped}>
++									create resource
++								</Button>
++								<Button disabled={this.state.resourceUri?false:true} small onClick={onDeleteResourceTapped}>delete resource</Button>
++							</div>
++						</div>
++						:null
++					}
++					</Cell>
++				</Layout>
++			</div>
++		)
++	}
++}
++Server.propTypes = {
++	startServer: PropTypes.func,
++	stopServer: PropTypes.func,
++	createResource: PropTypes.func,
++	deleteResource: PropTypes.func,
++	actionDisableServerResourceControlUI: PropTypes.func,
++};
++const mapDispatchToProps = (dispatch) => {
++	return {
++		startServer: () => ActionCreators.startServer(dispatch),
++		stopServer: () => ActionCreators.stopServer(dispatch),
++		createResource: (params) => dispatch(ActionCreators.createResource(params)),
++		deleteResource: (params) => dispatch(ActionCreators.deleteResource(params)),
++		actionDisableServerResourceControlUI: () => dispatch(ActionCreators.actionDisableServerResourceControlUI()),
++	};
++};
++let mapStateToProps = (state) => {
++	return {
++		serverEnabled:state.serverEnabled,
++		discoveredResources:state.discoveredResources,
++		showDiscoveredResources:state.showDiscoveredResources,
++		enableServerResourceControlUI:state.enableServerResourceControlUI,
++	};
++};
++export default connect(mapStateToProps, mapDispatchToProps)(Server);
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,115 @@
+From f203a765e2f58ee6629b36f26b8422432f77fca0 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Mon, 18 Nov 2019 17:13:23 +0200
+Subject: [PATCH] removed warnings in secure tests
+
+removed warnings in secure tests
+
+Change-Id: I2f4900be2234e67eeb4b5434f87fbc9243cbca7e
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/unittest/credentialresource.cpp | 6 ------
+ resource/csdk/security/unittest/doxmresource.cpp       | 8 --------
+ resource/csdk/security/unittest/oxmpincommon.cpp       | 2 +-
+ resource/csdk/security/unittest/pstatresource.cpp      | 3 ---
+ 4 files changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/resource/csdk/security/unittest/credentialresource.cpp b/resource/csdk/security/unittest/credentialresource.cpp
+index 3af55ec81..4a4f30fa5 100644
+--- a/resource/csdk/security/unittest/credentialresource.cpp
++++ b/resource/csdk/security/unittest/credentialresource.cpp
+@@ -49,10 +49,6 @@ class CRED : public ::testing::Test
+         static void SetUpTestCase()
+         {
+             IOT_Init(PM_DB_FILE_NAME);
+-            //InitCredResource Tests
+-            EXPECT_EQ(OC_STACK_OK, InitCredResource());
+-            //CreateCredResource Tests
+-            EXPECT_EQ(OC_STACK_OK, CreateCredResource());
+             //CredEntityHandler Tests
+             OCEntityHandlerRequest req = OCEntityHandlerRequest();
+             EXPECT_EQ(OC_EH_ERROR,
+@@ -62,8 +58,6 @@ class CRED : public ::testing::Test
+         static void TearDownTestCase()
+         {
+             gCred = NULL;
+-            //DeInitCredResource Tests
+-            EXPECT_EQ(OC_STACK_OK, DeInitCredResource());
+             IOT_DeInit(PM_DB_FILE_NAME);
+         }
+ };
+diff --git a/resource/csdk/security/unittest/doxmresource.cpp b/resource/csdk/security/unittest/doxmresource.cpp
+index 6506dff2d..9f99ecfe9 100644
+--- a/resource/csdk/security/unittest/doxmresource.cpp
++++ b/resource/csdk/security/unittest/doxmresource.cpp
+@@ -50,10 +50,6 @@ class DOXM : public ::testing::Test
+         static void SetUpTestCase()
+         {
+             IOT_Init(PM_DB_FILE_NAME);
+-            //InitDoxmResource Tests
+-            EXPECT_EQ(OC_STACK_OK, InitDoxmResource());
+-            //CreateDoxmResource Tests
+-            EXPECT_EQ(OC_STACK_OK, CreateDoxmResource());
+             //DoxmEntityHandler Tests
+             OCEntityHandlerRequest req = OCEntityHandlerRequest();
+             EXPECT_EQ(OC_EH_ERROR, DoxmEntityHandler(OCEntityHandlerFlag::OC_REQUEST_FLAG, &req, NULL));
+@@ -61,8 +57,6 @@ class DOXM : public ::testing::Test
+ 
+         static void TearDownTestCase()
+         {
+-            //DeInitDoxmResource Tests
+-            EXPECT_EQ(OC_STACK_OK, DeInitDoxmResource());
+             IOT_DeInit(PM_DB_FILE_NAME);
+         }
+ };
+@@ -108,7 +102,6 @@ TEST_F(DOXM, DoxmEntityHandlerInvalidFlag)
+ 
+ TEST_F(DOXM, DoxmEntityHandlerValidRequest)
+ {
+-    EXPECT_EQ(OC_STACK_INVALID_PARAM, InitDoxmResource());
+     char query[] = "oxm=0;owned=false;owner=owner1";
+     OCEntityHandlerRequest req = OCEntityHandlerRequest();
+     req.method = OC_REST_GET;
+@@ -120,7 +113,6 @@ TEST_F(DOXM, DoxmEntityHandlerValidRequest)
+ 
+ TEST_F(DOXM, DoxmEntityHandlerDeviceIdQuery)
+ {
+-    EXPECT_EQ(OC_STACK_OK, InitDoxmResource());
+     char query[] = "deviceuuid=2222222222222222";
+     OCEntityHandlerRequest req = OCEntityHandlerRequest();
+     req.method = OC_REST_GET;
+diff --git a/resource/csdk/security/unittest/oxmpincommon.cpp b/resource/csdk/security/unittest/oxmpincommon.cpp
+index e711ca1bd..bf07f169c 100644
+--- a/resource/csdk/security/unittest/oxmpincommon.cpp
++++ b/resource/csdk/security/unittest/oxmpincommon.cpp
+@@ -232,7 +232,7 @@ TEST_F(OXMPIN, GetDtlsPskForRandomPinOxm)
+     ASSERT_NE(nullptr, result);
+ 
+     EXPECT_EQ(GetDtlsPskForRandomPinOxm(CA_DTLS_PSK_KEY, NULL, 0, result, len), OWNER_PSK_LENGTH_128);
+-    EXPECT_GT(GetDtlsPskForRandomPinOxm(CA_DTLS_PSK_HINT, NULL, 0, result, len), sizeof(OicUuid_t));
++    EXPECT_GT((size_t)GetDtlsPskForRandomPinOxm(CA_DTLS_PSK_HINT, NULL, 0, result, len), sizeof(OicUuid_t));
+     EXPECT_EQ(GetDtlsPskForRandomPinOxm((CADtlsPskCredType_t)3, NULL, 0, result, len), -1);
+ 
+     OICFree(result);
+diff --git a/resource/csdk/security/unittest/pstatresource.cpp b/resource/csdk/security/unittest/pstatresource.cpp
+index c7febb512..7497bdaf3 100644
+--- a/resource/csdk/security/unittest/pstatresource.cpp
++++ b/resource/csdk/security/unittest/pstatresource.cpp
+@@ -52,14 +52,11 @@ class PSTAT : public ::testing::Test
+         static void SetUpTestCase()
+         {
+             IOT_Init(PM_DB_FILE_NAME);
+-            EXPECT_EQ(OC_STACK_INVALID_PARAM, InitPstatResource());
+-            EXPECT_EQ(OC_STACK_OK, CreatePstatResource());
+         }
+ 
+         static void TearDownTestCase()
+         {
+             IOT_DeInit(PM_DB_FILE_NAME);
+-            EXPECT_EQ(OC_STACK_INVALID_PARAM, DeInitPstatResource());
+         }
+ };
+ 
+-- 
+2.16.1.windows.1
+

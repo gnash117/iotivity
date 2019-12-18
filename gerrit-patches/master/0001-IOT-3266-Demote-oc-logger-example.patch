@@ -1,0 +1,55 @@
+From d5843fa3933095f9a279fbef1378f537054fc100 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 22:52:42 -0700
+Subject: [PATCH] IOT-3266 Demote oc-logger example
+
+Change-Id: Id90072710967f0f0aee75f9bee6da2c8cde052ba
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ resource/oc_logger/SConscript          | 3 ++-
+ resource/oc_logger/examples/README.md  | 8 ++++++++
+ resource/oc_logger/examples/SConscript | 3 +--
+ 3 files changed, 11 insertions(+), 3 deletions(-)
+ create mode 100644 resource/oc_logger/examples/README.md
+
+diff --git a/resource/oc_logger/SConscript b/resource/oc_logger/SConscript
+index aa9818ed7..d9ab8ab6e 100644
+--- a/resource/oc_logger/SConscript
++++ b/resource/oc_logger/SConscript
+@@ -88,5 +88,6 @@ liboc_logger_env.UserInstallTargetHeader(
+ liboc_logger_env.UserInstallTargetHeader(
+     'include/targets/oc_ostream_logger.h', 'resource/targets', 'oc_ostream_logger.h')
+ 
+-if target_os not in ['ios', 'android']:
++env.AppendTarget('oclogger-examples', default=False)
++if "oclogger-examples" in COMMAND_LINE_TARGETS and target_os not in ['ios', 'android']:
+     SConscript('examples/SConscript')
+diff --git a/resource/oc_logger/examples/README.md b/resource/oc_logger/examples/README.md
+new file mode 100644
+index 000000000..84f24799e
+--- /dev/null
++++ b/resource/oc_logger/examples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] oclogger-examples
+diff --git a/resource/oc_logger/examples/SConscript b/resource/oc_logger/examples/SConscript
+index 3ac7cd1b8..3e03a5614 100644
+--- a/resource/oc_logger/examples/SConscript
++++ b/resource/oc_logger/examples/SConscript
+@@ -58,6 +58,5 @@ examples = []
+ examples += examples_env.Program('test_logging_c', 'test_logging.c', OBJPREFIX='c_')
+ examples += examples_env.Program('test_logging_cpp', 'test_logging.cpp')
+ 
+-Alias('liboc_logger_examples', examples)
+-examples_env.AppendTarget('liboc_logger_examples')
++Alias('oclogger-examples', examples)
+ examples_env.UserInstallTargetExtra(examples)
+-- 
+2.16.1.windows.1
+

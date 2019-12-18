@@ -1,0 +1,240 @@
+From 66217f481a1d2dacd1b62828a3b55d74125e1f79 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Thu, 28 Feb 2019 15:22:55 +0200
+Subject: [PATCH] refactoring CAsslGenerateOwnerPsk
+
+1) refactoring CAsslGenerateOwnerPsk
+2) in case unknow selected cipher don't call malloc
+
+Change-Id: Icdc245bc3cd66d24456c03422dce9d32b9c20e03
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ .../src/adapter_util/ca_adapter_net_ssl.c          | 154 ++++++++++++---------
+ 1 file changed, 87 insertions(+), 67 deletions(-)
+
+diff --git a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+index 987f66d73..9363fcc83 100644
+--- a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
++++ b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+@@ -2809,131 +2809,151 @@ exit:
+     return -1;
+ }
+ 
+-CAResult_t CAsslGenerateOwnerPsk(const CAEndpoint_t *endpoint,
+-                            const uint8_t* label, const size_t labelLen,
+-                            const uint8_t* rsrcServerDeviceId, const size_t rsrcServerDeviceIdLen,
+-                            const uint8_t* provServerDeviceId, const size_t provServerDeviceIdLen,
+-                            uint8_t* ownerPsk, const size_t ownerPskSize)
++//getKeyBlockLen set up according to OIC 1.1 Security Specification Section 7.3.2
++size_t getKeyBlockLen(int selectedCipher)
+ {
+-    OIC_LOG_V(DEBUG, NET_SSL_TAG, "In %s", __func__);
+-    VERIFY_NON_NULL_RET(endpoint, NET_SSL_TAG, "endpoint is NULL", CA_STATUS_INVALID_PARAM);
+-    VERIFY_NON_NULL_RET(label, NET_SSL_TAG, "label is NULL", CA_STATUS_INVALID_PARAM);
+-    VERIFY_NON_NULL_RET(rsrcServerDeviceId, NET_SSL_TAG, "rsrcId is NULL", CA_STATUS_INVALID_PARAM);
+-    VERIFY_NON_NULL_RET(provServerDeviceId, NET_SSL_TAG, "provId is NULL", CA_STATUS_INVALID_PARAM);
+-    VERIFY_NON_NULL_RET(ownerPsk, NET_SSL_TAG, "ownerPSK is NULL", CA_STATUS_INVALID_PARAM);
+-
+-    oc_mutex_lock(g_sslContextMutex);
+-    if (NULL == g_caSslContext)
+-    {
+-        OIC_LOG(ERROR, NET_SSL_TAG, "Context is NULL");
+-        oc_mutex_unlock(g_sslContextMutex);
+-        OIC_LOG_V(DEBUG, NET_SSL_TAG, "Out %s", __func__);
+-        return CA_STATUS_FAILED;
+-    }
+-    SslEndPoint_t * tep = GetSslPeer(endpoint);
+-    if (NULL == tep)
+-    {
+-        OIC_LOG(ERROR, NET_SSL_TAG, "Session does not exist");
+-        oc_mutex_unlock(g_sslContextMutex);
+-        return CA_STATUS_FAILED;
+-    }
+-
+-    // keyBlockLen set up according to OIC 1.1 Security Specification Section 7.3.2
+-    int macKeyLen = 0;
+-    int ivSize = 0;
+-    int keySize = 0;
+-    int keyBlockLen = 0;
+-    if (MBEDTLS_TLS_ECDH_ANON_WITH_AES_128_CBC_SHA256 == g_caSslContext->selectedCipher ||
+-        MBEDTLS_TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256 == g_caSslContext->selectedCipher ||
+-        MBEDTLS_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 == g_caSslContext->selectedCipher ||
+-        MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 == g_caSslContext->selectedCipher)
++    size_t macKeyLen = 0;
++    size_t ivSize = 0;
++    size_t keySize = 0;
++    if (MBEDTLS_TLS_ECDH_ANON_WITH_AES_128_CBC_SHA256 == selectedCipher ||
++        MBEDTLS_TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256 == selectedCipher ||
++        MBEDTLS_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256 == selectedCipher ||
++        MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 == selectedCipher)
+     {
+         // 2 * ( 32 + 0 + 16 ) = 96
+         macKeyLen = SHA256_MAC_KEY_LENGTH;
+         ivSize = CBC_IV_LENGTH;
+         keySize = AES128_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM == g_caSslContext->selectedCipher ||
+-             MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM == selectedCipher ||
++             MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM_8 == selectedCipher)
+     {
+         // 2 * ( 0 + 4 + 16 ) = 40
+         macKeyLen = CCM_MAC_KEY_LENGTH;
+         ivSize = CCM_IV_LENGTH;
+         keySize = AES128_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 == selectedCipher)
+     {
+         // 2 * ( 32 + 12 + 16 ) = 120
+         macKeyLen = SHA256_MAC_KEY_LENGTH;
+         ivSize = GCM_IV_LENGTH;
+         keySize = AES128_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA256 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA256 == selectedCipher)
+     {
+         // 2 * ( 32 + 0 + 32 ) = 128
+         macKeyLen = SHA256_MAC_KEY_LENGTH;
+         ivSize = CBC_IV_LENGTH;
+         keySize = AES256_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 == selectedCipher)
+     {
+         // 2 * ( 48 + 0 + 32 ) = 160
+         macKeyLen = SHA384_MAC_KEY_LENGTH;
+         ivSize = CBC_IV_LENGTH;
+         keySize = AES256_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 == selectedCipher)
+     {
+         // 2 * ( 48 + 12 + 32 ) = 184
+         macKeyLen = SHA384_MAC_KEY_LENGTH;
+         ivSize = GCM_IV_LENGTH;
+         keySize = AES256_KEY_LENGTH;
+     }
+-    else if (MBEDTLS_TLS_RSA_WITH_AES_128_GCM_SHA256 == g_caSslContext->selectedCipher)
++    else if (MBEDTLS_TLS_RSA_WITH_AES_128_GCM_SHA256 == selectedCipher)
+     {
+         // 2 * ( 48 + 12 + 32 ) = 184
+         macKeyLen = SHA256_MAC_KEY_LENGTH;
+         ivSize = GCM_IV_LENGTH;
+         keySize = AES128_KEY_LENGTH;
+     }
+-    keyBlockLen = 2 * (macKeyLen + keySize + ivSize);
++    else
++    {
++        OIC_LOG_V(ERROR, NET_SSL_TAG, "%s: unknow cipher: %d", __func__, selectedCipher);
++        return 0;
++    }
++    return 2 * (macKeyLen + keySize + ivSize);
++}
++
++CAResult_t CAsslGenerateOwnerPsk(const CAEndpoint_t *endpoint,
++                            const uint8_t* label, const size_t labelLen,
++                            const uint8_t* rsrcServerDeviceId, const size_t rsrcServerDeviceIdLen,
++                            const uint8_t* provServerDeviceId, const size_t provServerDeviceIdLen,
++                            uint8_t* ownerPsk, const size_t ownerPskSize)
++{
++    OIC_LOG_V(DEBUG, NET_SSL_TAG, "In %s", __func__);
+ 
+-    uint8_t * keyblock = (uint8_t *)OICMalloc(keyBlockLen);
++    VERIFY_NON_NULL_RET(endpoint, NET_SSL_TAG, "endpoint is NULL", CA_STATUS_INVALID_PARAM);
++    VERIFY_NON_NULL_RET(label, NET_SSL_TAG, "label is NULL", CA_STATUS_INVALID_PARAM);
++    VERIFY_NON_NULL_RET(rsrcServerDeviceId, NET_SSL_TAG, "rsrcId is NULL", CA_STATUS_INVALID_PARAM);
++    VERIFY_NON_NULL_RET(provServerDeviceId, NET_SSL_TAG, "provId is NULL", CA_STATUS_INVALID_PARAM);
++    VERIFY_NON_NULL_RET(ownerPsk, NET_SSL_TAG, "ownerPSK is NULL", CA_STATUS_INVALID_PARAM);
++
++    CAResult_t ret = CA_STATUS_OK;
++    uint8_t * keyblock  = NULL;
++    size_t keyBlockLen = 0;
++    // "key expansion"
++    uint8_t lab[] = {0x6b, 0x65, 0x79, 0x20, 0x65, 0x78, 0x70, 0x61, 0x6e, 0x73, 0x69, 0x6f, 0x6e};
++    SslEndPoint_t * tep = NULL;
++
++    oc_mutex_lock(g_sslContextMutex);
++
++    if (NULL == g_caSslContext)
++    {
++        OIC_LOG(ERROR, NET_SSL_TAG, "Context is NULL");
++        ret = CA_STATUS_FAILED;
++        goto exit;
++    }
++
++    tep = GetSslPeer(endpoint);
++    if (NULL == tep)
++    {
++        OIC_LOG(ERROR, NET_SSL_TAG, "Session does not exist");
++        ret = CA_STATUS_FAILED;
++        goto exit;
++    }
++
++    keyBlockLen = getKeyBlockLen(g_caSslContext->selectedCipher);
++    if (0 == keyBlockLen)
++    {
++        OIC_LOG(ERROR, NET_SSL_TAG, "Failed to get key block lenght");
++        ret = CA_STATUS_FAILED;
++        goto exit;
++    }
++
++    keyblock = (uint8_t *)OICMalloc(keyBlockLen);
+     if (NULL == keyblock)
+     {
+         OIC_LOG(ERROR, NET_SSL_TAG, "Failed to OICMalloc for keyblock");
+-        oc_mutex_unlock(g_sslContextMutex);
+-        return CA_STATUS_FAILED;
++        ret = CA_STATUS_FAILED;
++        goto exit;
+     }
+ 
+-    // "key expansion"
+-    uint8_t lab[] = {0x6b, 0x65, 0x79, 0x20, 0x65, 0x78, 0x70, 0x61, 0x6e, 0x73, 0x69, 0x6f, 0x6e};
+-    int ret = pHash(tep->master, sizeof(tep->master), lab, sizeof(lab),
++    if (-1 == pHash(tep->master, sizeof(tep->master), lab, sizeof(lab),
+                     (tep->random) + RANDOM_LEN, RANDOM_LEN, tep->random, RANDOM_LEN,
+-                    keyblock, keyBlockLen);
+-    if (-1 == ret)
++                    keyblock, keyBlockLen))
+     {
+-        OIC_LOG(ERROR, NET_SSL_TAG, "PSK not generated");
+-        OICFree(keyblock);
+-        oc_mutex_unlock(g_sslContextMutex);
+-        return CA_STATUS_FAILED;
++        OIC_LOG(ERROR, NET_SSL_TAG, "PSK not generated(pHash 1)");
++        ret = CA_STATUS_FAILED;
++        goto exit;
+     }
+ 
+-    ret = pHash(keyblock, keyBlockLen, label, labelLen,
++    if (-1 == pHash(keyblock, keyBlockLen, label, labelLen,
+                 rsrcServerDeviceId, rsrcServerDeviceIdLen,
+                 provServerDeviceId, provServerDeviceIdLen,
+-                ownerPsk, ownerPskSize);
+-    if (-1 == ret)
++                ownerPsk, ownerPskSize))
++    {
++        OIC_LOG(ERROR, NET_SSL_TAG, "PSK not generated(pHash 2)");
++        ret = CA_STATUS_FAILED;
++        goto exit;
++    }
++exit:
++    if (NULL != keyblock && 0 != keyBlockLen)
+     {
+-        OIC_LOG(ERROR, NET_SSL_TAG, "PSK not generated");
+         OICFree(keyblock);
+-        oc_mutex_unlock(g_sslContextMutex);
+-        return CA_STATUS_FAILED;
+     }
+-
+-    OICFree(keyblock);
+     oc_mutex_unlock(g_sslContextMutex);
+-
+     OIC_LOG_V(DEBUG, NET_SSL_TAG, "Out %s", __func__);
+-    return CA_STATUS_OK;
++    return ret;
+ }
+-- 
+2.16.1.windows.1
+

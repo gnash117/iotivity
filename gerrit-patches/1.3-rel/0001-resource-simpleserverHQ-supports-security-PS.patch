@@ -1,0 +1,112 @@
+From 2c311dab3179ad8717166e8da8b8feb47dca46cb Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Fri, 1 Dec 2017 15:12:44 +0100
+Subject: [PATCH] resource: simpleserverHQ supports security PS
+
+By loading credentials and ACL using presistant storage
+
+This was tested on iotivity-1.3.1~RC6 in secured mode
+
+Bug: https://jira.iotivity.org/browse/IOT-2505
+Change-Id: If8e2044ae3d8850cc163bca1511de406202b1ab6
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 4f2fbfdea58ac8a1431ac256ac95f73a037f37f5)
+Origin: https://gerrit.iotivity.org/gerrit/#/c/23583/
+---
+ resource/examples/simpleclientHQ.cpp | 18 ++++++++++++++++--
+ resource/examples/simpleserverHQ.cpp | 14 +++++++++++++-
+ 2 files changed, 29 insertions(+), 3 deletions(-)
+
+diff --git a/resource/examples/simpleclientHQ.cpp b/resource/examples/simpleclientHQ.cpp
+index 29247ce61..447ef8897 100644
+--- a/resource/examples/simpleclientHQ.cpp
++++ b/resource/examples/simpleclientHQ.cpp
+@@ -48,6 +48,7 @@ struct dereference_compare
+         return *lhs < *rhs;
+     }
+ };
++static const char* SVR_DB_FILE_NAME = "./oic_svr_db_client.dat";
+ typedef std::set<std::shared_ptr<OCResource>, dereference_compare> DiscoveredResourceSet;
+ 
+ DiscoveredResourceSet discoveredResources;
+@@ -390,6 +391,19 @@ void PrintUsage()
+     std::cout << "   ConnectivityType : 0 - IP"<< std::endl;
+ }
+ 
++
++static FILE* override_fopen(const char* path, const char* mode)
++{
++    if (0 == strcmp(path, OC_SECURITY_DB_DAT_FILE_NAME))
++    {
++        return fopen(SVR_DB_FILE_NAME, mode);
++    }
++    else
++    {
++        return fopen(path, mode);
++    }
++}
++
+ int main(int argc, char* argv[]) {
+ 
+     std::ostringstream requestURI;
+@@ -449,12 +463,12 @@ int main(int argc, char* argv[]) {
+         return -1;
+     }
+ 
+-
++    OCPersistentStorage ps {override_fopen, fread, fwrite, fclose, unlink };
+     // Create PlatformConfig object
+     PlatformConfig cfg {
+         OC::ServiceType::InProc,
+         OC::ModeType::Client,
+-        nullptr
++        &ps
+     };
+     
+     cfg.QoS = OC::QualityOfService::HighQos;
+diff --git a/resource/examples/simpleserverHQ.cpp b/resource/examples/simpleserverHQ.cpp
+index 9fce36528..9101e710c 100644
+--- a/resource/examples/simpleserverHQ.cpp
++++ b/resource/examples/simpleserverHQ.cpp
+@@ -45,6 +45,7 @@ using namespace OC;
+ using namespace std;
+ namespace PH = std::placeholders;
+ 
++static const char* SVR_DB_FILE_NAME = "./oic_svr_db_server.dat";
+ int gObservation = 0;
+ void * ChangeLightRepresentation (void *param);
+ 
+@@ -520,10 +521,20 @@ void PrintUsage()
+     std::cout << "   ObserveType : 1 - Observe List of observers\n\n";
+ }
+ 
++static FILE* override_fopen(const char* path, const char* mode)
++{
++    char const * filename = path;
++    if (0 == strcmp(path, OC_SECURITY_DB_DAT_FILE_NAME))
++    {
++        filename = SVR_DB_FILE_NAME;
++    }
++    return fopen(filename, mode);
++}
+ 
+ int main(int argc, char* argv[])
+ {
+     PrintUsage();
++    OCPersistentStorage ps {override_fopen, fread, fwrite, fclose, unlink };
+ 
+     if (argc == 1)
+     {
+@@ -548,7 +559,8 @@ int main(int argc, char* argv[])
+         OC::ModeType::Server,
+         "0.0.0.0", // By setting to "0.0.0.0", it binds to all available interfaces
+         0,         // Uses randomly available port
+-        OC::QualityOfService::LowQos
++        OC::QualityOfService::LowQos,
++        &ps
+     };
+ 
+     OCPlatform::Configure(cfg);
+-- 
+2.16.1.windows.1
+

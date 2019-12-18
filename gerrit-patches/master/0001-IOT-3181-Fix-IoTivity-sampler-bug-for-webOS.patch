@@ -1,0 +1,171 @@
+From 6c0ef7e5814dfda39341e343ffe6a7ec91747626 Mon Sep 17 00:00:00 2001
+From: "sungmok.shin" <sungmok.shin@lge.com>
+Date: Tue, 19 Jun 2018 20:54:38 +0900
+Subject: [PATCH] [IOT-3181] Fix IoTivity sampler bug for webOS
+
+- Fix typo on occlientbasicops usage
+- Add i586, aarch in target arch
+- Name of the IoTivity Sampler application is changed.
+- Application can be closed using 'x' button
+- Fix that delete resource does not work using IoTivity sampler
+
+Change-Id: I7860afb307b3b94a5384a90711ee695203bfc5eb
+Signed-off-by: sungmok.shin <sungmok.shin@lge.com>
+---
+ build_common/SConscript                            |  2 +-
+ .../webos/com.example.app.iotivity/appinfo.json    |  4 +--
+ .../server-lowlevel.js                             | 20 ++++++------
+ .../webos/com.example.app.iotivity/src/App/App.js  | 36 +++++++++++-----------
+ .../com.example.app.iotivity/src/App/App.less      |  3 --
+ .../secure/files/sysbus/occlientbasicops.role.json |  2 +-
+ .../secure/occlientbasicops/occlientbasicops.cpp   |  2 +-
+ 7 files changed, 34 insertions(+), 35 deletions(-)
+ delete mode 100755 resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
+
+diff --git a/build_common/SConscript b/build_common/SConscript
+index b485ffc20..18a269a49 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -26,7 +26,7 @@ os_arch_map = {
+         'armv6l', 'armv7l'
+     ],
+     'tizen': ['x86', 'x86_64', 'arm', 'arm-v7a', 'armeabi-v7a', 'arm64', 'armv7l'],
+-    'webos': ['arm'],
++    'webos': ['i586', 'aarch64', 'arm'],
+     'android': [
+         'x86', 'x86_64', 'armeabi', 'armeabi-v7a', 'armeabi-v7a-hard',
+         'arm64-v8a'
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json b/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
+index e276121ab..69e10e393 100644
+--- a/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/appinfo.json
+@@ -4,8 +4,8 @@
+     "vendor": "LGE",
+     "type": "web",
+     "main": "index.html",
+-    "title": "IOTIVITY SAMPLER",
++    "title": "IoTivity Sampler",
+     "icon": "icon.png",
+     "uiRevision": 2,
+     "requiredPermissions": ["all"]
+-}
+\ No newline at end of file
++}
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
+index 171fec439..c5a077dce 100644
+--- a/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/services/com.example.service.iotivity.server/server-lowlevel.js
+@@ -66,14 +66,16 @@ module.exports.createResource = function(uri, types, q, a, observable, resourceC
+ 
+     var sensor = require( "./mock-sensor" )()
+         .on( "change", function( data ) {
+-            iotivity.OCNotifyListOfObservers(
+-                handleReceptacle.handle,
+-                observerIds,
+-                {
+-                    type: iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
+-                    values: data
+-                },
+-                iotivity.OCQualityOfService.OC_HIGH_QOS );
++            if(observerIds.length>0) {
++                iotivity.OCNotifyListOfObservers(
++                    handleReceptacle.handle,
++                    observerIds,
++                    {
++                        type: iotivity.OCPayloadType.PAYLOAD_TYPE_REPRESENTATION,
++                        values: data
++                    },
++                    iotivity.OCQualityOfService.OC_HIGH_QOS );
++            }
+         }
+     );
+ 
+@@ -223,4 +225,4 @@ module.exports.deleteResource = function(uri, resourceCallback) {
+     }
+ 
+     updateServerStatus(resourceCallback);
+-};
+\ No newline at end of file
++};
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
+index 974144872..0c1a9bcf8 100644
+--- a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
++++ b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.js
+@@ -5,23 +5,23 @@ import React from 'react';
+ 
+ import MainPanel from '../views/MainPanel';
+ 
+-import css from './App.less';
+-
+-const App = kind({
+-    name: 'App',
+-
+-    styles: {
+-        css,
+-        className: 'app'
+-    },
+-
+-    render: (props) => (
+-        <div {...props}>
+-            <Panels>
+-                <MainPanel />
+-            </Panels>
+-        </div>
+-    )
+-});
++class App extends React.Component {
++    constructor (props) {
++        super(props);
++   }
++   closeHandler() {
++       window.close();
++   }
++    render(props) {
++       const onClose = this.closeHandler.bind(this);
++       return (
++           <div {...props}>
++               <Panels onApplicationClose={onClose} >
++                   <MainPanel />
++               </Panels>
++           </div>
++       );
++   }
++}
+ 
+ export default MoonstoneDecorator(App);
+diff --git a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less b/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
+deleted file mode 100755
+index 2b4173d2c..000000000
+--- a/resource/csdk/stack/samples/webos/com.example.app.iotivity/src/App/App.less
++++ /dev/null
+@@ -1,3 +0,0 @@
+-.app {
+-    // styles can be put here
+-}
+diff --git a/resource/csdk/stack/samples/webos/secure/files/sysbus/occlientbasicops.role.json b/resource/csdk/stack/samples/webos/secure/files/sysbus/occlientbasicops.role.json
+index 0d87b011b..53606eb6d 100644
+--- a/resource/csdk/stack/samples/webos/secure/files/sysbus/occlientbasicops.role.json
++++ b/resource/csdk/stack/samples/webos/secure/files/sysbus/occlientbasicops.role.json
+@@ -1,5 +1,5 @@
+ {
+-    "exeName":"/usr/palm/services/org.ocf.webossample.occlientbasicops//occlientbasicops",
++    "exeName":"/usr/palm/services/org.ocf.webossample.occlientbasicops/occlientbasicops",
+     "type":"regular",
+     "allowedNames":["org.ocf.webossample.occlientbasicops*"],
+     "permissions": [
+diff --git a/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp b/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
+index 5c434f5f0..42cfc838e 100644
+--- a/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
++++ b/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
+@@ -114,7 +114,7 @@ OCPayload *putPayload()
+ 
+ static void PrintUsage()
+ {
+-    printf("Usage : occlient -u <0|1> -t <1|2|3> -c <0|1>\n");
++    printf("Usage : occlientbasicops -u <0|1> -t <1|2|3> -c <0|1>\n");
+     printf("-u <0|1> : Perform multicast/unicast discovery of resources\n");
+     printf("-t 1 : Discover Resources\n");
+     printf("-t 2 : Discover Resources and\n"
+-- 
+2.16.1.windows.1
+

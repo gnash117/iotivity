@@ -1,0 +1,61 @@
+From 233537805f02bcf833f8f81e1373ac14f4e8f56b Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Fri, 3 May 2019 12:55:50 +0300
+Subject: [PATCH] connectivity parse chain fix
+
+1) fixed stop chain parse after first error
+2) added print error mbedtls parse error
+
+Change-Id: I3b78e40baa3d88caceefe9702aeede1d15374614
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/connectivity/common/src/parsechain.c | 21 +++++++++++++++++++--
+ 1 file changed, 19 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/connectivity/common/src/parsechain.c b/resource/csdk/connectivity/common/src/parsechain.c
+index 6b5a2a3f5..a7b8ee90e 100644
+--- a/resource/csdk/connectivity/common/src/parsechain.c
++++ b/resource/csdk/connectivity/common/src/parsechain.c
+@@ -17,11 +17,17 @@
+  * limitations under the License.
+  *
+  ******************************************************************/
++#include "iotivity_config.h"
++
++#if defined(HAVE_UNISTD_H)
++#include <unistd.h>
++#endif
+ 
+ #include "parsechain.h"
+ #include "utlist.h"
+ #include "caadapterutils.h"
+ #include "oic_malloc.h"
++#include "mbedtls/error.h"
+ 
+ #define PARSE_CHAIN_TAG "OIC_PARSE_CHAIN"
+ 
+@@ -48,8 +54,19 @@ int ParseChain(mbedtls_x509_crt *crt, const ByteArrayLL_t *certs, int *errNum)
+         else
+         {
+             (*errNum)++;
+-            OIC_LOG_V(ERROR, PARSE_CHAIN_TAG, "mbedtls_x509_crt_parse returned -0x%04x\n", -(ret));
+-            return -1;
++            OIC_LOG_V(ERROR, PARSE_CHAIN_TAG, "mbedtls_x509_crt_parse returned -0x%04x", -(ret));
++#if defined(HAVE_UNISTD_H)
++            size_t page_size = getpagesize();
++#else
++            size_t page_size = 2048;
++#endif
++            char *buf = (char*)OICCalloc(page_size, 1);
++            if (buf)
++            {
++                mbedtls_strerror(ret, buf, page_size);
++                OIC_LOG_V(ERROR, PARSE_CHAIN_TAG, "mbedtls error:  %s", buf);
++                OICFree(buf);
++            }
+         }
+     }
+     OIC_LOG_V(DEBUG, PARSE_CHAIN_TAG, "%s successfully parsed %d certificates", __func__, count);
+-- 
+2.16.1.windows.1
+

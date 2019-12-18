@@ -1,2 +1,4 @@
 run.bat text eol=crlf
 *.dat binary
+# Don't change the line ending of patch files
+*.patch binary

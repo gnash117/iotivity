@@ -1,0 +1,29 @@
+From aab2452c9c92f27fda5b4facf8e4378a5fb55d08 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Tue, 5 Nov 2019 14:01:13 +0200
+Subject: [PATCH 2/2] garageserver fixed
+
+catching polymorphic type 'class OC::OCException' by value
+
+Change-Id: I977840b147abff4dd41fcf4f9589a694421b3326
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/examples/garageserver.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/resource/examples/garageserver.cpp b/resource/examples/garageserver.cpp
+index 88a30f486..9de3928fb 100644
+--- a/resource/examples/garageserver.cpp
++++ b/resource/examples/garageserver.cpp
+@@ -388,7 +388,7 @@ int main(int /*argc*/, char** /*argv[1]*/)
+         std::unique_lock<std::mutex> lock(blocker);
+         cv.wait(lock);
+     }
+-    catch(OCException e)
++    catch(OCException &e)
+     {
+         oclog() << e.what();
+     }
+-- 
+2.16.1.windows.1
+

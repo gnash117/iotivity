@@ -1,0 +1,68 @@
+From 3756c2d827c7b1b0969fc5f51414aad1f0da7dcf Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Tue, 19 Feb 2019 10:38:02 -0700
+Subject: [PATCH] IOT-3266 Demote simulator examples
+
+Change-Id: Id206fc0cdd940d989b84b84faa8a37b599d48bee
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ service/simulator/SConscript                 | 6 ++++--
+ service/simulator/examples/README.md         | 8 ++++++++
+ service/simulator/examples/client/SConscript | 2 +-
+ service/simulator/examples/server/SConscript | 4 ++--
+ 4 files changed, 15 insertions(+), 5 deletions(-)
+ create mode 100644 service/simulator/examples/README.md
+
+diff --git a/service/simulator/SConscript b/service/simulator/SConscript
+index 8cbdfb2fa..ffae5f2af 100644
+--- a/service/simulator/SConscript
++++ b/service/simulator/SConscript
+@@ -95,5 +95,7 @@ simulatorsdk = simulator_env.SharedLibrary('SimulatorManager', simulator_src)
+ simulator_env.InstallTarget(simulatorsdk, 'libSimulatorManager')
+ 
+ #Build sample application
+-SConscript('examples/server/SConscript')
+-SConscript('examples/client/SConscript')
++env.AppendTarget('simulator-examples', default=False)
++if "simulator-examples" in COMMAND_LINE_TARGETS:
++    SConscript('examples/server/SConscript')
++    SConscript('examples/client/SConscript')
+diff --git a/service/simulator/examples/README.md b/service/simulator/examples/README.md
+new file mode 100644
+index 000000000..71df7e2c5
+--- /dev/null
++++ b/service/simulator/examples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] simulator-examples
+diff --git a/service/simulator/examples/client/SConscript b/service/simulator/examples/client/SConscript
+index 335e33028..14779ea20 100644
+--- a/service/simulator/examples/client/SConscript
++++ b/service/simulator/examples/client/SConscript
+@@ -33,4 +33,4 @@ if sim_env.get('SECURED') == '1':
+ client = sim_env.Program('simulator-client', 'simulator_client.cpp')
+ 
+ Alias("simulatorclient", client)
+-env.AppendTarget('client')
++Alias("simulator-examples", client)
+diff --git a/service/simulator/examples/server/SConscript b/service/simulator/examples/server/SConscript
+index 0b25fea76..ff75426f7 100644
+--- a/service/simulator/examples/server/SConscript
++++ b/service/simulator/examples/server/SConscript
+@@ -33,5 +33,5 @@ if sim_env.get('SECURED') == '1':
+ ######################################################################
+ server = sim_env.Program('simulator-server', 'simulator_server.cpp')
+ 
+-Alias("server", server)
+-env.AppendTarget('server')
++Alias("simulatorserver", server)
++Alias("simulator-examples", server)
+-- 
+2.16.1.windows.1
+

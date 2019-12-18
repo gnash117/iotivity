@@ -1,0 +1,29 @@
+From 5e497bc86d574f1c0c922b419b48c518640d1419 Mon Sep 17 00:00:00 2001
+From: Vitalii Irkha <v.irkha@samsung.com>
+Date: Fri, 6 Dec 2019 16:21:28 +0200
+Subject: [PATCH] Fix unsafe convert int to char
+
+Static analyzer issue
+
+Change-Id: I9dccd460c1826ecd6640136b0633de0163d683f0
+Signed-off-by: Vitalii Irkha <v.irkha@samsung.com>
+---
+ resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp b/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
+index 4a8f84b0c..a8cd12bcc 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
+@@ -548,7 +548,7 @@ int main(void)
+     {
+         printf("Press 'G' to generate random PIN...\n");
+         printf("Press 'E' to exit...\n");
+-        char in = (char)getchar();
++        int in = getchar();
+         if('G' == in || 'g' == in)
+         {
+             char ranPin[OXM_RANDOM_PIN_MAX_SIZE + 1] = {0};
+-- 
+2.16.1.windows.1
+

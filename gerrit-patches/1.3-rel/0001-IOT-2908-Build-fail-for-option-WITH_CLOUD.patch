@@ -1,0 +1,32 @@
+From 7ab7740b8c85919b289eb69d59a8d716945cb1cf Mon Sep 17 00:00:00 2001
+From: Harry <h.marappa@samsung.com>
+Date: Mon, 27 Nov 2017 16:16:30 +0530
+Subject: [PATCH] [IOT-2908] Build fail for option WITH_CLOUD.
+
+Printing int64_t value as "%ld" triggered build
+failure as int64_t is "long long int" in 32 bit linux
+environment. Using "PRId64" so that compiler chooses
+"long int" or "long long int" based on it's architecture.
+
+Change-Id: I92c22a312465875cfd0b077c85d215ac9aa4d0d1
+Signed-off-by: Harry <h.marappa@samsung.com>
+---
+ service/notification/examples/linux/cloud_connector.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/service/notification/examples/linux/cloud_connector.c b/service/notification/examples/linux/cloud_connector.c
+index 117592f90..54fc789a5 100644
+--- a/service/notification/examples/linux/cloud_connector.c
++++ b/service/notification/examples/linux/cloud_connector.c
+@@ -138,7 +138,7 @@ void printRepresentation(OCRepPayloadValue *value)
+                             printf("Value: None\n");
+                             break;
+                     case OCREP_PROP_INT:
+-                            printf("Value: %ld\n", value->i);
++                            printf("Value: %"PRId64"\n", value->i);
+                             break;
+                     case OCREP_PROP_DOUBLE:
+                             printf("Value: %f\n", value->d);
+-- 
+2.16.1.windows.1
+

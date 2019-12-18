@@ -1,0 +1,31 @@
+From 6d5b517e006b046a45f7f38ded8c662201a5c7a1 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Tue, 4 Oct 2016 10:37:48 +0200
+Subject: [PATCH] tizen: Enable TCP
+
+Bug: https://jira.iotivity.org/browse/IOT-2749
+Change-Id: I56b8abcea1a3397f546ef0b8edc42711ff62b9d8
+Forwarded: https://gerrit.iotivity.org/gerrit/#/c/14655/
+Origin: https://review.tizen.org/gerrit/#/c/102818/
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 0da5adb75f1f9112256f543ee7a5694ed8b3e20b)
+---
+ tools/tizen/iotivity.spec | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/tizen/iotivity.spec b/tools/tizen/iotivity.spec
+index 7eaf4e7cf..502721427 100755
+--- a/tools/tizen/iotivity.spec
++++ b/tools/tizen/iotivity.spec
+@@ -82,7 +82,7 @@ BuildRequires: python-accel-aarch64-cross-aarch64
+ %{!?WITH_CLOUD: %define WITH_CLOUD 1}
+ %{!?WITH_MQ: %define WITH_MQ OFF}
+ %{!?WITH_PROXY: %define WITH_PROXY 0}
+-%{!?WITH_TCP: %define WITH_TCP 0}
++%{!?WITH_TCP: %define WITH_TCP 1}
+ %{!?MULTIPLE_OWNER: %define MULTIPLE_OWNER 0}
+ %{!?OIC_SUPPORT_TIZEN_TRACE: %define OIC_SUPPORT_TIZEN_TRACE False}
+ 
+-- 
+2.16.1.windows.1
+

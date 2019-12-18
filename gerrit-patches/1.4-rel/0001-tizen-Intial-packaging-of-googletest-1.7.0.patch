@@ -1,0 +1,58 @@
+From 4b087a40bea9e12b8709617c09fc52493fce962f Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Fri, 10 Nov 2017 17:42:06 +0100
+Subject: [PATCH] tizen: Intial packaging of googletest-1.7.0
+
+Formerly know as gtest,
+
+Change-Id: If95d302cbfd47ba3d63c6acbd008d6b01d0a3ec3
+Bug-IoTivity: https://jira.iotivity.org/browse/IOT-2241
+Bug-Tizen: https://bugs.tizen.org/browse/SO-1063
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+---
+ extlibs/gtest/googletest.spec | 33 +++++++++++++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)
+ create mode 100644 extlibs/gtest/googletest.spec
+
+diff --git a/extlibs/gtest/googletest.spec b/extlibs/gtest/googletest.spec
+new file mode 100644
+index 000000000..5e643a9e8
+--- /dev/null
++++ b/extlibs/gtest/googletest.spec
+@@ -0,0 +1,33 @@
++Name: googletest
++Version: 1.7.0
++Release: 0
++Summary: Lib for unit testing
++Source: %{name}-%{version}.tar.gz
++License: BSD-3-Clause
++BuildRequires: make
++
++%description
++Lib for unit testing
++
++%prep
++
++%setup -q -n %{name}-%{version}
++
++%build
++
++%reconfigure
++%__make
++
++echo "TODO: make_install to preserve static lib"
++rpm --eval '%make_install'
++install -d "%{buildroot}/%{_includedir}/" "%{buildroot}/%{_libdir}/"
++cp -rfa include/gtest "%{buildroot}/%{_includedir}/"
++cp -a lib/.libs/lib*.a "%{buildroot}/%{_libdir}/"
++touch debugsources.list
++
++%clean
++
++%files
++%license LICENSE
++%{_includedir}/*
++%{_libdir}/*
+-- 
+2.16.1.windows.1
+

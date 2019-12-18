@@ -1,0 +1,679 @@
+From 2a6f3de601dc219f622c62bb7a58432a183dfe9f Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Thu, 15 Nov 2018 11:17:00 -0700
+Subject: [PATCH] Silence extlibs warnings for gcc8+
+
+Two extlibs projects are now throwing warnings (which in some
+scenarios abort the builds) with newer gcc.  In other extlibs
+projects, we can quiet those by building them in their own
+construction environment, one which omits -Werror.  However for
+hippomocks and rapidjson, there is no code to build; the project
+rather is header files which are included by code which needs
+them, and we don't want to turn off Werror for the project code
+just because it happens to include one of these headers.  The gcc
+solution is to point to the directory containing such header files
+with "-isystem" instead of with "-I" - gcc already has logic to
+quiet warnings for system headers, and this causes such headers to
+be treated as system headers also.
+
+This is not completely trivial in SCons - anything you add to
+CPPPATHS construction variable will automatically be expanded
+to use -Ipath.  So we add "-isystem path" to CPPFLAGS instead.
+Since scons doesn't think CPPFLAGS values are pathnames, it does
+not perform the usual substitution that it would do for paths,
+so we have to use a trick to cause that substitution.
+
+This could be expanded to other places that #include things from
+extlibs (libcoap, boost, etc.) but taking this in relatively
+small steps.
+
+Discussing with scons project if there's a more elegant way to handle
+this. It's not really nice to have to put in gcc-specific syntax,
+and thus fix it only for gcc cases (although that's currently where
+the problems are coming, there's no saying a future revision of the
+MS C++ compiler won't also start warning).  There's nothing pending
+on the scons side, in fact no real agreement that there's anything
+that needs fixing.
+
+Change-Id: I3681eacece2b04026bd439cf99ee9830858de130
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ bridging/SConscript                                |  3 ++-
+ bridging/mini_plugin_manager/SConscript            |  7 +++++-
+ bridging/plugins/hue_plugin/SConscript             |  6 ++++-
+ bridging/plugins/lifx_plugin/SConscript            |  6 ++++-
+ bridging/plugins/lyric_plugin/SConscript           |  6 ++++-
+ bridging/plugins/nest_plugin/SConscript            |  6 ++++-
+ extlibs/hippomocks/SConscript                      | 14 +++++++++++
+ extlibs/libcoap/SConscript                         |  4 +++-
+ extlibs/rapidjson/SConscript                       | 21 ++++++++++++-----
+ extlibs/yaml/SConscript                            |  3 ++-
+ .../csdk/resource-directory/unittests/SConscript   | 27 +++++++++++++---------
+ resource/provisioning/unittests/SConscript         |  7 +++++-
+ resource/unittests/SConscript                      |  7 +++++-
+ service/coap-http-proxy/SConscript                 |  3 ++-
+ service/coap-http-proxy/unittests/SConscript       |  7 +++++-
+ service/easy-setup/enrollee/unittests/SConscript   |  8 ++++++-
+ .../mediator/richsdk/unittests/SConscript          |  8 ++++++-
+ .../notification/cpp-wrapper/unittest/SConscript   |  7 +++++-
+ service/notification/unittest/SConscript           |  6 ++++-
+ service/resource-container/unittests/SConscript    |  6 ++++-
+ .../common/primitiveResource/unittests/SConscript  |  7 +++++-
+ .../src/resourceBroker/unittest/SConscript         | 19 ++++++++-------
+ .../src/resourceCache/unittests/SConscript         |  6 ++++-
+ .../src/serverBuilder/SConscript                   | 11 ++++++---
+ .../resource-encapsulation/unittests/SConscript    |  8 +++++--
+ service/scene-manager/unittests/SConscript         |  7 +++++-
+ 26 files changed, 170 insertions(+), 50 deletions(-)
+
+diff --git a/bridging/SConscript b/bridging/SConscript
+index 2539e374d..a8dc90717 100644
+--- a/bridging/SConscript
++++ b/bridging/SConscript
+@@ -30,7 +30,8 @@ build_sample = 'ON'
+ src_dir = env.get('SRC_DIR')
+ 
+ # rapidjson fetch
+-SConscript('#extlibs/rapidjson/SConscript')
++if not env.get('EXTLIB_RAPIDJSON'):
++    SConscript('#extlibs/rapidjson/SConscript')
+ 
+ if target_os not in ['android', 'darwin', 'ios', 'tizen', 'msys_nt', 'webos', 'windows']:
+ 
+diff --git a/bridging/mini_plugin_manager/SConscript b/bridging/mini_plugin_manager/SConscript
+index 9ce154d7d..d43c2c639 100644
+--- a/bridging/mini_plugin_manager/SConscript
++++ b/bridging/mini_plugin_manager/SConscript
+@@ -32,6 +32,12 @@ print("Reading MPM script")
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in manager_env.get('CC'):
++    manager_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/rapidjson/rapidjson/include/rapidjson').path)
++else:
++    manager_env.AppendUnique(CPPPATH='#extlibs/rapidjson/rapidjson/include/rapidjson')
++
+ manager_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/bridging/include',
+@@ -39,7 +45,6 @@ manager_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/ocrandom/include',
+     '#/resource/c_common/oic_malloc/include',
+     '#/resource/c_common/oic_string/include',
+-    '#/extlibs/rapidjson/include/rapidjson',
+ ])
+ 
+ if target_os not in ['windows']:
+diff --git a/bridging/plugins/hue_plugin/SConscript b/bridging/plugins/hue_plugin/SConscript
+index 4172466cf..a1d655bac 100644
+--- a/bridging/plugins/hue_plugin/SConscript
++++ b/bridging/plugins/hue_plugin/SConscript
+@@ -43,6 +43,11 @@ def maskFlags(flags):
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in hue_env.get('CC'):
++    hue_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/rapidjson/rapidjson/include/rapidjson').path)
++else:
++    hue_env.AppendUnique(CPPPATH='#extlibs/rapidjson/rapidjson/include/rapidjson')
+ 
+ hue_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_malloc/include',
+@@ -55,7 +60,6 @@ hue_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/extlibs/cjson',
+     '#/extlibs/tinycbor/src',
+-    '#/extlibs/rapidjson/rapidjson/include/rapidjson'
+ ])
+ 
+ hue_env.AppendUnique(CPPPATH=[
+diff --git a/bridging/plugins/lifx_plugin/SConscript b/bridging/plugins/lifx_plugin/SConscript
+index b38d84ea8..082e6e7f5 100644
+--- a/bridging/plugins/lifx_plugin/SConscript
++++ b/bridging/plugins/lifx_plugin/SConscript
+@@ -42,6 +42,11 @@ def maskFlags(flags):
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in lifx_env.get('CC'):
++    lifx_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/rapidjson/rapidjson/include/rapidjson').path)
++else:
++    lifx_env.AppendUnique(CPPPATH='#extlibs/rapidjson/rapidjson/include/rapidjson')
+ 
+ lifx_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_malloc/include',
+@@ -54,7 +59,6 @@ lifx_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/extlibs/cjson',
+     '#/extlibs/tinycbor/src',
+-    '#/extlibs/rapidjson/rapidjson/include/rapidjson'
+ ])
+ lifx_env.AppendUnique(CPPPATH=[
+     '#/bridging/include',
+diff --git a/bridging/plugins/lyric_plugin/SConscript b/bridging/plugins/lyric_plugin/SConscript
+index 77b38c3d8..39f40f844 100644
+--- a/bridging/plugins/lyric_plugin/SConscript
++++ b/bridging/plugins/lyric_plugin/SConscript
+@@ -43,6 +43,11 @@ def maskFlags(flags):
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in lyric_env.get('CC'):
++    lyric_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/rapidjson/rapidjson/include/rapidjson').path)
++else:
++    lyric_env.AppendUnique(CPPPATH='#extlibs/rapidjson/rapidjson/include/rapidjson')
+ 
+ lyric_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_malloc/include',
+@@ -55,7 +60,6 @@ lyric_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/extlibs/cjson',
+     '#/extlibs/tinycbor/src',
+-    '#/extlibs/rapidjson/rapidjson/include/rapidjson'
+ ])
+ lyric_env.AppendUnique(CPPPATH=[
+     '#/bridging/include',
+diff --git a/bridging/plugins/nest_plugin/SConscript b/bridging/plugins/nest_plugin/SConscript
+index f7018c12c..17b603d2c 100644
+--- a/bridging/plugins/nest_plugin/SConscript
++++ b/bridging/plugins/nest_plugin/SConscript
+@@ -43,6 +43,11 @@ def maskFlags(flags):
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in nest_env.get('CC'):
++    nest_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/rapidjson/rapidjson/include/rapidjson').path)
++else:
++    nest_env.AppendUnique(CPPPATH='#extlibs/rapidjson/rapidjson/include/rapidjson')
+ 
+ nest_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_malloc/include',
+@@ -55,7 +60,6 @@ nest_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/extlibs/cjson',
+     '#/extlibs/tinycbor/src',
+-    '#/extlibs/rapidjson/rapidjson/include/rapidjson'
+ ])
+ nest_env.AppendUnique(CPPPATH=[
+     '#/bridging/include',
+diff --git a/extlibs/hippomocks/SConscript b/extlibs/hippomocks/SConscript
+index 4de72919a..7c4c895b6 100644
+--- a/extlibs/hippomocks/SConscript
++++ b/extlibs/hippomocks/SConscript
+@@ -30,6 +30,17 @@ Import('env')
+ 
+ target_os = env.get('TARGET_OS')
+ src_dir = env.get('SRC_DIR')
++#
++# NOTE:
++# hippomocks builds will now throw warnings on gcc8+
++# Normally we suppress error-on-warn when building 3rd-party libs:
++# while '-Werror' in env['CCFLAGS']:
++#    env['CCFLAGS'].remove('-Werror')
++# but hippomocks is not a lib, just headers included in other code,
++# so this work has to happen in the SConscript which add this as
++# an include dir. For gcc, use -isystem for gcc builds instead of
++# adding to CPPPATHS. Does not work for compilers that don't have
++# that flag, so other workarounds may be needed in future.
+ 
+ if target_os in ['linux', 'windows']:
+     print('*** Checking for installation of hippomocks ***')
+@@ -48,3 +59,6 @@ if target_os in ['linux', 'windows']:
+                                                   hippomocks_dest_dir))
+         env.UnpackAll(hippomocks_src_dir, hippomocks_zip)
+         os.rename(hippomocks_src_dir, hippomocks_dest_dir)
++
++# set a sentinel so this script doesn't need calling multiple times
++env.Replace(EXTLIB_HIPPOMOCKS=True)
+diff --git a/extlibs/libcoap/SConscript b/extlibs/libcoap/SConscript
+index 74395baf1..d1d618eb4 100755
+--- a/extlibs/libcoap/SConscript
++++ b/extlibs/libcoap/SConscript
+@@ -156,7 +156,9 @@ if target_os in ['linux', 'tizen', 'android']:
+ 
+ # Remove -Werror build flag when building the 'coap' library  it
+ # is external code. see IOT-2539
+-while '-Werror' in libcoap_env['CCFLAGS']: libcoap_env['CCFLAGS'].remove('-Werror')
++while '-Werror' in libcoap_env['CCFLAGS']:
++    libcoap_env['CCFLAGS'].remove('-Werror')
++
+ if env['CC'] == 'cl':
+     # In external code, don't fail on warnings:
+     #  - warning C4267: conversion from size_t to unsigned short, possible loss of data
+diff --git a/extlibs/rapidjson/SConscript b/extlibs/rapidjson/SConscript
+index 446815ce3..83a56016e 100644
+--- a/extlibs/rapidjson/SConscript
++++ b/extlibs/rapidjson/SConscript
+@@ -15,12 +15,18 @@ target_arch = env.get('TARGET_ARCH')
+ 
+ host_os = sys.platform
+ 
+-# Previous fix to uplift rapidjson insufficient for gcc8
+-# So remove -Werror build flag when building rapidjson
+-# TODO: remove this when there is a release containing a fix to
+-# https://github.com/Tencent/rapidjson/issues/1246 and
+-# https://github.com/Tencent/rapidjson/issues/1205
+-while '-Werror' in rapidjson_env['CCFLAGS']: rapidjson_env['CCFLAGS'].remove('-Werror')
++# NOTE: two current issues:
++#  https://github.com/Tencent/rapidjson/issues/1246
++#  https://github.com/Tencent/rapidjson/issues/1205
++# They are fixed in github, but not in a "release" or tag.
++# rapidjson builds will now throw warnings on gcc8+
++# Normally we remove errors on building 3rd-party libs:
++# while '-Werror' in env['CCFLAGS']:
++#    env['CCFLAGS'].remove('-Werror')
++# but rapidjson is not source files, just headers, so this work has to
++# happen in the SConscript which add this as an include dir.
++# Suggested approach is to use -isystem for gcc builds rather than
++# adding to CPPPATHS
+ 
+ ######################################################################
+ # Build flags
+@@ -36,3 +42,6 @@ if not os.path.exists(path):
+         'https://github.com/Tencent/rapidjson/archive/v1.1.0.zip')
+     rapidjson_dir = env.UnpackAll('rapidjson', rapidjson_zip)
+     os.rename("rapidjson-1.1.0", "rapidjson")
++
++# set a sentinel so this script doesn't need calling multiple times
++env.Replace(EXTLIB_RAPIDJSON=True)
+diff --git a/extlibs/yaml/SConscript b/extlibs/yaml/SConscript
+index e12c588c6..cc7323259 100644
+--- a/extlibs/yaml/SConscript
++++ b/extlibs/yaml/SConscript
+@@ -46,7 +46,8 @@ yaml_env.AppendUnique(LIBS=['pthread'])
+ 
+ # Remove -Werror build flag when building the 'YamlParser' library  it
+ # is external code. see IOT-2539
+-while '-Werror' in yaml_env['CCFLAGS']: yaml_env['CCFLAGS'].remove('-Werror')
++while '-Werror' in yaml_env['CCFLAGS']:
++    yaml_env['CCFLAGS'].remove('-Werror')
+ 
+ 
+ yaml_env.AppendUnique(
+diff --git a/resource/csdk/resource-directory/unittests/SConscript b/resource/csdk/resource-directory/unittests/SConscript
+index edf60f165..94a7405c7 100644
+--- a/resource/csdk/resource-directory/unittests/SConscript
++++ b/resource/csdk/resource-directory/unittests/SConscript
+@@ -40,8 +40,8 @@ if lib_env.get('LOGGING'):
+ # Add third party libraries
+ SConscript('#/resource/third_party_libs.scons', 'lib_env')
+ 
+-if target_os in ['linux']:
+-    SConscript('#/extlibs/hippomocks/SConscript')
++if target_os in ['linux'] and not lib_env.get('EXTLIB_HIPPOMOCKS'):
++    SConscript('#extlibs/hippomocks/SConscript')
+ 
+ rd_test_env = lib_env.Clone()
+ 
+@@ -58,19 +58,24 @@ if with_upstream_libcoap == '1':
+     rd_test_env.AppendUnique(CPPPATH=['#extlibs/libcoap/libcoap/include'])
+ else:
+     rd_test_env.AppendUnique(CPPPATH=[
+-        src_dir + '/resource/csdk/connectivity/lib/libcoap-4.1.1/include'
++        '#resource/csdk/connectivity/lib/libcoap-4.1.1/include'
+     ])
+ 
++if 'gcc' in rd_test_env.get('CC'):
++    rd_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    rd_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ rd_test_env.AppendUnique(CPPPATH=[
+-    src_dir + '/extlibs/hippomocks/hippomocks',
+     '../include',
+-    src_dir + '/resource/include',
+-    src_dir + '/resource/csdk/connectivity/api',
+-    src_dir + '/resource/csdk/include',
+-    src_dir + '/resource/csdk/stack/include',
+-    src_dir + '/resource/csdk/security/include',
+-    src_dir + '/resource/csdk/stack/test/',
+-    src_dir + '/resource/oc_logger/include',
++    '#resource/include',
++    '#resource/csdk/connectivity/api',
++    '#resource/csdk/include',
++    '#resource/csdk/stack/include',
++    '#resource/csdk/security/include',
++    '#resource/csdk/stack/test/',
++    '#resource/oc_logger/include',
+ ])
+ 
+ rd_test_env.PrependUnique(LIBS=['octbstack'])
+diff --git a/resource/provisioning/unittests/SConscript b/resource/provisioning/unittests/SConscript
+index 48bd05594..10bee6635 100644
+--- a/resource/provisioning/unittests/SConscript
++++ b/resource/provisioning/unittests/SConscript
+@@ -34,6 +34,12 @@ with_ra_ibb = provisiontests_env.get('WITH_RA_IBB')
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in provisiontests_env.get('CC'):
++    provisiontests_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    provisiontests_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ provisiontests_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/resource/c_common',
+@@ -55,7 +61,6 @@ provisiontests_env.PrependUnique(CPPPATH=[
+     '#/resource/csdk/ocrandom/include',
+     '#/resource/csdk/logger/include',
+     '#/resource/csdk/connectivity/lib/libcoap-4.1.1/include',
+-    '#/extlibs/hippomocks/hippomocks',
+     ])
+ 
+ if target_os in ['windows']:
+diff --git a/resource/unittests/SConscript b/resource/unittests/SConscript
+index 19b649a43..0d1b0a902 100644
+--- a/resource/unittests/SConscript
++++ b/resource/unittests/SConscript
+@@ -33,6 +33,12 @@ with_mq = unittests_env.get('WITH_MQ')
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in unittests_env.get('CC'):
++    unittests_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    unittests_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ unittests_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+     '#/resource/oc_logger/include',
+@@ -50,7 +56,6 @@ unittests_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_string/include',
+     '#/resource/c_common/oic_time/include',
+     '#/resource/csdk/logger/include',
+-    '#/extlibs/hippomocks/hippomocks',
+     ])
+ 
+ if target_os in ['windows']:
+diff --git a/service/coap-http-proxy/SConscript b/service/coap-http-proxy/SConscript
+index 45e91a18f..6e69e77d4 100644
+--- a/service/coap-http-proxy/SConscript
++++ b/service/coap-http-proxy/SConscript
+@@ -27,7 +27,8 @@ local_env = env.Clone()
+ 
+ # Remove -Werror build flag when building the 'coap_http_proxy' library  it
+ # currently has a build warning that still needs to be solved. see IOT-2539
+-while '-Werror' in local_env['CFLAGS']: local_env['CFLAGS'].remove('-Werror')
++while '-Werror' in local_env['CCFLAGS']:
++    local_env['CCFLAGS'].remove('-Werror')
+ 
+ if env.get('RELEASE'):
+     local_env.AppendUnique(CCFLAGS=['-Os'])
+diff --git a/service/coap-http-proxy/unittests/SConscript b/service/coap-http-proxy/unittests/SConscript
+index 07b7e9886..d215f396a 100644
+--- a/service/coap-http-proxy/unittests/SConscript
++++ b/service/coap-http-proxy/unittests/SConscript
+@@ -57,8 +57,13 @@ CoAP_test_env.AppendUnique(LIBS=[
+ if target_os not in ['windows']:
+     CoAP_test_env.AppendUnique(CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
++if 'gcc' in CoAP_test_env.get('CC'):
++    CoAP_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    CoAP_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ CoAP_test_env.AppendUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '../include',
+     '#/resource/c_common',
+     '#/resource/c_common/oic_malloc/include',
+diff --git a/service/easy-setup/enrollee/unittests/SConscript b/service/easy-setup/enrollee/unittests/SConscript
+index 67bac4a44..4b949f465 100644
+--- a/service/easy-setup/enrollee/unittests/SConscript
++++ b/service/easy-setup/enrollee/unittests/SConscript
+@@ -60,8 +60,14 @@ if target_os not in ['windows', 'winrt']:
+         CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
+ 
+ easysetup_test_env.AddPthreadIfNeeded()
++
++if 'gcc' in easysetup_test_env.get('CC'):
++    easysetup_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    easysetup_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ easysetup_test_env.PrependUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '#/resource/include',
+     '#/resource/c_common',
+     '#/resource/c_common/oic_malloc/include',
+diff --git a/service/easy-setup/mediator/richsdk/unittests/SConscript b/service/easy-setup/mediator/richsdk/unittests/SConscript
+index ba13c71cd..cb0e8af92 100644
+--- a/service/easy-setup/mediator/richsdk/unittests/SConscript
++++ b/service/easy-setup/mediator/richsdk/unittests/SConscript
+@@ -56,8 +56,14 @@ if target_os not in ['windows', 'winrt']:
+         CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
+ 
+ easysetup_test_env.AddPthreadIfNeeded()
++
++if 'gcc' in easysetup_test_env.get('CC'):
++    easysetup_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    easysetup_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ easysetup_test_env.PrependUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '#/resource/c_common',
+     '#/resource/c_common/ocrandom/include',
+     '#/resource/c_common/oic_malloc/include',
+diff --git a/service/notification/cpp-wrapper/unittest/SConscript b/service/notification/cpp-wrapper/unittest/SConscript
+index 03709bc94..c28718346 100644
+--- a/service/notification/cpp-wrapper/unittest/SConscript
++++ b/service/notification/cpp-wrapper/unittest/SConscript
+@@ -67,8 +67,13 @@ notification_wrapper_test_env.AppendUnique(LINKFLAGS=['-Wl,--no-as-needed'])
+ 
+ notification_wrapper_test_env.AddPthreadIfNeeded()
+ 
++if 'gcc' in notification_wrapper_test_env.get('CC'):
++    notification_wrapper_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    notification_wrapper_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ notification_wrapper_test_env.PrependUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '#/service/notification/cpp-wrapper/provider/inc',
+     '#/service/notification/cpp-wrapper/consumer/inc',
+     '#/service/notification/cpp-wrapper/common',
+diff --git a/service/notification/unittest/SConscript b/service/notification/unittest/SConscript
+index 108adf8f6..cfe21f85d 100644
+--- a/service/notification/unittest/SConscript
++++ b/service/notification/unittest/SConscript
+@@ -63,9 +63,13 @@ notification_test_env.AppendUnique(LINKFLAGS=['-Wl,--no-as-needed'])
+ 
+ notification_test_env.AddPthreadIfNeeded()
+ 
++if 'gcc' in notification_test_env.get('CC'):
++    notification_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    notification_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
+ 
+ notification_test_env.PrependUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '../include',
+     '../src/consumer',
+     '../src/provider',
+diff --git a/service/resource-container/unittests/SConscript b/service/resource-container/unittests/SConscript
+index 1dbe0f383..43f95ff2e 100644
+--- a/service/resource-container/unittests/SConscript
++++ b/service/resource-container/unittests/SConscript
+@@ -123,7 +123,11 @@ if target_os in ['android']:
+     container_gtest_env.PrependUnique(
+         LIBS=['gnustl_shared', 'compatibility', 'log'])
+ 
+-container_gtest_env.PrependUnique(CPPPATH=['#/extlibs/hippomocks/hippomocks'])
++if 'gcc' in container_gtest_env.get('CC'):
++    container_gtest_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    container_gtest_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
+ 
+ if int(containerJavaSupport):
+     try:
+diff --git a/service/resource-encapsulation/src/common/primitiveResource/unittests/SConscript b/service/resource-encapsulation/src/common/primitiveResource/unittests/SConscript
+index 561607185..267a26ee8 100644
+--- a/service/resource-encapsulation/src/common/primitiveResource/unittests/SConscript
++++ b/service/resource-encapsulation/src/common/primitiveResource/unittests/SConscript
+@@ -22,8 +22,13 @@ Import('env')
+ gtest_env = SConscript('#extlibs/gtest/SConscript')
+ rcs_common_test_env = gtest_env.Clone()
+ 
++if 'gcc' in rcs_common_test_env.get('CC'):
++    rcs_common_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    rcs_common_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ rcs_common_test_env.PrependUnique(CPPPATH = [
+-    '#/extlibs/hippomocks/hippomocks',
+     '#/resource/csdk/include',
+     '#/resource/csdk/stack/include',
+     '#/resource/include',
+diff --git a/service/resource-encapsulation/src/resourceBroker/unittest/SConscript b/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
+index 6a372a599..38b337fa1 100644
+--- a/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
++++ b/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
+@@ -44,6 +44,11 @@ target_os = broker_test_env.get('TARGET_OS')
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in broker_test_env.get('CC'):
++    broker_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    broker_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
+ 
+ broker_test_env.AppendUnique(CPPPATH=[
+     '../include',
+@@ -61,16 +66,14 @@ broker_test_env.AppendUnique(CPPPATH=[
+     '#/resource/oc_logger/include'
+ ])
+ 
+-broker_test_env.PrependUnique(CPPPATH=['#/extlibs/hippomocks/hippomocks'])
+-
+ broker_test_env.PrependUnique(LIBS=['coap'])
+ broker_test_env.AppendUnique(LIBS=[
+-'connectivity_abstraction',
+-'oc_logger',
+-'octbstack',
+-'oc',
+-'rcs_client',
+-'rcs_common',
++    'connectivity_abstraction',
++    'oc_logger',
++    'octbstack',
++    'oc',
++    'rcs_client',
++    'rcs_common',
+ ])
+ 
+ compiler = broker_test_env.get('CXX')
+diff --git a/service/resource-encapsulation/src/resourceCache/unittests/SConscript b/service/resource-encapsulation/src/resourceCache/unittests/SConscript
+index 3459c7d0b..606b3431a 100644
+--- a/service/resource-encapsulation/src/resourceCache/unittests/SConscript
++++ b/service/resource-encapsulation/src/resourceCache/unittests/SConscript
+@@ -43,6 +43,11 @@ target_os = cache_test_env.get('TARGET_OS')
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in cache_test_env.get('CC'):
++    cache_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    cache_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
+ 
+ cache_test_env.AppendUnique(CPPPATH=[
+     '../include',
+@@ -59,7 +64,6 @@ cache_test_env.AppendUnique(CPPPATH=[
+     '#/resource/include',
+     '#/resource/oc_logger/include'
+ ])
+-cache_test_env.PrependUnique(CPPPATH=['#/extlibs/hippomocks/hippomocks'])
+ cache_test_env.PrependUnique(LIBS=[
+     'rcs_client',
+     'rcs_common',
+diff --git a/service/resource-encapsulation/src/serverBuilder/SConscript b/service/resource-encapsulation/src/serverBuilder/SConscript
+index a9eaa0346..7d82f711e 100644
+--- a/service/resource-encapsulation/src/serverBuilder/SConscript
++++ b/service/resource-encapsulation/src/serverBuilder/SConscript
+@@ -96,10 +96,15 @@ else:
+ if server_builder_env.get('WITH_TEST') and target_os in ('linux'):
+     server_builder_test_env = server_builder_env.Clone()
+ 
++    if 'gcc' in server_builder_test_env.get('CC'):
++        server_builder_test_env.AppendUnique(CPPFLAGS=
++            '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++    else:
++        server_builder_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+     server_builder_test_env.AppendUnique(CPPPATH=[
+-            '#/extlibs/hippomocks/hippomocks',
+-            '../common/utils/include',
+-        ])
++        '../common/utils/include',
++    ])
+ 
+     if server_builder_test_env.get('SECURED') == '1':
+         server_builder_test_env.AppendUnique(
+diff --git a/service/resource-encapsulation/unittests/SConscript b/service/resource-encapsulation/unittests/SConscript
+index f3059e6df..2d24b8b5a 100644
+--- a/service/resource-encapsulation/unittests/SConscript
++++ b/service/resource-encapsulation/unittests/SConscript
+@@ -39,7 +39,7 @@ else:
+ # Add third party libraries
+ SConscript('#service/third_party_libs.scons', 'lib_env')
+ 
+-if target_os in ['linux']:
++if target_os in ['linux'] and not lib_env.get('EXTLIB_HIPPOMOCKS'):
+     SConscript('#extlibs/hippomocks/SConscript')
+ 
+ rcs_test_env = lib_env.Clone()
+@@ -52,9 +52,13 @@ src_dir = lib_env.get('SRC_DIR')
+ ######################################################################
+ # Build flags
+ ######################################################################
++if 'gcc' in rcs_test_env.get('CC'):
++    rcs_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    rcs_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
+ 
+ rcs_test_env.AppendUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '../include',
+     '../src/common/utils/include',
+     '#/resource/c_common',
+diff --git a/service/scene-manager/unittests/SConscript b/service/scene-manager/unittests/SConscript
+index 923f037b0..6f1b19811 100644
+--- a/service/scene-manager/unittests/SConscript
++++ b/service/scene-manager/unittests/SConscript
+@@ -64,8 +64,13 @@ scene_test_env.AppendUnique(LIBS=[
+ if target_os not in ['windows']:
+     scene_test_env.AppendUnique(CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
++if 'gcc' in scene_test_env.get('CC'):
++    scene_test_env.AppendUnique(CPPFLAGS=
++        '-isystem ' + Dir('#extlibs/hippomocks/hippomocks').path)
++else:
++    scene_test_env.AppendUnique(CPPPATH='#extlibs/hippomocks/hippomocks')
++
+ scene_test_env.PrependUnique(CPPPATH=[
+-    '#/extlibs/hippomocks/hippomocks',
+     '../include',
+     '../src',
+     '#/service/resource-encapsulation/include',
+-- 
+2.16.1.windows.1
+

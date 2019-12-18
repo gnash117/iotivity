@@ -1,0 +1,30 @@
+From 3540e4f95b481ad13934392fff58f8716bca9832 Mon Sep 17 00:00:00 2001
+From: Oleksandr Andrieiev <o.andrieiev@samsung.com>
+Date: Mon, 28 Jan 2019 16:45:46 +0900
+Subject: [PATCH] Add logs for identity verification in TLS
+
+Change-Id: I716253398668a47d182674a93e3f7087d119106b
+Signed-off-by: Oleksandr Andrieiev <o.andrieiev@samsung.com>
+---
+ resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+index 3661cbfc2..3b0798ae0 100644
+--- a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
++++ b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+@@ -1389,6 +1389,11 @@ static int verifyIdentity( void *data, mbedtls_x509_crt *crt, int depth, uint32_
+         {
+             free(node);
+         }
++        if (!isMatched)
++        {
++
++            OIC_LOG(DEBUG, NET_SSL_TAG, "Could not match UUID from leaf certificate");
++        }
+         ctx.list = NULL;
+         return isMatched ? 0 : -1;
+     }
+-- 
+2.16.1.windows.1
+

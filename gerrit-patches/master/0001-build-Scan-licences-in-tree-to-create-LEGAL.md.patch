@@ -1,0 +1,154 @@
+From bc03a65b0640587ad92bb634a2f8af39f2d5ba42 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Thu, 7 Dec 2017 17:32:31 +0100
+Subject: [PATCH] build: Scan licences in tree to create LEGAL.md
+
+Because of external code, some extra licences might be pulled,
+the buildtime licence scanner that was in tizen packaging,
+could be shared at project level, to fully control
+what legal terms the project should comply.
+
+This file might be commited later to track eventual changes.
+
+Note to reviewers, It would be nice to drop hippomock dependency,
+(so far it is only used by unit_tests)
+
+Change-Id: I2ee2bba719b0497e1e64687086b32c60fa2ccf7f
+Bug: https://jira.iotivity.org/browse/IOT-524
+Origin: https://github.com/TizenTeam/iotivity/tree/sandbox/pcoval/on/master/fedora
+Forwarded: https://gerrit.iotivity.org/gerrit/#/c/23447/
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+---
+ SConstruct                |  1 +
+ build_common/SConscript   | 34 ++++++++++++++++++++++++++++++++++
+ tools/tizen/iotivity.spec | 28 +++++-----------------------
+ 3 files changed, 40 insertions(+), 23 deletions(-)
+
+diff --git a/SConstruct b/SConstruct
+index 097787c9b..47c2f0395 100644
+--- a/SConstruct
++++ b/SConstruct
+@@ -104,3 +104,4 @@ env.UserInstallTargetPCFile('iotivity.pc', 'iotivity.pc')
+ # If we need to extract some of what scons knows at the end of
+ # the scan phase for debugging, can use debug.scons to print things
+ SConscript('debug.scons')
++env.UserInstallLegal()
+diff --git a/build_common/SConscript b/build_common/SConscript
+index 8f5d03907..ffc3112f3 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -722,6 +722,40 @@ def UserInstallTargetExtra(ienv, targets, subdir=None):
+ 
+ env.AddMethod(UserInstallTargetExtra)
+ 
++def UserInstallLegal(ienv, target = 'LEGAL.md', source='.'):
++    '''
++    Scan tree for licences, even if patched with extlibs
++    if multilicensed blacklist incompatible ones, and not built in binaries
++    '''
++    patterns = ('LICEN*E*', "*BSD*", "*COPYING*", "*GPL*", "*MIT*", "*COPYRIGHT*")
++    blacklist = ( str(target),
++                 './.git/COMMIT_EDITMSG',  # Matches *MIT* pattern
++                 './.git/COMMIT_EDITMSG~', # Emacs backup file
++                 './resource/csdk/connectivity/lib/libcoap-4.1.1/LICENSE.GPL', # Use LICENSE.BSD
++                 './extlibs/libstrophe/libstrophe/GPL-LICENSE.txt', # Use MIT
++                 './extlibs/libstrophe/libstrophe/COPYING', # Use MIT
++                 './extlibs/hippomocks/hippomocks/LICENSE', # Optionally used only for tests
++             )
++    files = []
++    import fnmatch
++    for root, dirnames, filenames in os.walk(str(source)):
++        for pattern in patterns:
++            for filename in fnmatch.filter(filenames, pattern):
++                path = os.path.join(root, filename)
++                if path not in blacklist and path not in files:
++                    files.append(path)
++    with open(str(target), 'w') as output:
++        output.write("# Copyrights #\n\n")
++        for filename in files:
++            output.write("## Files:" + os.path.dirname(filename) + "/*" + " ##\n\n")
++            output.write("License: " + filename + "\n\n")
++            with open(filename, 'r') as content:
++                for line in content.readlines():
++                    output.write("    %s" % line)
++            output.write('\n\n')
++    ienv.Alias('install', File(str(target)))
++
++env.AddMethod(UserInstallLegal)
+ 
+ def AddPthreadIfNeeded(ienv):
+     """
+diff --git a/tools/tizen/iotivity.spec b/tools/tizen/iotivity.spec
+index dfa0db521..fa739538a 100644
+--- a/tools/tizen/iotivity.spec
++++ b/tools/tizen/iotivity.spec
+@@ -169,25 +169,6 @@ developing applications that use %{name}.
+ %setup -q
+ chmod g-w %_sourcedir/*
+ 
+-find . \
+-     -iname "LICEN*E*"  \
+-     -o -name "*BSD*" \
+-     -o -name "*COPYING*" \
+-     -o -name "*GPL*" \
+-     -o -name "*MIT*" \
+-     | sort | uniq \
+-     | grep -v 'libcoap-4.1.1/LICENSE.GPL'  \
+-     | while read file ; do \
+-          dir=$(dirname -- "$file")
+-          echo "Files: ${dir}/*"
+-          echo "License: ${file}"
+-          sed 's/^/ /' "${file}"
+-          echo ""
+-          echo ""
+-     done > tmp.tmp && mv tmp.tmp LICENSE
+-
+-cat LICENSE
+-
+ [ -r 'config.md' ] || cat<<EOF | sed -e 's|%{buildroot}|(...BUILDROOT...)|g' | tee config.md
+ # Build configuration info #
+ SCONSFLAGS: %{SCONSFLAGS}
+@@ -206,6 +187,7 @@ cp %{SOURCE1001} ./%{name}-test.manifest
+ %build
+ SCONSFLAGS="%{SCONSFLAGS}" ; export SCONSFLAGS;
+ scons
++cat LEGAL.md
+ 
+ %install
+ rm -rf %{buildroot}
+@@ -230,7 +212,7 @@ rm -rfv out %{buildroot}/out %{buildroot}/${HOME} ||:
+ %manifest %{name}.manifest
+ %endif
+ %defattr(-,root,root,-)
+-%license LICENSE
++%license LEGAL.md
+ %{_libdir}/liboc.so
+ %{_libdir}/liboc_logger.so
+ %{_libdir}/liboc_logger_core.so
+@@ -247,7 +229,7 @@ rm -rfv out %{buildroot}/out %{buildroot}/${HOME} ||:
+ %manifest %{name}.manifest
+ %endif
+ %defattr(-,root,root,-)
+-%license LICENSE
++%license LEGAL.md
+ %{_libdir}/libBMISensorBundle.so
+ %{_libdir}/libDISensorBundle.so
+ %{_libdir}/libHueBundle.so
+@@ -271,12 +253,12 @@ rm -rfv out %{buildroot}/out %{buildroot}/${HOME} ||:
+ %manifest %{name}-test.manifest
+ %endif
+ %defattr(-,root,root,-)
+-%license LICENSE
++%license LEGAL.md
+ %{_libdir}/%{name}/*
+ 
+ %files devel
+ %defattr(-,root,root,-)
+-%license LICENSE
++%license LEGAL.md
+ %doc *.md
+ %{_libdir}/lib*.a
+ %{_libdir}/pkgconfig/%{name}.pc
+-- 
+2.16.1.windows.1
+

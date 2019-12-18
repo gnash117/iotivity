@@ -1,0 +1,33 @@
+From b4341dde6d9e5551aa21aceee5fc48f65a1cc5a2 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Tue, 3 Oct 2017 14:54:33 +0200
+Subject: [PATCH] tizen: Enable to default for MOT feature (on)
+
+Match value in build_common/SConscript.
+
+Bug: https://jira.iotivity.org/browse/IOT-2241
+Origin: https://gerrit.iotivity.org/gerrit/#/c/23291
+Change-Id: I0501472ca5b3735a89122053dd3fdb3f741be456
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 57c593f80512029d00b8d6fc304bb7fa857c8605)
+Origin: https://gerrit.iotivity.org/gerrit/#/c/22673/
+---
+ tools/tizen/iotivity.spec | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tools/tizen/iotivity.spec b/tools/tizen/iotivity.spec
+index c40ce9646..e4a6b7442 100755
+--- a/tools/tizen/iotivity.spec
++++ b/tools/tizen/iotivity.spec
+@@ -83,7 +83,7 @@ BuildRequires: python-accel-aarch64-cross-aarch64
+ %{!?WITH_MQ: %define WITH_MQ OFF}
+ %{!?WITH_PROXY: %define WITH_PROXY 0}
+ %{!?WITH_TCP: %define WITH_TCP 0}
+-%{!?MULTIPLE_OWNER: %define MULTIPLE_OWNER 0}
++%{!?MULTIPLE_OWNER: %define MULTIPLE_OWNER 1}
+ %{!?OIC_SUPPORT_TIZEN_TRACE: %define OIC_SUPPORT_TIZEN_TRACE False}
+ 
+ %define SCONSFLAGS \\\
+-- 
+2.16.1.windows.1
+

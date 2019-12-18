@@ -1,0 +1,55 @@
+From fe78beb6e3b3597fe84df7b7652676e73906155c Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 15:52:11 -0700
+Subject: [PATCH] IOT-3266 Demote provisioning examples
+
+Change-Id: Ibf077c5308a4f3945bf21e0b0316e494f563576b
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ resource/provisioning/SConscript          | 3 +++
+ resource/provisioning/examples/README.md  | 8 ++++++++
+ resource/provisioning/examples/SConscript | 3 +--
+ 3 files changed, 12 insertions(+), 2 deletions(-)
+ create mode 100644 resource/provisioning/examples/README.md
+
+diff --git a/resource/provisioning/SConscript b/resource/provisioning/SConscript
+index 9eb1e6c44..506fb7c00 100644
+--- a/resource/provisioning/SConscript
++++ b/resource/provisioning/SConscript
+@@ -113,5 +113,8 @@ if target_os in ['linux', 'msys_nt', 'tizen', 'webos']:
+     if ocprovision_env.get('WITH_TCP') == True and ocprovision_env.get('WITH_CLOUD') == True and ocprovision_env.get('SECURED') == '1':
+         ocprovision_env.PrependUnique(LIBS=['cloud'])
+ 
++ocprovision_env.AppendTarget('provisioning-examples', default=False)
++if 'provisioning-examples' not in COMMAND_LINE_TARGETS:
++    Return()
+ if target_os in ['linux', 'tizen']:
+     SConscript('examples/SConscript')
+diff --git a/resource/provisioning/examples/README.md b/resource/provisioning/examples/README.md
+new file mode 100644
+index 000000000..b65d7044f
+--- /dev/null
++++ b/resource/provisioning/examples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] provisioning-examples
+diff --git a/resource/provisioning/examples/SConscript b/resource/provisioning/examples/SConscript
+index 3958a7748..75811612a 100644
+--- a/resource/provisioning/examples/SConscript
++++ b/resource/provisioning/examples/SConscript
+@@ -136,5 +136,4 @@ if examples_env.get('WITH_TCP') == True and examples_env.get('WITH_CLOUD') == Tr
+ else:
+     Delete(svr_db_build_dir  + 'cloud.dat')
+ 
+-Alias("examples", actions)
+-examples_env.AppendTarget('examples')
++Alias("provisioning-examples", actions)
+-- 
+2.16.1.windows.1
+

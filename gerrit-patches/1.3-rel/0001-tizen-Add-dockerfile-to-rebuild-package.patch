@@ -1,0 +1,119 @@
+From 3a332abb93ca9e7a5c8ffb5128c72cf5ccd8cbdd Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Fri, 24 Nov 2017 18:31:47 +0100
+Subject: [PATCH] tizen: Add dockerfile to rebuild package
+
+Usage:
+  docker build -f tools/tizen/Dockerfile .
+
+Reference:
+
+  docker 17.12.1-ce
+  gbs 0.25.2
+
+Bug: https://jira.iotivity.org/browse/IOT-524
+Change-Id: I5feec4f3b0e70831c6069e78473e1374b45aeadf
+Forwarded: https://gerrit.iotivity.org/gerrit/#/c/23451/
+Origin: https://github.com/TizenTeam/iotivity/tree/sandbox/pcoval/on/master/fedora
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 29f8d60fd929e0f6513cf87b0fe7e63123e045cc)
+---
+ tools/tizen/Dockerfile | 86 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+ create mode 100644 tools/tizen/Dockerfile
+
+diff --git a/tools/tizen/Dockerfile b/tools/tizen/Dockerfile
+new file mode 100644
+index 000000000..06006bf4f
+--- /dev/null
++++ b/tools/tizen/Dockerfile
+@@ -0,0 +1,86 @@
++#!/bin/echo docker build . -f
++#{
++# Copyright 2017 Samsung Electronics France SAS
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#     http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#}
++
++FROM ubuntu:16.04
++MAINTAINER Philippe Coval (philippe.coval@osg.samsung.com)
++ENV project iotivity
++
++ARG SCONSFLAGS
++ENV SCONSFLAGS ${SCONSFLAGS:-"VERBOSE=1 ERROR_ON_WARN=False"}
++
++ARG prefix
++ENV prefix ${prefix:-/usr/}
++ARG destdir
++ENV destdir ${destdir:-/usr/local/opt/${project}}
++
++ENV DEBIAN_FRONTEND noninteractive
++ENV LC_ALL en_US.UTF-8
++ENV LANG ${LC_ALL}
++
++RUN echo "#log: Configuring locales" \
++  && apt-get update \
++  && apt-get install -y locales \
++  && echo "${LC_ALL} UTF-8" | tee /etc/locale.gen \
++  && locale-gen ${LC_ALL} \
++  && dpkg-reconfigure locales \
++  && sync
++
++RUN echo "#log: ${project}: Preparing system" \
++  && apt-get update -y \
++  && apt-get install -y \
++  software-properties-common \
++  lsb-release \
++  scons \
++  wget \
++  unzip \
++  \
++  && apt-get clean \
++  && sync
++
++RUN echo "#log: ${project}: Install Tizen tools" \
++  && distro=$(lsb_release -i -r -s -i | head -n2 | tr '\n' '_' | sed 's/.$//') \
++  && url="http://download.tizen.org/tools/latest-release/$distro" \
++  && add-apt-repository "deb $url /" \
++  && apt-get update -y \
++  && apt-get install -y --allow-unauthenticated gbs \
++  && apt-get clean -y \
++  && sync
++
++ADD . /usr/local/src/${project}
++WORKDIR /usr/local/src/${project}
++RUN echo "#log: ${project}: Preparing sources" \
++  && git config --global user.name "Nobody" \
++  && git config --global user.email "nobody@localhost" \
++  && git init \
++  && git add -f . \
++  && git commit -am 'WIP: Import ${project}' \
++  && [ ! -x prep.sh ] || EXEC_MODE=true ./prep.sh \
++  && sync
++
++RUN echo "#log: ${project}: Building sources" \
++  && gbs \
++     -c tools/tizen/.gbs.conf \
++     build \
++     --include-all \
++     -P "profile.tizen" --arch "armv7l" \
++  && ./auto_build.py tizen_secured \
++  && ./auto_build.py tizen_unsecured \
++  && find ~/GBS-ROOT*/local/repos/*/*/RPMS -iname "*.rpm" -exec rpm -qlp "{}" \; \
++  && sync
++
++RUN echo "#log: ${project}: Cleaning objects" \
++  && sync
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,82 @@
+From 97746ed47db1f2cd34eb2acbf8c31ba21b36975c Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Thu, 28 Mar 2019 10:00:46 +0200
+Subject: [PATCH] LL_APPEND & LL_DELETE for windows
+
+support LL_APPEND & LL_DELETE for vs 2015
+
+Change-Id: Id343e9fa068082cc0af8b8ce063d316675f4c6e5
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/c_common/utlist.h | 44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
+
+diff --git a/resource/c_common/utlist.h b/resource/c_common/utlist.h
+index 59d9610e0..46c0326cb 100644
+--- a/resource/c_common/utlist.h
++++ b/resource/c_common/utlist.h
+@@ -330,8 +330,46 @@ do {
+   }                                                                                            \
+ } while (0)
+ 
++#if defined(_WIN32)
++#define LL_APPEND_VS2008(head,add)                                                             \
++do {                                                                                           \
++  if (head) {                                                                                  \
++    (add)->next = head;     /* use add->next as a temp variable */                             \
++    while ((add)->next->next) { (add)->next = (add)->next->next; }                             \
++    (add)->next->next=(add);                                                                   \
++  } else {                                                                                     \
++    (head)=(add);                                                                              \
++  }                                                                                            \
++  (add)->next=NULL;                                                                            \
++} while (0)
++
++#define LL_DELETE_VS2008(head,del)                                                             \
++do {                                                                                           \
++    if ((head) == (del)) {                                                                     \
++        (head)=(head)->next;                                                                   \
++    } else {                                                                                   \
++        char *_tmp = (char*)(head);                                                            \
++        while ((head)->next && ((head)->next != (del))) {                                      \
++            (head) = (head)->next;                                                             \
++        }                                                                                      \
++        if ((head)->next) {                                                                    \
++            (head)->next = ((del)->next);                                                      \
++        }                                                                                      \
++        {                                                                                      \
++            char **_head_alias = (char**)&(head);                                              \
++            *_head_alias = _tmp;                                                               \
++        }                                                                                      \
++    }                                                                                          \
++} while (0)
++#endif
++
++#if defined(_WIN32)
++#define LL_APPEND(head,add)                                                                    \
++    LL_APPEND_VS2008(head,add)
++#else
+ #define LL_APPEND(head,add)                                                                    \
+     LL_APPEND2(head,add,next)
++#endif
+ 
+ #define LL_APPEND2(head,add,next)                                                              \
+ do {                                                                                           \
+@@ -346,8 +384,14 @@ do {
+   }                                                                                            \
+ } while (0)
+ 
++
++#if defined(_WIN32)
++#define LL_DELETE(head,del)                                                                    \
++    LL_DELETE_VS2008(head,del)
++#else
+ #define LL_DELETE(head,del)                                                                    \
+     LL_DELETE2(head,del,next)
++#endif
+ 
+ #define LL_DELETE2(head,del,next)                                                              \
+ do {                                                                                           \
+-- 
+2.16.1.windows.1
+

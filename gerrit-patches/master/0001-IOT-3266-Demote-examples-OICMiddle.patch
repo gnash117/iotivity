@@ -1,0 +1,130 @@
+From 07164f3d7b9bb7b6b5cd1ca2d1bd87cbcd893922 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 14:31:09 -0700
+Subject: [PATCH] IOT-3266 Demote examples/OICMiddle
+
+As part of IOT-3266, make the OICMiddle example optional, and also add
+the "unsupported" warning to the README in OICSensorBoard (which has
+never been part of the scons build)
+
+Change-Id: I52c295057a8d5e4e6d75acdb15b7dc3222b2caa6
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ SConstruct                     |  5 ++++-
+ examples/OICMiddle/README      | 14 +++++++++++++-
+ examples/OICMiddle/SConscript  |  3 +--
+ examples/OICSensorBoard/README | 32 +++++++++++++++++++-------------
+ 4 files changed, 37 insertions(+), 17 deletions(-)
+
+diff --git a/SConstruct b/SConstruct
+index 097787c9b..2856d7371 100644
+--- a/SConstruct
++++ b/SConstruct
+@@ -68,10 +68,13 @@ build_dir = env.get('BUILD_DIR')
+ SConscript(build_dir + 'resource/SConscript')
+ 
+ if target_os not in ['darwin','ios', 'android', 'msys_nt', 'windows']:
+-    SConscript(build_dir + 'examples/OICMiddle/SConscript')
+     if env.get('SECURED') == '1':
+         SConscript(build_dir + 'examples/OCFSecure/SConscript')
+ 
++    env.AppendTarget('examples-oicmiddle', default=False)
++    if "examples-oicmiddle" in COMMAND_LINE_TARGETS:
++        SConscript(build_dir + 'examples/OICMiddle/SConscript')
++
+ java_build = None
+ if (env.get('BUILD_JAVA') and env.get('JAVA_HOME')) or target_os == 'android':
+     java_build = SConscript(build_dir + 'java/SConscript')
+diff --git a/examples/OICMiddle/README b/examples/OICMiddle/README
+index c853da089..cd44d9df9 100644
+--- a/examples/OICMiddle/README
++++ b/examples/OICMiddle/README
+@@ -1,4 +1,5 @@
+ OICMiddle was written to
++
+ * be part of a demonstration of OIC Yocto capability,
+ * act as an example of resource callbacks using class methods,
+ * provide a simple promiscuous resource editor for examining OIC systems, and
+@@ -20,6 +21,7 @@ editing capabilities, like the additions of various filters.
+ 
+ Running OICMiddle with no arguments on a console shows the various capabilities
+ it offers.  The most important are:
++
+  -client.   Act as an OIC client.
+  -console.  Accept command lines from console input to drive the OIC client.
+  -server.   Advertise resources found by the OIC client as OIC resources.
+@@ -28,10 +30,20 @@ The -server capabilites might be the basis for a gateway.
+ 
+ Typing 'help' (or invalid commands) to the console gives a console usage
+ message.  The important ones are:
++
+  find       Find all resources.  Also performed automatically at startup.
+  show       Show the found resources and an assigned index.
+  get        Get the value(s) of the resource with the given index.
+  put        Put one or more resource values for the given index.
+ 
++====
++
++Note this example is not officially maintained.
++
++While the code may provide useful insights, it should
++be examined with caution.
++
++To build, run:
++
++scons [options] examples-oicmiddle
+ 
+-12/24/2014
+diff --git a/examples/OICMiddle/SConscript b/examples/OICMiddle/SConscript
+index 77a180e2d..64a2bebc8 100644
+--- a/examples/OICMiddle/SConscript
++++ b/examples/OICMiddle/SConscript
+@@ -88,6 +88,5 @@ OICMiddle = examples_env.Program('OICMiddle', [
+     'WrapResource.cpp',
+ ])
+ 
+-Alias("examples", [OICMiddle])
+-env.AppendTarget('examples')
++Alias("examples-oicmiddle", [OICMiddle])
+ env.UserInstallTargetExtra(OICMiddle)
+diff --git a/examples/OICSensorBoard/README b/examples/OICSensorBoard/README
+index c941e9adc..80f55142a 100644
+--- a/examples/OICSensorBoard/README
++++ b/examples/OICSensorBoard/README
+@@ -1,14 +1,20 @@
+-//******************************************************************
+-//
+-// This example includes
+-// - Server application for Edison which demonstrates Iotivity server
+-//   capabilities through the integration of an add-on breadboard that
+-//   hosts temperature, ambient light and LED resources.
+-// - Client application to test server functionality, discovering and
+-//   communicating with these resources.
+-//
+-// See complete documentation at
+-//        https://wiki.iotivity.org/_media/oicsensorboardreadme.pdf
+-//
+-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++This example includes
++ - Server application for Edison which demonstrates Iotivity server
++   capabilities through the integration of an add-on breadboard that
++   hosts temperature, ambient light and LED resources.
++ - Client application to test server functionality, discovering and
++   communicating with these resources.
++
++ See complete documentation at
++        https://wiki.iotivity.org/_media/oicsensorboardreadme.pdf
++
++
++Note this example is not officially maintained.
++
++While the code may provide useful insights, it should be
++examined with caution.
++
++Although this code appears in the iotivity repository, it is not
++connected into the iotivity build system driven by the scons tool.
++See the description noted above and the Makefile.
+ 
+-- 
+2.16.1.windows.1
+

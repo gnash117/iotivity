@@ -1,0 +1,61 @@
+From 33de6aef9b2f2747930e7ebfc807af5935d8fb3a Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 16:22:01 -0700
+Subject: [PATCH] IOT-3266 Demote resource encapsulation examples
+
+Change-Id: Id0872903afd8d296670c302aa1415af059ab16b1
+Signed-off-by: Mats Wichmann <mats@linux.com>
+
+IOT-3266 Demote resource encapsulation examples
+
+Change-Id: I6e3c5f4ba4fe5b55c0876c2bddf1f4155a455366
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ service/resource-encapsulation/SConscript                | 4 +++-
+ service/resource-encapsulation/examples/README.md        | 8 ++++++++
+ service/resource-encapsulation/examples/linux/SConscript | 1 +
+ 3 files changed, 12 insertions(+), 1 deletion(-)
+ create mode 100644 service/resource-encapsulation/examples/README.md
+
+diff --git a/service/resource-encapsulation/SConscript b/service/resource-encapsulation/SConscript
+index deba38df3..ee0b8e578 100644
+--- a/service/resource-encapsulation/SConscript
++++ b/service/resource-encapsulation/SConscript
+@@ -141,7 +141,9 @@ resourceClient_env.UserInstallTargetHeader('include/RCSSeparateResponse.h',
+ ######################################################################
+ # Build Sample App: SampleResourceClient & SampleResourceServer
+ ######################################################################
+-SConscript('examples/SConscript')
++resourceClient_env.AppendTarget('resource-encapsulation-examples', default=False)
++if "resource-encapsulation-examples" in COMMAND_LINE_TARGETS:
++    SConscript('examples/SConscript')
+ 
+ ######################################################################
+ # Build UnitTests Resource Client , resourceCache and resourceBroker and
+diff --git a/service/resource-encapsulation/examples/README.md b/service/resource-encapsulation/examples/README.md
+new file mode 100644
+index 000000000..fc1f7c4ea
+--- /dev/null
++++ b/service/resource-encapsulation/examples/README.md
+@@ -0,0 +1,8 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] resource-encapsulation-examples
+diff --git a/service/resource-encapsulation/examples/linux/SConscript b/service/resource-encapsulation/examples/linux/SConscript
+index 09e107a91..93e076869 100644
+--- a/service/resource-encapsulation/examples/linux/SConscript
++++ b/service/resource-encapsulation/examples/linux/SConscript
+@@ -81,4 +81,5 @@ separateResponseServer = server_env.Program('separateResponseServer',
+ nestedAttributesServer = server_env.Program('nestedAttributesServer',
+                                             'NestedAttributesServer.cpp')
+ examples += [sampleResourceServer, separateResponseServer, nestedAttributesServer]
++Alias("resource-encapsulation-examples", examples)
+ server_env.UserInstallTargetExtra(examples)
+-- 
+2.16.1.windows.1
+

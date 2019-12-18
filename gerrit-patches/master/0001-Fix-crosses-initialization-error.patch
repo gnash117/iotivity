@@ -1,0 +1,34 @@
+From 78d48ed31cecd7212189ce2fe0fd3acc01dbcc47 Mon Sep 17 00:00:00 2001
+From: Vitalii Irkha <v.irkha@samsung.com>
+Date: Mon, 28 Oct 2019 14:12:51 +0200
+Subject: [PATCH] Fix crosses initialization error
+
+Change-Id: Ie6305621bae179655c1692fe7a082310089b111b
+Signed-off-by: Vitalii Irkha <v.irkha@samsung.com>
+---
+ resource/csdk/security/src/credresource.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/security/src/credresource.c b/resource/csdk/security/src/credresource.c
+index 337aab3d5..ddd6b8c20 100644
+--- a/resource/csdk/security/src/credresource.c
++++ b/resource/csdk/security/src/credresource.c
+@@ -2177,12 +2177,13 @@ static bool FillPrivateDataOfSubOwnerPSK(OicSecCred_t* receivedCred, const CAEnd
+                            const OicSecDoxm_t* doxm, const OicUuid_t* subOwner)
+ {
+     unsigned char* b64Buf = NULL;
++    uint8_t subOwnerPSK[OWNER_PSK_LENGTH_128] = {0};
++    CAResult_t pskRet = CA_STATUS_FAILED;
+     //Derive OwnerPSK locally
+     const char* oxmLabel = GetOxmString(doxm->oxmSel);
+     VERIFY_NOT_NULL(TAG, oxmLabel, ERROR);
+ 
+-    uint8_t subOwnerPSK[OWNER_PSK_LENGTH_128] = {0};
+-    CAResult_t pskRet = CAGenerateOwnerPSK(ownerAddr,
++    pskRet = CAGenerateOwnerPSK(ownerAddr,
+         (uint8_t*)oxmLabel, strlen(oxmLabel),
+         subOwner->id, sizeof(subOwner->id),
+         doxm->deviceID.id, sizeof(doxm->deviceID.id),
+-- 
+2.16.1.windows.1
+

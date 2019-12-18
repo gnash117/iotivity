@@ -1,0 +1,296 @@
+From 5a3b61674bafd7d05e7e9df8cbd4f1a1b32a3758 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Thu, 6 Dec 2018 14:13:03 +0200
+Subject: [PATCH] security firewall
+
+security firewall
+
+Change-Id: Ia076188bd6ed0872789a65a85920f178537a69a7
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/include/srmutility.h        |  12 ++
+ resource/csdk/security/src/secureresourcemanager.c |   2 +
+ resource/csdk/security/src/srmutility.c            | 188 ++++++++++++++++++++-
+ resource/csdk/stack/src/ocstack.c                  |   7 +-
+ 4 files changed, 207 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/security/include/srmutility.h b/resource/csdk/security/include/srmutility.h
+index 474b813b1..322f39cd0 100644
+--- a/resource/csdk/security/include/srmutility.h
++++ b/resource/csdk/security/include/srmutility.h
+@@ -36,6 +36,8 @@ extern "C"
+ extern "C" {
+ #endif // __cplusplus
+ 
++#include "cacommon.h"
++
+ typedef struct OicParseQueryIter OicParseQueryIter_t;
+ 
+ /**
+@@ -224,6 +226,16 @@ OCStackResult OC_CALL SetDeviceIdSeed(const uint8_t* seed, size_t seedSize);
+  */
+ bool SRMIsSecurityResourceURI(const char* uri);
+ 
++/**
++ * Security protocol firewall implementation
++ *
++ * @return true IFF the URI is for a SVR
++ */
++void SRMSecurityFirewallInit();
++void SRMSecurityFirewallDeInit();
++bool SRMSecurityFirewall(const char* uri, CAMethod_t method);
++int SRMSecurityFirewallGetPosition();
++
+ /**
+  * Log OicUuid_t structs.
+  */
+diff --git a/resource/csdk/security/src/secureresourcemanager.c b/resource/csdk/security/src/secureresourcemanager.c
+index 199488e2f..f8107ed73 100644
+--- a/resource/csdk/security/src/secureresourcemanager.c
++++ b/resource/csdk/security/src/secureresourcemanager.c
+@@ -481,11 +481,13 @@ OCStackResult SRMInitSecureResources(void)
+     CAregisterIdentityHandler(GetIdentityHandler);
+     CAregisterGetCredentialTypesHandler(InitCipherSuiteList);
+ #endif // __WITH_DTLS__ or __WITH_TLS__
++    SRMSecurityFirewallInit();
+     return ret;
+ }
+ 
+ void SRMDeInitSecureResources(void)
+ {
++    SRMSecurityFirewallDeInit();
+     DestroySecureResources();
+ }
+ 
+diff --git a/resource/csdk/security/src/srmutility.c b/resource/csdk/security/src/srmutility.c
+index 687b6e367..c2d9e1fb2 100644
+--- a/resource/csdk/security/src/srmutility.c
++++ b/resource/csdk/security/src/srmutility.c
+@@ -254,7 +254,6 @@ bool SRMIsSecurityResourceURI(const char* uri)
+         OIC_RSRC_ROLES_URI,
+         OC_RSRVD_PROV_CRL_URL
+     };
+-
+ #ifdef _MSC_VER
+ #pragma warning(pop)
+ #endif
+@@ -282,6 +281,193 @@ bool SRMIsSecurityResourceURI(const char* uri)
+     return false;
+ }
+ 
++/**
++ * Security protocol firewall implementation
++ */
++typedef struct _uri_
++{
++    CAMethod_t method;
++    const char *uri;
++} _uri_t;
++typedef struct _rule_
++{
++    int matchLen;
++    size_t arLen;
++    _uri_t *ar;
++    const char *prefix;
++} _rule_t;
++
++static __thread _rule_t fw[2];
++static __thread size_t reqCount = 0;
++
++#define  MATCH_TIMES 3
++#define ARRAY_LEN(a) (sizeof(a) / sizeof(*a))
++
++static bool SRMSecurityFirewallCheck(const char *uri, size_t uriLen, CAMethod_t method, _rule_t *r)
++{
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++
++    if (!r)
++    {
++        return false;
++    }
++
++    OIC_LOG_V(DEBUG, TAG, "%s: %s: state: %d", __func__, r->prefix, r->matchLen);
++
++    if (method != r->ar[r->matchLen].method)
++    {
++        OIC_LOG_V(DEBUG, TAG, "%s: OUT %s: uri %s:%d wrong method", __func__, r->prefix, uri, method);
++        return false;
++    }
++
++    bool ret = false;
++    size_t svrLen = strlen(r->ar[r->matchLen].uri);
++
++    if (uriLen == svrLen && 0 == strncmp(uri, r->ar[r->matchLen].uri, svrLen))
++    {
++        if((int)r->arLen - 1 > r->matchLen)
++        {
++            r->matchLen++;
++        }
++        else
++        {
++            r->matchLen = 0;
++        }
++
++        OIC_LOG_V(DEBUG, TAG, "%s: %s: resource %s:%d state: %d", __func__, r->prefix, uri, method, r->matchLen);
++    }
++    else
++    {
++        if (MATCH_TIMES <= r->matchLen)
++        {
++            OIC_LOG_V(WARNING, TAG, "%s: %s:  failure", __func__, r->prefix);
++            ret = true;
++        }
++
++        r->matchLen = (uriLen == svrLen && 0 == strncmp(uri, r->ar[0].uri, svrLen)) ? 1 : 0;
++        OIC_LOG_V(WARNING, TAG, "%s: %s: uri: %s wrong order(%s:%d)", __func__, r->prefix, uri, r->ar[r->matchLen].uri, r->ar[r->matchLen].method);
++    }
++
++    OIC_LOG_V(DEBUG, TAG, "%s: OUT", __func__);
++    return ret;
++}
++
++void SRMSecurityFirewallInit()
++{
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++
++    fw[0].matchLen = 0,
++    fw[0].arLen = 9,
++    fw[0].ar = OICCalloc(fw[0].arLen, sizeof(_uri_t));
++    fw[0].ar[0] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[0].ar[1] = (_uri_t){CA_GET, OIC_RSRC_PSTAT_URI};
++    fw[0].ar[2] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    fw[0].ar[3] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[0].ar[4] = (_uri_t){CA_POST, OIC_RSRC_CRED_URI};
++    fw[0].ar[5] = (_uri_t){CA_POST, OIC_RSRC_ACL_URI};
++    fw[0].ar[6] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[0].ar[7] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    fw[0].ar[8] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    asprintf((char**)&fw[0].prefix,"otm v1");
++
++    fw[1].matchLen = 0;
++    fw[1].arLen = 12;
++    fw[1].ar = OICCalloc(fw[1].arLen, sizeof(_uri_t));
++    fw[1].ar[0] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[1].ar[1] = (_uri_t){CA_GET, OIC_RSRC_DOXM_URI};
++    fw[1].ar[2] = (_uri_t){CA_GET, OIC_RSRC_PSTAT_URI};
++    fw[1].ar[3] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    fw[1].ar[4] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[1].ar[5] = (_uri_t){CA_GET, OIC_RSRC_DOXM_URI};
++    fw[1].ar[6] = (_uri_t){CA_POST, OIC_RSRC_CRED_URI};
++    fw[1].ar[7] = (_uri_t){CA_POST, OIC_RSRC_ACL2_URI};
++    fw[1].ar[8] = (_uri_t){CA_POST, OIC_RSRC_DOXM_URI};
++    fw[1].ar[9] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    fw[1].ar[10] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    fw[1].ar[11] = (_uri_t){CA_POST, OIC_RSRC_PSTAT_URI};
++    asprintf((char**)&fw[1].prefix,"otm v2");
++
++    OIC_LOG_V(DEBUG, TAG, "%s: OUT", __func__);
++}
++
++void SRMSecurityFirewallDeInit()
++{
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++
++    for(size_t i = 0; i < ARRAY_LEN(fw); i++)
++    {
++        OICFree(fw[i].ar);
++        fw[i].ar = NULL;
++        OICFree((void*)fw[i].prefix);
++        fw[i].prefix = NULL;
++    }
++
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++}
++
++bool SRMSecurityFirewall(const char* uri, CAMethod_t method)
++{
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++
++    if (!uri)
++    {
++        OIC_LOG_V(WARNING, TAG, "%s: OUT: uri is NULL", __func__);
++        return false;
++    }
++
++    if (!SRMIsSecurityResourceURI(uri))
++    {
++        for(size_t i = 0; i < ARRAY_LEN(fw); fw[i].matchLen = 0, i++);
++        OIC_LOG_V(DEBUG, TAG, "%s: OUT: not secure uri: %s", __func__, uri);
++        return false;
++    }
++
++    reqCount++;
++
++    OIC_LOG_V(DEBUG, TAG, "%s: Processing security uri: %s:%d (count: %lu)", __func__, uri, method, reqCount);
++
++    size_t uriLen = strlen(uri);
++    for(size_t j = 0; j < ARRAY_LEN(fw); j++)
++    {
++        if (SRMSecurityFirewallCheck(uri, uriLen, method, &fw[j]))
++        {
++            bool protoError = true;
++            for(size_t i = 0; i < ARRAY_LEN(fw); i++)
++            {
++                if (j != i && MATCH_TIMES <= fw[i].matchLen)
++                {
++                    protoError = false;
++                    break;
++                }
++            }
++
++            if (protoError)
++            {
++                OIC_LOG_V(ERROR, TAG, "%s: OUT: %s mismatch", __func__, fw[j].prefix);
++                return true;
++            }
++        }
++    }
++
++    OIC_LOG_V(DEBUG, TAG, "%s: OUT", __func__);
++    return false;
++}
++
++int SRMSecurityFirewallGetPosition()
++{
++    OIC_LOG_V(DEBUG, TAG, "%s: IN", __func__);
++    int max = fw[0].matchLen;
++    for(size_t j = 1; j < ARRAY_LEN(fw); j++)
++    {
++        if (fw[j].matchLen > max)
++        {
++            max = fw[j].matchLen;
++        }
++    }
++    OIC_LOG_V(DEBUG, TAG, "%s: OUT", __func__);
++    return max;
++}
++
+ /**
+  * return true IFF the URI is for a DCR as defined by Security Specification.
+  */
+diff --git a/resource/csdk/stack/src/ocstack.c b/resource/csdk/stack/src/ocstack.c
+index 092e87ba4..a193d1855 100644
+--- a/resource/csdk/stack/src/ocstack.c
++++ b/resource/csdk/stack/src/ocstack.c
+@@ -2361,6 +2361,11 @@ void OCHandleRequests(const CAEndpoint_t* endPoint, const CARequestInfo_t* reque
+     OIC_LOG_V(INFO, TAG, "URI without query: %s", uriWithoutQuery);
+     OIC_LOG_V(INFO, TAG, "Query : %s", query);
+ 
++    if (SRMSecurityFirewall(uriWithoutQuery, requestInfo->method))
++    {
++        return;
++    }
++
+     OCServerProtocolRequest serverRequest = { 0 };
+     if (strlen(uriWithoutQuery) < MAX_URI_LENGTH)
+     {
+@@ -6374,4 +6379,4 @@ OCStackResult OC_CALL OCSendPingMessage(const OCDevAddr *devAddr, bool withCusto
+     return CAResultToOCResult(CASendPingMessage(&endpoint, withCustody, &pongCbData));
+ }
+ 
+-#endif // TCP_ADAPTER
+\ No newline at end of file
++#endif // TCP_ADAPTER
+-- 
+2.16.1.windows.1
+

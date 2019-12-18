@@ -1,0 +1,61 @@
+From 09f469a0dc870d2b23414f1c0c8abf82284f8e5c Mon Sep 17 00:00:00 2001
+From: Harry <h.marappa@samsung.com>
+Date: Thu, 30 Nov 2017 16:04:54 +0530
+Subject: [PATCH] [IOT-2587] occlient sample exits on start
+
+occlient was exiting on failure of discovery request
+by OCDoResource.
+
+Change-Id: I028cb81149ba66f0ea3b55c62016bad531168e3a
+Signed-off-by: Harry <h.marappa@samsung.com>
+(cherry picked from commit 971ee68d8e575f30ddbba1f7e560f829faa302bf)
+---
+ resource/csdk/stack/samples/linux/OCSample/occlient.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/stack/samples/linux/OCSample/occlient.c b/resource/csdk/stack/samples/linux/OCSample/occlient.c
+index dbe0e0093..98042e3c4 100644
+--- a/resource/csdk/stack/samples/linux/OCSample/occlient.c
++++ b/resource/csdk/stack/samples/linux/OCSample/occlient.c
+@@ -36,6 +36,7 @@
+ /// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
++#define DEFAULT_CONTEXT_VALUE 0x99
+ #define TAG ("occlient")
+ 
+ int gQuitFlag = 0;
+@@ -49,8 +50,12 @@ void handleSigInt(int signum) {
+ 
+ // This is a function called back when a device is discovered
+ OCStackApplicationResult applicationDiscoverCB(
++        void *context, OCDoHandle handle,
+         OCClientResponse * clientResponse) {
++    (void)context;
++    (void)handle;
+     (void)clientResponse;
++
+     OIC_LOG(INFO, TAG, "Entering applicationDiscoverCB (Application Layer CB)");
+     OIC_LOG_V(INFO, TAG, "Device =============> Discovered %s @ %s:%d",
+                                     clientResponse->resourceUri,
+@@ -70,10 +75,15 @@ int main() {
+     }
+ 
+     /* Start a discovery query*/
++    OCCallbackData cbData;
++    cbData.cb = applicationDiscoverCB;
++    cbData.context = (void*)DEFAULT_CONTEXT_VALUE;
++    cbData.cd = NULL;
++
+     char szQueryUri[MAX_QUERY_LENGTH] = { 0 };
+     strcpy(szQueryUri, OC_MULTICAST_DISCOVERY_URI);
+-    if (OCDoResource(NULL, OC_REST_GET, szQueryUri, 0, 0, 
+-            CT_DEFAULT, OC_LOW_QOS, 0, 0, 0) != OC_STACK_OK) {
++    if (OCDoResource(NULL, OC_REST_DISCOVER, szQueryUri, 0, 0,
++            CT_DEFAULT, OC_LOW_QOS, &cbData, NULL, 0) != OC_STACK_OK) {
+         OIC_LOG(ERROR, TAG, "OCStack resource error");
+         return 0;
+     }
+-- 
+2.16.1.windows.1
+

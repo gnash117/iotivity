@@ -1,0 +1,50 @@
+From f8ea7e2fd94faafe9b9521a4db330f37b8be6d5c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=B6ren=20Tempel?= <tempel@uni-bremen.de>
+Date: Thu, 18 Oct 2018 20:03:05 +0200
+Subject: [PATCH] Retain value of TERM env when using gradle
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+SCons does not inherit the environment of the calling process by
+default. Gradle < 3.1 on the other hand requires TERM to be set [1].
+
+Otherwise the build fails with the following error message:
+
+	* What went wrong:
+	  Could not open terminal for stdout: $TERM not set
+
+	* Try:
+	  Run with --info or --debug option to get more log output.
+
+	* Exception is: net.rubygrapefruit.platform.NativeException:
+	  Could not open terminal for stdout: $TERM not set
+
+This commit fixes this error by copying the value of TERM to the jdk
+environment.
+
+[1]: https://issues.gradle.org/browse/GRADLE-2634
+
+Change-Id: I260944517f4c10f4c9d312eb72219f50a0337be9
+Signed-off-by: Sören Tempel <tempel@uni-bremen.de>
+---
+ java/SConscript | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/java/SConscript b/java/SConscript
+index f3e87e7c8..8aea02cbf 100644
+--- a/java/SConscript
++++ b/java/SConscript
+@@ -235,7 +235,8 @@ jdk_env = None
+ if target_os in ['android']:
+     # Gradle needs some settings in the environment:
+     jdk_env = env.Clone(ENV={'JAVA_HOME':env['JAVA_HOME'],
+-                             'ANDROID_HOME':env['ANDROID_HOME']})
++                             'ANDROID_HOME':env['ANDROID_HOME'],
++                             'TERM':env.get('TERM')})
+ else:
+     jdk_env = env.Clone()
+ 
+-- 
+2.16.1.windows.1
+

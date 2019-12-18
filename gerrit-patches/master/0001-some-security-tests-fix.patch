@@ -1,0 +1,109 @@
+From 47c03e85aca76bd40e225b1e237a1063441833f2 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Fri, 19 Jul 2019 12:34:31 +0300
+Subject: [PATCH] some security tests fix
+
+some security tests fix
+
+Change-Id: I7e19b9f9f9a6c33eefc0a4cbfe2343579a35a374
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ .../provisioning/unittest/oxmrandompin.cpp         | 16 ++++++++++
+ .../csdk/security/unittest/aclresourcetest.cpp     | 34 ++++++++++++++++++----
+ 2 files changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/unittest/oxmrandompin.cpp b/resource/csdk/security/provisioning/unittest/oxmrandompin.cpp
+index 3add0144b..75a85d64c 100644
+--- a/resource/csdk/security/provisioning/unittest/oxmrandompin.cpp
++++ b/resource/csdk/security/provisioning/unittest/oxmrandompin.cpp
+@@ -42,12 +42,21 @@ extern "C" {
+ 
+ using namespace std;
+ 
++static void inputPinCallback(char* pinBuf, size_t bufSize)
++{
++    for(size_t i = 0; i < bufSize; i++)
++    {
++        pinBuf[i] = (char)(255 % rand());
++    }
++}
++
+ class ORP : public ::testing::Test
+ {
+     public:
+         static void SetUpTestCase()
+         {
+             IOT_Init(PM_DB_FILE_NAME);
++            SetInputPinCB(inputPinCallback);
+         }
+ 
+         static void TearDownTestCase()
+@@ -71,6 +80,13 @@ TEST_F(ORP, InputPinCodeCallback)
+ {
+     OTMContext_t *ctx = createOTMContext();
+     EXPECT_EQ(OC_STACK_ERROR, InputPinCodeCallback(ctx));
++
++
++    EXPECT_EQ(OC_STACK_OK, InputPinCodeCallback(ctx));
++
++    ctx->selectedDeviceInfo->doxm->owned = true;
++    EXPECT_EQ(OC_STACK_OK, InputPinCodeCallback(ctx));
++
+     freeOTMContext(ctx);
+ }
+ #if !defined(_WIN32)
+diff --git a/resource/csdk/security/unittest/aclresourcetest.cpp b/resource/csdk/security/unittest/aclresourcetest.cpp
+index 1cb471428..5b861ccff 100644
+--- a/resource/csdk/security/unittest/aclresourcetest.cpp
++++ b/resource/csdk/security/unittest/aclresourcetest.cpp
+@@ -671,18 +671,42 @@ TEST_F(SRM_ACL, CBORPayloadToCloudAcl)
+     uint8_t *payload = NULL;
+     size_t size   = 0;
+ 
+-    OicSecAcl_t *acl = (OicSecAcl_t*)OICCalloc(1, sizeof(OicSecAcl_t));
+-    ASSERT_NE(nullptr, acl);
+-    EXPECT_EQ(OC_STACK_OK, populateAcl(acl, 3));
++    OicSecAcl_t *acl1 = (OicSecAcl_t*)OICCalloc(1, sizeof(OicSecAcl_t));
++    ASSERT_NE(nullptr, acl1);
++    EXPECT_EQ(OC_STACK_OK, populateAcl(acl1, 1));
++
++    OicSecAcl_t *acl2 = (OicSecAcl_t*)OICCalloc(1, sizeof(OicSecAcl_t));
++    ASSERT_NE(nullptr, acl2);
++    EXPECT_EQ(OC_STACK_OK, populateAcl(acl2, 2));
++
++    OicSecAcl_t *acl3 = (OicSecAcl_t*)OICCalloc(1, sizeof(OicSecAcl_t));
++    ASSERT_NE(nullptr, acl3);
++    EXPECT_EQ(OC_STACK_OK, populateAcl(acl3, 3));
+ 
+     //acl->aces->validities = (OicSecValidity_t*)OICCalloc(1, sizeof(OicSecValidity_t));
+     //acl->aces->validities->period = OICStrdup("10/10/20");
++    payload = NULL;
++    size = 0;
++    EXPECT_EQ(OC_STACK_OK, AclToCBORPayload(acl1, OIC_SEC_ACL_V1, &payload, &size));
++    ASSERT_NE(0u, size);
++    OicSecAcl_t *acl = CBORPayloadToCloudAcl(payload, size);
++    OICFree(payload);
++    OICFree(acl);
+ 
+-    EXPECT_EQ(OC_STACK_OK, AclToCBORPayload(acl, OIC_SEC_ACL_V2, &payload, &size));
++    payload = NULL;
++    size = 0;
++    EXPECT_EQ(OC_STACK_OK, AclToCBORPayload(acl2, OIC_SEC_ACL_V2, &payload, &size));
+     ASSERT_NE(0u, size);
+ 
++    acl = NULL;
+     acl = CBORPayloadToCloudAcl(payload, size);
+-//    EXPECT_NE(nullptr, acl);
++    EXPECT_NE(nullptr, acl);
++//    OICFree(payload);
++    OICFree(acl);
++
++    OICFree(acl1);
++    OICFree(acl2);
++    OICFree(acl3);
+ }
+ #endif
+ 
+-- 
+2.16.1.windows.1
+

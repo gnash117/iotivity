@@ -1,0 +1,3095 @@
+From d0d0ccf4b0806f020802312c66ff0a8738e3c022 Mon Sep 17 00:00:00 2001
+From: Michal Wieckowski <michal.wieckowski@comarch.com>
+Date: Wed, 27 Feb 2019 10:06:05 +0100
+Subject: [PATCH 2/3] Rework TAFAgent to communicate with IUT via http
+
+* Removed xdotool dependency
+* Rework command line arguments:
+* use "--help" to display possible arguments
+* "--confPath arg1" provide local path to configuration.xml file
+* "--discoveryIpVer arg2" argument value 4 or 6, use to decide which
+    ip version should TAF prefer when selecting discovery endpoint
+* "--iutApiEndpoint arg3" provide ip:port for IUT "apiEndpoint" to
+    connect to
+
+Change-Id: If675a8c76a8b47ccccddeebeda4ea59c76687ed9
+Signed-off-by: Michal Wieckowski <michal.wieckowski@comarch.com>
+---
+ test/build/linux/SConscriptTAF                     |   14 +-
+ test/src/automation/ctt/include/ActionHandler.hpp  |  141 +++
+ test/src/automation/ctt/include/IUTController.hpp  |   68 +
+ test/src/automation/ctt/src/ActionHandler.cpp      |  867 +++++++++++++
+ test/src/automation/ctt/src/IUTController.cpp      |  350 ++++++
+ test/src/automation/ctt/src/TAFAgent.cpp           | 1302 ++------------------
+ .../IUTSimulatorApp/c_cpp/include/http/Client.hpp  |   21 +
+ .../IUTSimulatorApp/c_cpp/include/http/Request.hpp |   26 +
+ .../IUTSimulatorApp/c_cpp/src/http/Client.cpp      |   82 ++
+ .../IUTSimulatorApp/c_cpp/src/http/Request.cpp     |   23 +
+ 10 files changed, 1666 insertions(+), 1228 deletions(-)
+ create mode 100644 test/src/automation/ctt/include/ActionHandler.hpp
+ create mode 100644 test/src/automation/ctt/include/IUTController.hpp
+ create mode 100644 test/src/automation/ctt/src/ActionHandler.cpp
+ create mode 100644 test/src/automation/ctt/src/IUTController.cpp
+ create mode 100644 test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Client.hpp
+ create mode 100644 test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Request.hpp
+ create mode 100644 test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Client.cpp
+ create mode 100644 test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Request.cpp
+
+diff --git a/test/build/linux/SConscriptTAF b/test/build/linux/SConscriptTAF
+index 19bf9e7fa..f8a709bcd 100755
+--- a/test/build/linux/SConscriptTAF
++++ b/test/build/linux/SConscriptTAF
+@@ -61,6 +61,7 @@ include_paths = [
+                             iotivity_root + '/include',
+                             iotivity_test_root + '/src/automation/ctt/include',
+                             iotivity_test_root + '/extlibs/taf/include/libuv',
++                            iotivity_test_root + '/src/testapp/IUTSimulatorApp/c_cpp/include/http',
+                             iotivity_root + '/resource/include',
+                             iotivity_root + '/resource/csdk/connectivity/api',
+                             iotivity_root + '/resource/csdk/stack/include',
+@@ -78,17 +79,24 @@ include_paths = [
+                             iotivity_root + '/extlibs/tinycbor/tinycbor/src/',
+               ]
+ 
+-libs = Split('uv xml2 liboc liboctbstack liboc_logger libconnectivity_abstraction libcoap')
++libs = Split('uv xml2 liboc liboctbstack liboc_logger libconnectivity_abstraction libcoap pthread boost_system boost_program_options')
+ 
+ 
+ src = [
+     test_src_root + '/automation/ctt/src/DUTController.c',
+     test_src_root + '/automation/ctt/src/MiniHttpServer.c',
+     test_src_root + '/automation/ctt/src/ResourceMap.c',
+-    test_src_root + '/automation/ctt/src/TAFAgent.c',
++    test_src_root + '/automation/ctt/src/IUTController.cpp',
++    test_src_root + '/automation/ctt/src/ActionHandler.cpp',
++    test_src_root + '/automation/ctt/src/TAFAgent.cpp',
+ ]
+ 
+-taf_app = env_linux.Program(source = src, target = 'TAFAgent', CPPPATH = include_paths,
++http_src = [
++    test_src_root + '/testapp/IUTSimulatorApp/c_cpp/src/http/Request.cpp',
++    test_src_root + '/testapp/IUTSimulatorApp/c_cpp/src/http/Client.cpp'
++]
++
++taf_app = env_linux.Program(source = src + http_src, target = 'TAFAgent', CPPPATH = include_paths,
+                 LIBS = libs, LIBPATH = iotivity_lib_path, RPATH = iotivity_lib_path, CPPFLAGS = cppflags + common_linux_cppflags)
+ install_targets += [taf_app]
+ 
+diff --git a/test/src/automation/ctt/include/ActionHandler.hpp b/test/src/automation/ctt/include/ActionHandler.hpp
+new file mode 100644
+index 000000000..54cdec3dd
+--- /dev/null
++++ b/test/src/automation/ctt/include/ActionHandler.hpp
+@@ -0,0 +1,141 @@
++#include <string>
++#include <vector>
++
++struct ActionResult
++{
++    enum class Status
++    {
++        OK,
++        OK_WITH_REDISCOVERY,
++        ERROR,
++        ERROR_NO_CONNECTION,
++        ERROR_NOT_RUN
++    } status;
++
++    ActionResult()
++        : status(Status::ERROR_NOT_RUN)
++    {
++    }
++
++    ActionResult(Status status)
++        : status(status)
++    {
++    }
++
++    operator bool()
++    {
++        if (status == Status::OK ||
++            status == Status::OK_WITH_REDISCOVERY)
++        {
++            return true;
++        }
++        else
++        {
++            return false;
++        }
++    }
++
++    bool operator==(const Status& status)
++    {
++        if (this->status == status)
++        {
++            return true;
++        }
++        else
++        {
++            return false;
++        }
++    }
++};
++
++class ActionHandler
++{
++public:
++    static const std::string messageTagBegin;
++    static const std::string messageTagEnd;
++    static const std::string possibleAnswerTagBegin;
++    static const std::string possibleAnswerTagEnd;
++    static const std::string answerTagBegin;
++    static const std::string answerTagEnd;
++
++    enum class ProtocolType
++    {
++        Default,
++        Secured,
++        TCP,
++        Secured_TCP
++    };
++
++    enum class ResetType
++    {
++        Full,
++        Reuse
++    };
++
++    ActionHandler(std::string XMLMessage, std::string serverAddress, std::string serverPort, std::string IUTDiscoveryNetworkInterface);
++
++    ActionResult doAction();
++
++    std::string getActionResponse();
++
++    ActionResult getActionResult();
++
++    ActionResult getToMainMenu();
++
++    std::string getPossibleResponse();
++
++private:
++    const std::string serverAddress;
++    const std::string serverPort;
++    const std::string IUTDiscoveryNetworkInterface;
++    const std::string XMLMessage;
++    const std::string action;
++
++    std::string IUTResponse;
++    ActionResult actionResult;
++    std::string actionOutput;
++
++    std::string parseXmlMessage(std::string xmlMessage);
++    std::vector<std::string> parseXmlPossibleAnswers(std::string xmlMessage);
++
++    std::string protocolTypeToEndpoint(const ProtocolType& protocolType);
++
++    std::string determineValueType(const std::string& value);
++
++    std::string getStringBetween(const std::string& text, const std::string& delimiter_1, const std::string& delimiter_2);
++
++    std::string toUpper(std::string text);
++
++    std::string findKeyIndex(const std::string& text, const std::string& key);
++
++    std::string findValue(const std::string& payload, const std::string& key);
++
++    ActionResult getPINCode(std::string& pinCode);
++
++    ActionResult getIUTState(std::string& IUTState);
++
++    ActionResult sendCommand(const std::string& command);
++
++    ActionResult sendMenuOptionCommand(const std::string& option);
++
++    ActionResult getValueFromResponsePayload(const std::string& key, std::string& value);
++
++    ActionResult changeValue(std::string& value);
++
++    ActionResult findAllResources();
++
++    ActionResult sendPingMessage(const std::string& addressWithPort);
++
++    ActionResult changeLocalResource(const std::string& resourceUri);
++
++    ActionResult sendGetRequest(const std::string& resourceUri, const ProtocolType& protocolType);
++
++    ActionResult sendObserveRequest(const std::string& resourceUri, const ProtocolType& protocolType);
++
++    ActionResult sendCancelObserveRequest(const std::string& resourceUri, const ProtocolType& protocolType);
++
++    ActionResult sendPostRequest(const std::string& resourceUri, const std::string& key, const std::string& value, const ProtocolType& protocolType);
++
++    ActionResult resetIUT(ResetType resetType);
++
++};
+\ No newline at end of file
+diff --git a/test/src/automation/ctt/include/IUTController.hpp b/test/src/automation/ctt/include/IUTController.hpp
+new file mode 100644
+index 000000000..e333d8fc7
+--- /dev/null
++++ b/test/src/automation/ctt/include/IUTController.hpp
+@@ -0,0 +1,68 @@
++#include <string>
++#include <mutex>
++#include <condition_variable>
++
++#include "DUTController.h"
++
++
++class IUTController
++{
++public:
++    enum class ControllerState
++    {
++        OK,
++        ERROR
++    };
++
++    static const unsigned DISCOVERY_ATTEMPTS = 10;
++    static const unsigned DISCOVERY_WAIT_BETWEEN = 1;
++
++    static const unsigned NO_NEW_ACTION_TIMEOUT = 600;
++
++    static IUTController& getInstance();
++
++    bool initialize(std::string configurationFileName, std::string address, std::string port, std::string discoveryIpVersion);
++
++    ControllerState getState();
++
++    xmlDocPtr actionsHandler(xmlDocPtr doc);
++
++    xmlDocPtr abortSignalHandler(xmlDocPtr doc);
++
++    xmlDocPtr configurationHandler(xmlDocPtr doc);
++
++private:
++    struct DeviceInfo
++    {
++        std::string ID;
++        std::string address;
++        std::string networkInterface;
++        std::string port;
++    } deviceInfo;
++
++    std::string configurationData;
++    ControllerState controllerState;
++
++    std::string serverAddress;
++    std::string serverPort;
++    std::string discoveryIpVersion;
++
++    bool abortTestrun;
++    bool abortTestcase;
++
++    IUTController();
++
++    bool discoverIUT(std::string address, std::string port);
++    std::string sendDiscoverRequest(std::string address, std::string port);
++    bool parseResponseData(std::string response);
++
++    bool isAdressValid(std::string address);
++    bool isPortValid(std::string port);
++
++    std::condition_variable timeoutConditionVariable;
++    std::mutex timeoutMutex;
++    bool resetTimeout;
++
++
++    void noNewActionTimeout();
++};
+\ No newline at end of file
+diff --git a/test/src/automation/ctt/src/ActionHandler.cpp b/test/src/automation/ctt/src/ActionHandler.cpp
+new file mode 100644
+index 000000000..ba122ebdc
+--- /dev/null
++++ b/test/src/automation/ctt/src/ActionHandler.cpp
+@@ -0,0 +1,867 @@
++#include "ActionHandler.hpp"
++
++#include "Client.hpp"
++#include "experimental/logger.h"
++
++#include <algorithm>
++#include <chrono>
++#include <thread>
++#include <sstream>
++
++#include <iostream>
++
++#define TAG "Action_Handler"
++
++const std::string ActionHandler::messageTagBegin = "<message>";
++const std::string ActionHandler::messageTagEnd = "</message>";
++
++const std::string ActionHandler::possibleAnswerTagBegin = "<possibleAnswers>";
++const std::string ActionHandler::possibleAnswerTagEnd = "</possibleAnswers>";
++
++const std::string ActionHandler::answerTagBegin = "<answer>";
++const std::string ActionHandler::answerTagEnd = "</answer>";
++
++std::string ActionHandler::parseXmlMessage(std::string xmlMessage)
++{
++    return getStringBetween(xmlMessage, messageTagBegin, messageTagEnd);
++}
++
++std::vector<std::string> ActionHandler::parseXmlPossibleAnswers(std::string xmlMessage)
++{
++    std::vector<std::string> answers;
++
++    std::string possibleAnswers = getStringBetween(xmlMessage, possibleAnswerTagBegin, possibleAnswerTagEnd);
++
++    if (!possibleAnswers.empty())
++    {
++        auto tagBegin = std::search(possibleAnswers.begin(), possibleAnswers.end(), answerTagBegin.begin(), answerTagBegin.end());
++        auto tagEnd = std::search(tagBegin, possibleAnswers.end(), answerTagEnd.begin(), answerTagEnd.end());
++
++        while(tagBegin != tagEnd)
++        {
++            answers.push_back(toUpper(std::string(tagBegin + answerTagBegin.size(), tagEnd)));
++
++            tagBegin = std::search(tagEnd, possibleAnswers.end(), answerTagBegin.begin(), answerTagBegin.end());
++            tagEnd = std::search(tagBegin, possibleAnswers.end(), answerTagEnd.begin(), answerTagEnd.end());
++        }
++    }
++
++    return answers;
++}
++
++ActionHandler::ActionHandler(std::string XMLMessage, std::string serverAddress, std::string serverPort, std::string IUTDiscoveryNetworkInterface)
++    : serverAddress(serverAddress),
++      serverPort(serverPort),
++      IUTDiscoveryNetworkInterface(IUTDiscoveryNetworkInterface),
++      XMLMessage(XMLMessage),
++      action(parseXmlMessage(XMLMessage)),
++      actionResult(ActionResult::Status::ERROR_NOT_RUN)
++{
++}
++
++ActionResult ActionHandler::doAction()
++{
++    if(action.empty())
++    {
++        OIC_LOG(ERROR, TAG, "Could not parse XML message!");
++        actionResult =  ActionResult::Status::ERROR;
++    }
++    else if (action.find("Please enter PIN:") != std::string::npos)
++    {
++        actionResult = getPINCode(actionOutput);
++    }
++    else if (action.find("Please initiate device to revert to \"ready for OTM\" state") != std::string::npos ||
++             action.find("Please reset DUT's ACL in order to have empty list.") != std::string::npos ||
++             action.find("Please revert IUT to RFOTM / reset the device") != std::string::npos ||
++             action.find("Please manually perform a factory reset on the IUT and confirm when complete") != std::string::npos)
++    {
++        actionResult = resetIUT(ResetType::Full);
++    }
++    else if (action.find("Please cycle power on the IUT") != std::string::npos)
++    {
++        actionResult = resetIUT(ResetType::Reuse);
++    }
++    else if (action.find("Please change some value in") != std::string::npos)
++    {
++        if (action.find("and press OK") != std::string::npos)
++        {
++            actionResult = ActionResult::Status::OK;
++        }
++        else
++        {
++            std::string resourceUri = getStringBetween(action, "in ", " ");
++            OIC_LOG_V(INFO, TAG, "Updating IUT local resource: %s", resourceUri.c_str());
++
++            actionResult = changeLocalResource(resourceUri);
++        }
++    }
++    else if (action.find("Please send a multicast discovery request message (i.e. CoAP GET) to") != std::string::npos ||
++             action.find("Please initiate the Endpoint discovery process") != std::string::npos ||
++             action.find("Please initiate the Resource discovery process") != std::string::npos ||
++             action.find("Please send a RETRIEVE request message to the /oic/res resource") != std::string::npos)
++    {
++        actionResult = findAllResources();
++    }
++    else if (action.find("Please have the IUT establish a TCP connection") != std::string::npos)
++    {
++        OIC_LOG(INFO, TAG, "IUT establishing TCP connection");
++
++        actionResult = sendGetRequest("/BinarySwitchResURI", ProtocolType::Secured_TCP);
++    }
++    else if (action.find("Please send a unicast RETRIEVE request request message") != std::string::npos)
++    {
++        std::string resourceUri = getStringBetween(action, "to the resource ", " ");
++
++        if(action.find("coaps+tcp") != std::string::npos)
++        {
++            actionResult = sendGetRequest(resourceUri, ProtocolType::Secured_TCP);
++        }
++        else
++        {
++            actionResult = sendGetRequest(resourceUri, ProtocolType::TCP);
++        }
++    }
++    else if (action.find("send a unicast RETRIEVE request (i.e. CoAP GET) to ") != std::string::npos)
++    {
++        std::string resourceUri = getStringBetween(action, "\"/", "\"");
++        OIC_LOG_V(INFO, TAG, "Sending GET request to %s", resourceUri.c_str());
++
++        if(action.find("over TCP") != std::string::npos)
++        {
++            actionResult = sendGetRequest(resourceUri, ProtocolType::Secured_TCP);
++        }
++        else
++        {
++            actionResult = sendGetRequest(resourceUri, ProtocolType::Secured);
++        }
++    }
++    else if (action.find("send a unicast partial UPDATE request") != std::string::npos)
++    {
++        std::string resourceUri = getStringBetween(action, "of \"", "\"");
++        std::string property = getStringBetween(action, "for \"", "\"");
++        OIC_LOG_V(INFO, TAG, "Sending POST request to %s", resourceUri.c_str());
++
++        std::string value;
++
++        if(action.find("over TCP") != std::string::npos)
++        {
++            if ((actionResult = sendGetRequest(resourceUri, ProtocolType::Secured_TCP)) &&
++                (actionResult = getValueFromResponsePayload(property, value)) &&
++                (actionResult = changeValue(value)) &&
++                (actionResult = sendPostRequest(resourceUri, property, value, ProtocolType::Secured_TCP))) {}
++        }
++        else
++        {
++            if ((actionResult = sendGetRequest(resourceUri, ProtocolType::Secured)) &&
++                (actionResult = getValueFromResponsePayload(property, value)) &&
++                (actionResult = changeValue(value)) &&
++                (actionResult = sendPostRequest(resourceUri, property, value, ProtocolType::Secured))) {}
++        }
++    }
++    else if (action.find("send a unicast request message (") != std::string::npos)
++    {
++        std::string resourceUri = getStringBetween(action, "'/", "'");
++        OIC_LOG_V(INFO, TAG, "Sending OBSERVE request to %s", resourceUri.c_str());
++
++        if(action.find("observe option = 1") != std::string::npos)
++        {
++            if(action.find("over TCP") != std::string::npos)
++            {
++                actionResult = sendCancelObserveRequest(resourceUri, ProtocolType::Secured_TCP);
++            }
++            else
++            {
++                actionResult = sendCancelObserveRequest(resourceUri, ProtocolType::Secured);
++            }
++        }
++        else
++        {
++            if(action.find("over TCP") != std::string::npos)
++            {
++                actionResult = sendObserveRequest(resourceUri, ProtocolType::Secured_TCP);
++            }
++            else
++            {
++                actionResult = sendObserveRequest(resourceUri, ProtocolType::Secured);
++            }
++        }
++    }
++    else if (action.find("send UPDATE to /oic/rd") != std::string::npos)
++    {
++        if ((actionResult = findAllResources()) &&
++            (actionResult = sendMenuOptionCommand("Publish Created Resources To RD"))) {}
++    }
++    else if (action.find("send DELETE to /oic/rd") != std::string::npos)
++    {
++        if ((actionResult = findAllResources()) &&
++            (actionResult = sendMenuOptionCommand("Delete Published Resources From RD"))) {}
++    }
++    else if (action.find("Please initiate transfer of Cloud configuration") != std::string::npos)
++    {
++        if ((actionResult = findAllResources()) &&
++            (actionResult = sendMenuOptionCommand("Send Post Request to /CoAPCloudConf Resource"))) {}
++    }
++    else if (action.find("Please trigger the IUT to log out of the CTT Cloud") != std::string::npos)
++    {
++        actionResult = sendMenuOptionCommand("Cloud Configuration - Sign out");
++    }
++    else if (action.find("Please trigger the IUT to deregister from the CTT Cloud") != std::string::npos)
++    {
++        actionResult = sendMenuOptionCommand("Cloud Configuration - Deregister");
++    }
++    else if (action.find("Please trigger the IUT to register with the CTT Cloud") != std::string::npos)
++    {
++        std::this_thread::sleep_for(std::chrono::seconds(2));
++        actionResult = ActionResult::Status::OK;
++    }
++    else if (action.find("Please send a CoAP Ping message to the CTT") != std::string::npos)
++    {
++        actionResult = sendPingMessage(getStringBetween(action, "(", ")"));
++    }
++    else
++    {
++        actionResult = ActionResult::Status::OK;
++    }
++
++    return actionResult;
++}
++
++std::string ActionHandler::getActionResponse()
++{
++    if(actionResult.status == ActionResult::Status::ERROR_NOT_RUN)
++    {
++        OIC_LOG(ERROR, TAG, "Action has not been started");
++        return "";
++    }
++    if (action.find("If the device uses an OCF Rooted Certificate Chain") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Skip</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please provide (paste) public key of CA (PEM type)") != std::string::npos)
++    {
++        std::string publicKey =
++            "-----BEGIN CERTIFICATE-----\n"
++            "MIICBDCCAaugAwIBAgIIZ0QY0VJs8zIwCgYIKoZIzj0EAwIwSjELMAkGA1UEBhMC\n"
++            "VVMxDDAKBgNVBAoMA09DRjETMBEGA1UECwwKT0NGIENUVCBDQTEYMBYGA1UEAwwP\n"
++            "T0NGIENUVCBST09UIENBMB4XDTE3MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAwMFow\n"
++            "SjELMAkGA1UEBhMCVVMxDDAKBgNVBAoMA09DRjETMBEGA1UECwwKT0NGIENUVCBD\n"
++            "QTEYMBYGA1UEAwwPT0NGIENUVCBST09UIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0D\n"
++            "AQcDQgAEuKkiScoLLyjGALXhr2PijOyf0RRqXnKY8VXFM+aHkdYxiJHD5MziSXsT\n"
++            "hDB82Hx7ykz8Fil0cBuE1tX4gX87/qN7MHkwKwYDVR0jBCQwIoAgVapQxp8Fthci\n"
++            "DZjQdj0AdbaKBr9aXrlJxD9unFaRlCswKQYDVR0OBCIEIFWqUMafBbYXIg2Y0HY9\n"
++            "AHW2iga/Wl65ScQ/bpxWkZQrMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQD\n"
++            "AgEGMAoGCCqGSM49BAMCA0cAMEQCIEfUv9VTQrFDg9/kqnTHpLBDRVgoMlAFsDgW\n"
++            "S02KANuyAiAQsZeEhxTCqGhQwRQpIoI+WJ2maHa+pfuuwGXc+GH+Tg==\n"
++            "-----END CERTIFICATE-----";
++
++        return "<actionResult><userDialogResponse><answer>Set_Value</answer><data>" + publicKey + "</data></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please enter PIN:") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Set_Value</answer><data>" + actionOutput + "</data></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please initiate device to revert to \"ready for OTM\" state") != std::string::npos ||
++             action.find("Please reset DUT's ACL in order to have empty list.") != std::string::npos ||
++             action.find("Please revert IUT to RFOTM / reset the device") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please cycle power on the IUT") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please reset the IUT") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Does the Vendor Attestation Document have the following item checked:") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Did IUT receive response:") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Was device discovered sucessfully?") != std::string::npos)
++    {
++        //TODO: Check if device was indeed discovered
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please configure the IUT to use the DNS server") != std::string::npos)
++    {
++        //IOT-3270
++        return "<actionResult><userDialogResponse><answer>Cancel</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Did IUT received NOTIFY:") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please change some value in") != std::string::npos)
++    {
++        if (action.find("and press OK") != std::string::npos)
++        {
++            return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++        }
++    }
++    else if (action.find("Are you sure you want to skip this step?") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please have the IUT establish a TCP connection") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please provide the Mediator with the generated cis") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Does IUT have the possibility to display received properties values?") != std::string::npos)
++    {
++#if 0
++        return "<actionResult><userDialogResponse><answer>No</answer></userDialogResponse></actionResult>";
++#endif
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Does IUT has discovered a device (i.e. the CTT) with the expected Resource Types?") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Does IUT presents following properties values?") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>";
++    }
++    else if (action.find("Please trigger the IUT to register with the CTT Cloud") != std::string::npos)
++    {
++        return "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>";
++    }
++
++    return "";
++}
++
++ActionResult ActionHandler::getActionResult()
++{
++    return actionResult;
++}
++
++ActionResult ActionHandler::getToMainMenu()
++{
++    std::string IUTState;
++
++    while (getIUTState(IUTState) &&
++           IUTState.find("0. Cancel") != std::string::npos)
++    {
++        sendCommand("0");
++        IUTState = "";
++    }
++
++    if(IUTState.find("Please Select an option from the main menu and press Enter") != std::string::npos)
++    {
++        return ActionResult::Status::OK;
++    }
++    else
++    {
++        return ActionResult::Status::ERROR;
++    }
++}
++
++std::string ActionHandler::getPossibleResponse()
++{
++    std::vector<std::string> possibleAnswers = ActionHandler::parseXmlPossibleAnswers(XMLMessage);
++
++    if (std::find(possibleAnswers.begin(), possibleAnswers.end(), "CANCEL") != possibleAnswers.end())
++    {
++        return "<actionResult><userDialogResponse><answer>Cancel</answer></userDialogResponse></actionResult>";
++    }
++    else if (std::find(possibleAnswers.begin(), possibleAnswers.end(), "SKIP") != possibleAnswers.end())
++    {
++        return "<actionResult><userDialogResponse><answer>Skip</answer></userDialogResponse></actionResult>";
++    }
++    else if (std::find(possibleAnswers.begin(), possibleAnswers.end(), "OK") != possibleAnswers.end())
++    {
++        return "<actionResult><userDialogResponse><answer>Ok</answer></userDialogResponse></actionResult>";
++    }
++    else
++    {
++        return "";
++    }
++}
++
++std::string ActionHandler::protocolTypeToEndpoint(const ProtocolType& protocolType)
++{
++    if(protocolType == ProtocolType::Default)
++    {
++        return "coap";
++    }
++    else if(protocolType == ProtocolType::Secured)
++    {
++        return "coaps";
++    }
++    else if(protocolType == ProtocolType::TCP)
++    {
++        return "coap+tcp";
++    }
++    else if(protocolType == ProtocolType::Secured_TCP)
++    {
++        return "coaps+tcp";
++    }
++    else
++    {
++        return "PROTOCOL TYPE NOT HANDLED";
++    }
++}
++
++std::string ActionHandler::determineValueType(const std::string& value)
++{
++    if(value.find("[") == 0)
++    {
++        return "Array";
++    }
++    else if (value.find("{") == 0)
++    {
++        return "Object";
++    }
++    else if (value.find("\"") == 0)
++    {
++        return "String";
++    }
++    else if (value.find_first_not_of(".0123456789") == std::string::npos && value.find(".") != std::string::npos)
++    {
++        return "Double";
++    }
++    else if (value.find_first_not_of("0123456789") == std::string::npos)
++    {
++        return "Integer";
++    }
++    else if(value == "true" || value == "false")
++    {
++        return "Boolean";
++    }
++    else if(value == "null")
++    {
++        return "Null";
++    }
++    else
++    {
++        return "UNKNOWN TYPE";
++    }
++}
++
++ActionResult ActionHandler::changeValue(std::string& value)
++{
++    if(determineValueType(value) == "Array")
++    {
++        // TODO
++    }
++    else if (determineValueType(value) == "Object")
++    {
++        // TODO
++    }
++    else if (determineValueType(value) == "String")
++    {
++        value += "_text";
++    }
++    else if (determineValueType(value) == "Double")
++    {
++        double temp;
++        std::stringstream(value) >> temp;
++        temp = temp * 1.1;
++        value = std::to_string(temp);
++    }
++    else if (determineValueType(value) == "Integer")
++    {
++        int temp;
++        std::stringstream(value) >> temp;
++        temp = temp + 1;
++        value = std::to_string(temp);
++    }
++    else if (determineValueType(value) == "Boolean")
++    {
++        value = (value == "false") ? "true" : "false";
++    }
++    else if (determineValueType(value) == "Null")
++    {
++    }
++    else
++    {
++        OIC_LOG_V(ERROR, TAG, "Unknown type of value %s", value.c_str());
++        return ActionResult::Status::ERROR;
++    }
++
++    return ActionResult::Status::OK;
++}
++
++std::string ActionHandler::getStringBetween(const std::string& text, const std::string& delimiter_1, const std::string& delimiter_2)
++{
++    if (text.find(delimiter_1) != std::string::npos &&
++        text.find(delimiter_2) != std::string::npos)
++    {
++        auto begin = std::search(text.begin(), text.end(), delimiter_1.begin(), delimiter_1.end()) + delimiter_1.size();
++        auto end = std::search(begin, text.end(), delimiter_2.begin(), delimiter_2.end());
++
++        return std::string(begin, end);
++    }
++    else
++    {
++        return "";
++    }
++}
++
++std::string ActionHandler::toUpper(std::string text)
++{
++    std::transform(text.begin(), text.end(),text.begin(), ::toupper);
++    return text;
++}
++
++std::string ActionHandler::findKeyIndex(const std::string& text, const std::string& key)
++{
++    std::istringstream stream(text);
++    std::string line;
++
++    while(std::getline(stream, line))
++    {
++        if(line.find(key) != std::string::npos)
++        {
++            unsigned begin = line.find_first_not_of(" \t");
++            return line.substr(begin, line.find_first_of(".") - begin);
++        }
++    }
++
++    return "";
++}
++
++std::string ActionHandler::findValue(const std::string& payload, const std::string& key)
++{
++    std::istringstream stream(payload);
++    std::string line;
++
++    while(std::getline(stream, line))
++    {
++        if(line.find(key) != std::string::npos)
++        {
++            return line.substr(line.find_last_of(": ") + 1, line.size() - 1);
++        }
++    }
++
++    return "";
++}
++
++ActionResult ActionHandler::getPINCode(std::string& pinCode)
++{
++    OIC_LOG(INFO, TAG, "Getting pin code from IUTSimulator");
++
++    try
++    {
++        pinCode = http::Client::sendHttpGetRequest(serverAddress, serverPort, "/pin");
++        return ActionResult::Status::OK;
++    }
++    catch (std::exception &e)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s", e.what());
++        return ActionResult::Status::ERROR_NO_CONNECTION;
++    }
++}
++
++ActionResult ActionHandler::getIUTState(std::string& IUTState)
++{
++    OIC_LOG(INFO, TAG, "Getting state of IUTSimulator");
++
++    try
++    {
++        IUTState =  http::Client::sendHttpGetRequest(serverAddress, serverPort, "/state");
++        return ActionResult::Status::OK;
++    }
++    catch (std::exception &e)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s", e.what());
++        return ActionResult::Status::ERROR_NO_CONNECTION;
++    }
++}
++
++ActionResult ActionHandler::sendCommand(const std::string& command)
++{
++    OIC_LOG_V(INFO, TAG, "Sending %s command to IUTSimulator", command.c_str());
++
++    if(command.empty())
++    {
++        OIC_LOG(ERROR, TAG, "Cannot send empty command!");
++        return ActionResult::Status::ERROR;
++    }
++
++    try
++    {
++        IUTResponse = http::Client::sendHttpPostRequest(serverAddress, serverPort, "/command", command);
++    }
++    catch (std::exception &e)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s", e.what());
++        IUTResponse = "";
++        return ActionResult::Status::ERROR_NO_CONNECTION;
++    }
++
++    if(IUTResponse.find("Error:") == 0)
++    {
++        OIC_LOG_V(ERROR, TAG, "IUT responded with error: %s", IUTResponse.c_str());
++        return ActionResult::Status::ERROR;
++    }
++    else
++    {
++        return ActionResult::Status::OK;
++    }
++}
++
++ActionResult ActionHandler::sendMenuOptionCommand(const std::string& option)
++{
++    OIC_LOG_V(DEBUG, TAG, "Searching for %s option", option.c_str());
++
++    if(option.empty())
++    {
++        OIC_LOG(ERROR, TAG, "Trying to search for empty option value!");
++        return ActionResult::Status::ERROR;
++    }
++
++    std::string IUTState;
++
++    if (!getIUTState(IUTState))
++    {
++        return ActionResult::Status::ERROR_NO_CONNECTION;
++    }
++
++    std::string optionIndex = findKeyIndex(IUTState, option);
++
++    if (!optionIndex.empty())
++    {
++        return sendCommand(optionIndex);
++    }
++    else
++    {
++        OIC_LOG_V(ERROR, TAG, "Could not find %s option in current IUT state", option.c_str());
++        return ActionResult::Status::ERROR;
++    }
++}
++
++ActionResult ActionHandler::getValueFromResponsePayload(const std::string& key, std::string& value)
++{
++    OIC_LOG_V(DEBUG, TAG, "Searching for key %s in response payload", key.c_str());
++
++    if(key.empty())
++    {
++        OIC_LOG(ERROR, TAG, "Trying to search for empty key!");
++        return ActionResult::Status::ERROR;
++    }
++
++    std::string foundValue = findValue(IUTResponse, key);
++
++    if(!foundValue.empty())
++    {
++        value = foundValue;
++        return ActionResult::Status::OK;
++    }
++    else
++    {
++        OIC_LOG_V(ERROR, TAG, "Key %s not found in response payload!", key.c_str());
++        return ActionResult::Status::ERROR;
++    }
++}
++
++ActionResult ActionHandler::findAllResources()
++{
++    ActionResult result;
++
++    if ((result = sendMenuOptionCommand("Clear found resources")) &&
++        (result = sendMenuOptionCommand("Send Discovery request to find resources")) &&
++        (result = sendMenuOptionCommand("Multicast")) &&
++        (result = sendMenuOptionCommand("Find all resources")))
++    {
++        return ActionResult::Status::OK;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::sendPingMessage(const std::string& addressWithPort)
++{
++    ActionResult result;
++
++    std::string ip = getStringBetween(addressWithPort, "[", "]");
++    std::string port = addressWithPort.substr(addressWithPort.find_last_of(":") + 1, addressWithPort.size() - 1);
++
++    if(!ip.empty()) //IPv6
++    {
++        ip += IUTDiscoveryNetworkInterface;
++    }
++    else //IPv4
++    {
++        ip = addressWithPort.substr(0, addressWithPort.find(":"));
++    }
++
++    OIC_LOG_V(INFO, TAG, "Sending Ping message to %s:%s", ip.c_str(), port.c_str());
++
++    if ((result = sendMenuOptionCommand("Send Ping Message")) &&
++        (result = sendCommand(ip)) &&
++        (result = sendCommand(port)))
++    {
++        return ActionResult::Status::OK;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::changeLocalResource(const std::string& resourceUri)
++{
++    if (resourceUri == "/myPulseRateResURI" ||
++        resourceUri == "/BloodPressureMonitorAMResURI")
++    {
++        OIC_LOG_V(INFO, TAG, "Resource %s handled automatically.", resourceUri.c_str());
++        return ActionResult::Status::OK;
++    }
++
++    ActionResult result;
++
++    if(resourceUri == "/BinarySwitchResURI")
++    {
++        if ((result = sendMenuOptionCommand("Update created Resources")) &&
++            (result = sendMenuOptionCommand(resourceUri)) &&
++            (result = sendCommand("value")) &&
++            (result = sendMenuOptionCommand("Boolean")) &&
++            (result = sendCommand("0")) &&
++
++            // Hack for IOT-3102
++            (result = sendMenuOptionCommand("Update created Resources")) &&
++            (result = sendMenuOptionCommand(resourceUri)) &&
++            (result = sendCommand("value")) &&
++            (result = sendMenuOptionCommand("Boolean")) &&
++            (result = sendCommand("0")))
++        {
++            return ActionResult::Status::OK;
++        }
++    }
++    else if(resourceUri == "/AirFlowResURI")
++    {
++        if ((result = sendMenuOptionCommand("Update created Resources")) &&
++            (result = sendMenuOptionCommand(resourceUri)) &&
++            (result = sendCommand("speed")) &&
++            (result = sendMenuOptionCommand("Integer")) &&
++            (result = sendCommand("25")))
++        {
++            return ActionResult::Status::OK;
++        }
++    }
++    else if(resourceUri == "/TemperatureResURI")
++    {
++        if ((result = sendMenuOptionCommand("Update created Resources")) &&
++            (result = sendMenuOptionCommand(resourceUri)) &&
++            (result = sendCommand("temperature")) &&
++            (result = sendMenuOptionCommand("Double")) &&
++            (result = sendCommand("25.5")))
++        {
++            return ActionResult::Status::OK;
++        }
++    }
++    else
++    {
++        OIC_LOG_V(ERROR, TAG, "Resource %s does not have defined handle!", resourceUri.c_str());
++        return ActionResult::Status::ERROR;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::sendGetRequest(const std::string& resourceUri, const ProtocolType& protocolType)
++{
++    ActionResult result;
++
++    if ((result = findAllResources()) &&
++        (result = sendMenuOptionCommand("Send Request to found resources")) &&
++        (result = sendMenuOptionCommand("Send Get Request")) &&
++        (result = sendMenuOptionCommand(resourceUri)) &&
++        (result = sendMenuOptionCommand(protocolTypeToEndpoint(protocolType))) &&
++        (result = sendMenuOptionCommand("None")))
++    {
++        return ActionResult::Status::OK;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::sendObserveRequest(const std::string& resourceUri, const ProtocolType& protocolType)
++{
++    ActionResult result;
++
++    if ((result = findAllResources()) &&
++        (result = sendMenuOptionCommand("Send Request to found resources")) &&
++        (result = sendMenuOptionCommand("Send Observe Request")) &&
++        (result = sendMenuOptionCommand(resourceUri)) &&
++        (result = sendMenuOptionCommand(protocolTypeToEndpoint(protocolType))) &&
++        (result = sendMenuOptionCommand("None")))
++    {
++        return ActionResult::Status::OK;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::sendCancelObserveRequest(const std::string& resourceUri, const ProtocolType& protocolType)
++{
++    ActionResult result;
++
++    if ((result = findAllResources()) &&
++        (result = sendMenuOptionCommand("Send Request to found resources")) &&
++        (result = sendMenuOptionCommand("Send Cancel Observe Request")) &&
++        (result = sendMenuOptionCommand(resourceUri)) &&
++        (result = sendMenuOptionCommand(protocolTypeToEndpoint(protocolType))))
++    {
++        return ActionResult::Status::OK;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::sendPostRequest(const std::string& resourceUri, const std::string& key, const std::string& value, const ProtocolType& protocolType)
++{
++    ActionResult result;
++
++    if (resourceUri == "/BinarySwitchResURI" ||
++        resourceUri == "/TemperatureResURI")
++    {
++        if ((result = findAllResources()) &&
++            (result = sendMenuOptionCommand("Send Request to found resources")) &&
++            (result = sendMenuOptionCommand("Send Post Request")) &&
++            (result = sendMenuOptionCommand(resourceUri)) &&
++            (result = sendMenuOptionCommand(protocolTypeToEndpoint(protocolType))) &&
++            (result = sendMenuOptionCommand("None")) &&
++            (result = sendCommand(key)) &&
++            (result = sendMenuOptionCommand(determineValueType(value))) &&
++            (result = sendCommand(value)))
++        {
++            return ActionResult::Status::OK;
++        }
++    }
++    else
++    {
++        OIC_LOG_V(ERROR, TAG, "Resource %s does not have defined handle!", resourceUri.c_str());
++        return ActionResult::Status::ERROR;
++    }
++
++    return result;
++}
++
++ActionResult ActionHandler::resetIUT(ResetType resetType)
++{
++    ActionResult result;
++
++    if ((result = sendMenuOptionCommand("Restart IUT Emulator App")))
++    {
++        if (resetType == ResetType::Full &&
++            (result = sendMenuOptionCommand("Full reset")))
++        {
++            return ActionResult::Status::OK_WITH_REDISCOVERY;
++        }
++        else if (resetType == ResetType::Reuse &&
++                 (result = sendMenuOptionCommand("Reset with current SVR")))
++        {
++            return ActionResult::Status::OK_WITH_REDISCOVERY;
++        }
++    }
++
++    return result;
++}
+\ No newline at end of file
+diff --git a/test/src/automation/ctt/src/IUTController.cpp b/test/src/automation/ctt/src/IUTController.cpp
+new file mode 100644
+index 000000000..9f1159b0c
+--- /dev/null
++++ b/test/src/automation/ctt/src/IUTController.cpp
+@@ -0,0 +1,350 @@
++#include "IUTController.hpp"
++
++#include "Client.hpp"
++#include "ActionHandler.hpp"
++#include "experimental/logger.h"
++
++#ifdef __LINUX__
++#include <arpa/inet.h>
++#endif
++#ifdef __WINDOWS__
++#include <winsock2.h>
++#endif
++#include <iostream>
++#include <algorithm>
++#include <sstream>
++#include <fstream>
++#include <thread>
++#include <chrono>
++#include <unistd.h>
++
++#define TAG "IUT_Controller"
++
++const unsigned IUTController::DISCOVERY_ATTEMPTS;
++const unsigned IUTController::DISCOVERY_WAIT_BETWEEN;
++
++const unsigned IUTController::NO_NEW_ACTION_TIMEOUT;
++
++IUTController::IUTController()
++{
++    this->controllerState = ControllerState::ERROR;
++}
++
++IUTController& IUTController::getInstance()
++{
++    static IUTController instance;
++    return instance;
++}
++
++IUTController::ControllerState IUTController::getState()
++{
++    return this->controllerState;
++}
++
++bool IUTController::isAdressValid(std::string address)
++{
++    struct sockaddr_in sa;
++    struct sockaddr_in6 sa6;
++
++    if (inet_pton(AF_INET, address.c_str(), &(sa.sin_addr)))
++    {
++        return true;
++    }
++    else if (inet_pton(AF_INET6, address.c_str(), &(sa6.sin6_addr)))
++    {
++        return true;
++    }
++    else
++    {
++        OIC_LOG_V(INFO, TAG, "Invalid ip address: %s", address.c_str());
++        return false;
++    }
++}
++
++bool IUTController::isPortValid(std::string port)
++{
++    u_int16_t uint16;
++
++    if(std::stringstream(port) >> uint16)
++    {
++        return true;
++    }
++    else
++    {
++        OIC_LOG_V(INFO, TAG, "Invalid port: %s", port.c_str());
++        return false;
++    }
++}
++
++bool IUTController::initialize(std::string configurationFileName, std::string address, std::string port, std::string discoveryIpVersion)
++{
++    std::ifstream configurationFile(configurationFileName);
++
++    if (configurationFile.is_open())
++    {
++        this->configurationData = std::string((std::istreambuf_iterator<char>(configurationFile)), std::istreambuf_iterator<char>());
++        OIC_LOG_V(INFO, TAG, "Using configuration file: %s", configurationFileName.c_str());
++    }
++    else
++    {
++        this->controllerState = ControllerState::ERROR;
++        OIC_LOG_V(ERROR, TAG, "Could not open configuration file: %s", configurationFileName.c_str());
++        return false;
++    }
++
++    if (isAdressValid(address) && isPortValid(port))
++    {
++        serverAddress = address;
++        serverPort = port;
++        OIC_LOG_V(INFO, TAG, "Using IUT http server address: [%s]:%s", address.c_str(), port.c_str());
++    }
++    else
++    {
++        this->controllerState = ControllerState::ERROR;
++        return false;
++    }
++
++    this->discoveryIpVersion = discoveryIpVersion;
++
++    if (discoverIUT(serverAddress, serverPort))
++    {
++        OIC_LOG(INFO, TAG, "Successfully discovered IUT!");
++    }
++    else
++    {
++        this->controllerState = ControllerState::ERROR;
++        OIC_LOG(ERROR, TAG, "Cannot discover IUT!");
++        return false;
++    }
++
++    this->controllerState = ControllerState::OK;
++    return true;
++}
++
++bool IUTController::discoverIUT(std::string address, std::string port)
++{
++    std::string response;
++
++    for (unsigned i = 0; i < DISCOVERY_ATTEMPTS; i++)
++    {
++        response = sendDiscoverRequest(address, port);
++
++        if (response.find("server has not been started") != std::string::npos)
++        {
++            OIC_LOG(INFO, TAG, "IUT found, but IoTivity server has not been started yet");
++            std::this_thread::sleep_for(std::chrono::seconds(DISCOVERY_WAIT_BETWEEN));
++            i = 0;
++        }
++        else if (!response.empty())
++        {
++            return parseResponseData(response);
++        }
++        else
++        {
++            std::this_thread::sleep_for(std::chrono::seconds(DISCOVERY_WAIT_BETWEEN));
++        }
++    }
++
++    return false;
++}
++
++std::string IUTController::sendDiscoverRequest(std::string address, std::string port)
++{
++    OIC_LOG(INFO, TAG, "Sending discovery request to IUT");
++
++    try
++    {
++        return http::Client::sendHttpGetRequest(address, port, "/info");
++    }
++    catch (std::exception &e)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s", e.what());
++        return "";
++    }
++}
++
++bool IUTController::parseResponseData(std::string response)
++{
++    std::stringstream stream(response);
++    std::string line;
++
++    while (std::getline(stream, line))
++    {
++        if (line.find("Device ID: ") != std::string::npos)
++        {
++            this->deviceInfo.ID = line.substr(line.find_first_of(":") + 2);
++        }
++        else if (line.find("Endpoint: ") != std::string::npos)
++        {
++            if (discoveryIpVersion == "4" && line.find("%") == std::string::npos)
++            {
++                this->deviceInfo.address = line.substr(line.find_first_of("[") + 1 , line.find_first_of("]") - line.find_first_of("[") - 1);
++                this->deviceInfo.port = line.substr(line.find_last_of(":") + 1);
++            }
++            else if (discoveryIpVersion == "6" && line.find("%") != std::string::npos)
++            {
++                this->deviceInfo.address = line.substr(line.find_first_of("[") + 1 , line.find("%") - line.find_first_of("[") - 1);
++                this->deviceInfo.networkInterface = line.substr(line.find("%") , line.find_first_of("]") - line.find("%"));
++                this->deviceInfo.port = line.substr(line.find_last_of(":") + 1);
++            }
++        }
++        else if (line.find("IP Address: ") != std::string::npos)
++        {
++            this->deviceInfo.address = line.substr(line.find_first_of(":") + 2, line.find_last_of("%") - (line.find_first_of(":") + 2));
++            this->deviceInfo.networkInterface = line.substr(line.find_last_of("%") + 1);
++        }
++        else if (line.find("Port: ") != std::string::npos)
++        {
++            this->deviceInfo.port = line.substr(line.find_first_of(":") + 2);
++        }
++    }
++
++    if (!this->deviceInfo.ID.empty() &&
++        !this->deviceInfo.address.empty() && isAdressValid(this->deviceInfo.address) &&
++        !this->deviceInfo.port.empty() && isPortValid(this->deviceInfo.port))
++    {
++        OIC_LOG_V(INFO, TAG, "Discovered IUT device with following properties:"
++                            "\n\tDevice ID: %s"
++                            "\n\tAddress: %s%s"
++                            "\n\tPort: %s",
++                            deviceInfo.ID.c_str(),
++                            deviceInfo.address.c_str(), deviceInfo.networkInterface.c_str(),
++                            deviceInfo.port.c_str());
++        return true;
++    }
++    else
++    {
++        OIC_LOG(ERROR, TAG, "Failed while parsing IUT discovery response!");
++        return false;
++    }
++}
++
++void IUTController::noNewActionTimeout()
++{
++    std::unique_lock<std::mutex> lock(timeoutMutex);
++
++    if (timeoutConditionVariable.wait_for(lock, std::chrono::seconds(NO_NEW_ACTION_TIMEOUT)) == std::cv_status::timeout)
++    {
++        OIC_LOG_V(ERROR, TAG, "No new action for %i seconds, test case is assumed to be locked!", NO_NEW_ACTION_TIMEOUT);
++        abortTestcase = true;
++    }
++}
++
++xmlDocPtr IUTController::actionsHandler(xmlDocPtr doc)
++{
++    std::string XMLMessage = docToString(doc);
++
++    timeoutConditionVariable.notify_all();
++    std::thread timeout(&IUTController::noNewActionTimeout, this);
++    timeout.detach();
++
++    if (XMLMessage.find("Waiting for CoAP response...") == std::string::npos &&
++        XMLMessage.find("Please wait...") == std::string::npos)
++    {
++        OIC_LOG_V(INFO, TAG, "Received XML message:\n%s", XMLMessage.c_str());
++    }
++
++    ActionHandler actionHandler(XMLMessage, serverAddress, serverPort, deviceInfo.networkInterface);
++
++    if (actionHandler.doAction())
++    {
++        if (actionHandler.getActionResult() == ActionResult::Status::OK_WITH_REDISCOVERY)
++        {
++            OIC_LOG(INFO, TAG, "Redisovering IUT");
++
++            if (discoverIUT(serverAddress, serverPort))
++            {
++                OIC_LOG(INFO, TAG, "Successfully discovered IUT!");
++            }
++            else
++            {
++                OIC_LOG(ERROR, TAG, "Cannot discover IUT!");
++                this->controllerState = ControllerState::ERROR;
++                return stringToDoc("");
++            }
++        }
++
++        std::string actionResponse = actionHandler.getActionResponse();
++
++        if (!actionResponse.empty())
++        {
++            OIC_LOG_V(INFO, TAG, "Sending XML response:\n%s", actionResponse.c_str());
++        }
++
++        return stringToDoc(actionResponse.c_str());
++    }
++    else
++    {
++        OIC_LOG(ERROR, TAG, "Action has failed!");
++
++        if(actionHandler.getActionResult() == ActionResult::Status::ERROR_NO_CONNECTION)
++        {
++            OIC_LOG(INFO, TAG, "Redisovering IUT");
++
++            if (discoverIUT(serverAddress, serverPort))
++            {
++                OIC_LOG(INFO, TAG, "Successfully discovered IUT!");
++            }
++            else
++            {
++                OIC_LOG(ERROR, TAG, "Cannot discover IUT!");
++                this->controllerState = ControllerState::ERROR;
++                return stringToDoc("");
++            }
++        }
++
++        if (actionHandler.getToMainMenu())
++        {
++            std::string possibleAnswer = actionHandler.getPossibleResponse();
++
++            if (!possibleAnswer.empty())
++            {
++                OIC_LOG_V(INFO, TAG, "Sending XML response: \n%s", possibleAnswer.c_str());
++                return stringToDoc(possibleAnswer.c_str());
++            }
++            else
++            {
++                OIC_LOG(ERROR, TAG, "Could not find any possible answers for this action!");
++                abortTestcase = true;
++                return stringToDoc("");
++            }
++        }
++        else
++        {
++            OIC_LOG(ERROR, TAG, "Cannot control IUT to get to Main Menu!");
++            this->controllerState = ControllerState::ERROR;
++            return stringToDoc("");
++        }
++    }
++}
++
++xmlDocPtr IUTController::abortSignalHandler(xmlDocPtr doc)
++{
++    if (abortTestrun)
++    {
++        OIC_LOG(INFO, TAG, "Abborting test run!");
++        abortTestrun = false;
++        return stringToDoc("<abortSignal><abortTestcase>false</abortTestcase><abortTestRun>true</abortTestRun></abortSignal>");
++    }
++    else if (abortTestcase)
++    {
++        OIC_LOG(INFO, TAG, "Abborting test case!");
++        abortTestcase = false;
++        return stringToDoc("<abortSignal><abortTestcase>true</abortTestcase><abortTestRun>false</abortTestRun></abortSignal>");
++    }
++    else
++    {
++        return stringToDoc("<abortSignal><abortTestcase>false</abortTestcase><abortTestRun>false</abortTestRun></abortSignal>");
++    }
++}
++
++xmlDocPtr IUTController::configurationHandler(xmlDocPtr doc)
++{
++    std::string configuration = this->configurationData;
++
++    configuration.replace(configuration.find("%UUID%"), std::string("%UUID%").size(), this->deviceInfo.ID);
++    configuration.replace(configuration.find("%IP%"), std::string("%IP%").size(), this->deviceInfo.address);
++    configuration.replace(configuration.find("%PORT%"), std::string("%PORT%").size(), this->deviceInfo.port);
++
++    return stringToDoc(configuration.c_str());
++}
+\ No newline at end of file
+diff --git a/test/src/automation/ctt/src/TAFAgent.cpp b/test/src/automation/ctt/src/TAFAgent.cpp
+index 1129ba286..d1186e4f6 100644
+--- a/test/src/automation/ctt/src/TAFAgent.cpp
++++ b/test/src/automation/ctt/src/TAFAgent.cpp
+@@ -18,1299 +18,151 @@
+  *
+  ******************************************************************/
+ 
+-#include <unistd.h>
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-#include <sys/wait.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
+ #include <signal.h>
+-#include <ctype.h>
+-#include "ocstack.h"
+-#include "ocpayload.h"
+-#include "pinoxmcommon.h"
+-#include "cacommon.h"
+-#include "cainterface.h"
+-#include "platform_features.h"
+ #include "experimental/logger.h"
+-#include <time.h>
+ #include <DUTController.h>
+-#include <ifaddrs.h>
+-#include <arpa/inet.h>
++#include "IUTController.hpp"
++#include <boost/program_options.hpp>
+ 
+-//#defines
+-#define TAG                    "OCF_TAF_AGENT"
+-#define URI_SIZE               255
+-#define IP_WITH_INTERFACE_SIZE 302
+-#define CTT_TIMEOUT            600
+-#define DEFAULT_CONTEXT_VALUE  0x99
+-#define QOS_NON                0
+-#define QOS_CON                1
+-#define IPv4                   4
+-#define IPv6                   6
+-#define SLEEP_TIME             2
+-#define JUSTWORKS              1
+-#define RANDOMPIN              2
+-#define MFG_CERT               3
+-#define FRESH_CLIENT           1
+-#define REUSE_CLIENT           3
+-#define FRESH_SERVER           2
+-#define REUSE_SERVER           4
++#include <string>
++#include <sstream>
+ 
+-//macros
+-#define FREE(x)           if(x){free(x);x=NULL;}
++#define TAG "OCF_TAF_AGENT"
+ 
+-//Globals
+-char gIUTSimulator[24] = "IUTSimulator";
+-int gIPDiscovered = 0;
+-int gInsideMainLoop = 0;
+-pid_t gPid;
+-int gQuitFlag = 0;
+-int gRestartFlag = 0;
+-int gReuseIUT = 0;
+-char *gConfigPath = NULL;
+-char *gConfigFilename = NULL;
+-char *gConfigFileContent = NULL;
+-char gIUTlogDir[100] = "logs/IUT";
+-char gIUTlog[100];
+-OCDoHandle gObserveHandle;
+-bool gCTTLogsStarted = false;
+-bool gCTTLogsResetTimeout = false;
+-bool gCTTLogsTimeout = false;
+-bool gSecured = false;
+-char gIp[45];
+-int glocalIpVersion;
+-char gLocalIp[IP_WITH_INTERFACE_SIZE];
+-char gLocalNetworkInterface[256];
+-char gPort[25];
+-char gUuid[50];
+-int gFd;
+-char gPinValue[9];
+-static char s_DISCOVERY_QUERY[] = "%s/oic/res";
+-char gCommandsArray[10][255];
++bool g_quitFlag = false;
++std::string g_configurationFilePath;
++std::string g_discoveryIpVersion;
++std::string g_IUTHttpInputServerIP;
++std::string g_IUTHttpInputServerPort;
+ 
+-//Function declaration
+-void SendDiscovery();
++xmlDocPtr actionHandler(xmlDocPtr doc) { return IUTController::getInstance().actionsHandler(doc); }
++xmlDocPtr abortSignalHandler(xmlDocPtr doc) { return IUTController::getInstance().abortSignalHandler(doc); }
++xmlDocPtr configurationHandler(xmlDocPtr doc) { return IUTController::getInstance().configurationHandler(doc); }
++void cleanXmlDocPtr(xmlDocPtr doc) { if (doc) xmlFreeDoc(doc); }
+ 
+-int addDir(char* path)
++void initTAF()
+ {
+-    char* folder = strtok(path, "/");
+-    char currentPath[256] = "";
+-    int errCode = 0;
+-    struct stat st = {0};
+-    while (folder != NULL)
+-    {
+-        strcat(currentPath, folder);
+-        strcat(currentPath, "/");
+-        if (stat(folder, &st) == -1)
+-        {
+-            errCode = mkdir(currentPath, 0700);
+-        }
+-        folder = strtok (NULL, "/");
+-    }
+-    return errCode;
+-}
+-
+-// Get first string between delimiters
+-char* getStringBetween(const char *base, const char *delim_1, const char *delim_2)
+-{
+-    char *base_copy = strdup(base);
+-    char *p1, *p2;
+-    char *ret = NULL;
+-    p1 = strstr(base_copy, delim_1);
+-    if (p1)
+-    {
+-        p1 = p1 + strlen(delim_1);
+-        p2 = strstr(p1, delim_2);
+-        if (p2) {p2[0] = '\0'; ret = p1;}
+-    }
+-    free(base_copy);
+-    return ret;
+-}
+-
+-/*Replace String*/
+-char *replaceString(const char *str, const char *from, const char *to)
+-{
+-
+-    /* Adjust each of the below values to suit your needs. */
+-
+-    /* Increment positions cache size initially by this number. */
+-    size_t cacheSizeInc = 16;
+-    /* Thereafter, each time capacity needs to be increased,
+-     * multiply the increment by this factor. */
+-    const size_t cacheSizeIncFactor = 3;
+-    /* But never increment capacity by more than this number. */
+-    const size_t cacheSizeIncMax = 1048576;
+-
+-    char *pret, *ret = NULL;
+-    const char *pstr2, *pstr = str;
+-    size_t i, count = 0;
+-    ptrdiff_t *posCache = NULL;
+-    size_t cacheSize = 0;
+-    size_t cpyLen, orgLen, retLen, toLen, fromLen = strlen(from);
+-
+-    /* Find all matches and cache their positions. */
+-    while ((pstr2 = strstr(pstr, from)) != NULL)
+-    {
+-        count++;
+-
+-        /* Increase the cache size when necessary. */
+-        if (cacheSize < count)
+-        {
+-            cacheSize += cacheSizeInc;
+-            posCache = realloc(posCache, sizeof(*posCache) * cacheSize);
+-            if (posCache == NULL)
+-            {
+-                goto end_repl_str;
+-            }
+-            cacheSizeInc *= cacheSizeIncFactor;
+-            if (cacheSizeInc > cacheSizeIncMax)
+-            {
+-                cacheSizeInc = cacheSizeIncMax;
+-            }
+-        }
+-
+-        posCache[count - 1] = pstr2 - str;
+-        pstr = pstr2 + fromLen;
+-    }
+-
+-    orgLen = pstr - str + strlen(pstr);
+-
+-    /* Allocate memory for the post-replacement string. */
+-    if (count > 0)
+-    {
+-        toLen = strlen(to);
+-        retLen = orgLen + (toLen - fromLen) * count;
+-    }
+-    else    retLen = orgLen;
+-    ret = (char*) malloc(retLen + 1);
+-    if (ret == NULL)
+-    {
+-        goto end_repl_str;
+-    }
+-
+-    if (count == 0)
+-    {
+-        /* If no matches, then just duplicate the string. */
+-        strcpy(ret, str);
+-    }
+-    else
+-    {
+-        /* Otherwise, duplicate the string whilst performing
+-         * the replacements using the position cache. */
+-        pret = ret;
+-        memcpy(pret, str, posCache[0]);
+-        pret += posCache[0];
+-        for (i = 0; i < count; i++)
+-        {
+-            memcpy(pret, to, toLen);
+-            pret += toLen;
+-            pstr = str + posCache[i] + fromLen;
+-            cpyLen = (i == count - 1 ? orgLen : posCache[i + 1]) - posCache[i] - fromLen;
+-            memcpy(pret, pstr, cpyLen);
+-            pret += cpyLen;
+-        }
+-        ret[retLen] = '\0';
+-    }
+-
+-end_repl_str:
+-    /* Free the cache and return the post-replacement string,
+-     * which will be NULL in the event of an error. */
+-    FREE(posCache);
+-    return ret;
+-}
+-
+-void setLocalIPAddress(int ipVersion)
+-{
+-    switch (ipVersion)
+-    {
+-        case IPv6:
+-            struct ifaddrs *ifAddress;
+-            char ipv6Address[50];
+-
+-            if (getifaddrs(&ifAddress) == -1)
+-            {
+-                OIC_LOG(ERROR, TAG, "Could not collect address of interfaces");
+-                exit(EXIT_FAILURE);
+-            }
+-
+-            do
+-            {
+-                if (ifAddress->ifa_addr->sa_family == AF_INET6)
+-                {
+-                    char firstHextet[5];
+-                    struct sockaddr_in6 *in6 = (struct sockaddr_in6*) ifAddress->ifa_addr;
+-                    inet_ntop(AF_INET6, &in6->sin6_addr, ipv6Address, sizeof(ipv6Address));
+-
+-                    memcpy(firstHextet, &ipv6Address, 4);
+-                    firstHextet[4] = '\0';
+-                    if(!strcmp(firstHextet, "fe80"))
+-                        break;
+-                }
+-            } while (ifAddress = ifAddress->ifa_next);
+-
+-            glocalIpVersion = 6;
+-            strcat(gLocalIp, ipv6Address);
+-            strcat(gLocalIp, "%");
+-            strcat(gLocalIp, ifAddress->ifa_name);
+-            strcat(gLocalNetworkInterface, ifAddress->ifa_name);
+-            break;
+-
+-        case IPv4:
+-            glocalIpVersion = 4;
+-            //Works only on ubuntu
+-            FILE *fp = popen("hostname -I", "r");
+-            fscanf(fp, "%s", gLocalIp);
+-            pclose(fp);
+-            break;
+-    }
+-
+-    if(gLocalIp[0] == '\0')
+-    {
+-        OIC_LOG(ERROR, TAG, "Could not get Ip address");
+-        exit(EXIT_FAILURE);
+-    }
+-
+-    OIC_LOG_V(INFO, TAG, "Local IP address: %s", gLocalIp);
+-}
+-
+-/*Send command to the IUT simulator*/
+-void SendCommand(const char *cmd)
+-{
+-
+-    if (cmd != NULL)
+-    {
+-        char searchCmd[256] = "xdotool search --name \"";
+-        strcat(searchCmd, gIUTSimulator);
+-        strcat(searchCmd, "\" windowactivate");
+-        char command[128] = "xdotool type --delay 1 --clearmodifiers ";
+-        strcat(command, cmd);
+-
+-        system(searchCmd);
+-        printf("Command %s\n", searchCmd);
+-        system("xdotool key --clearmodifiers Return");
+-
+-        sleep(4);
+-
+-        system(command);
+-        printf("Command %s\n", command);
+-
+-        system("xdotool key --clearmodifiers Return");
+-        OIC_LOG_V(INFO, TAG, "Command %s", searchCmd);
+-    }
+-}
+-
+-/*Find the value of the string in the log file*/
+-void FindValue(const char *searchString, char *value)
+-{
+-    FILE *fp1 = fopen(gIUTlog, "r");
+-    char line[MAX_LOG_V_BUFFER_SIZE];
+-    int i, j;
+-    size_t len = 0;
+-    ssize_t read;
+-    int lineNo = 0;
+-    if (fp1)
+-    {
+-        OIC_LOG(DEBUG, TAG, "Inside File");
+-        while (fgets(line, MAX_LOG_V_BUFFER_SIZE - 1, fp1))
+-        {
+-            ++lineNo;
+-            if ( (strstr(line, searchString) != NULL) &&
+-                 (strstr(line , ":") != NULL)
+-               )
+-            {
+-                char *pos = strstr(line, ":");
+-                char data;
+-                for (i = 1, j = 0; * (pos + i) != '\0'; i++)
+-                {
+-                    data = *(pos + i);
+-                    if (!isspace(data))
+-                    {
+-                        *(value + j) = data;
+-                        j++;
+-                    }
+-                }
+-                *(value + j) = '\0';
+-
+-                OIC_LOG_V(INFO, TAG, "value=%s", value);
+-            }
+-
+-        }
+-        fclose(fp1);
+-
+-    }
+-}
+-
+-/*Find the key in the string*/
+-void FindKey(const char *searchString, char *key)
+-{
+-    FILE *fp1 = fopen(gIUTlog, "r");
+-    char line[MAX_LOG_V_BUFFER_SIZE];
+-    int i, j;
+-    size_t len = 0;
+-    ssize_t read;
+-    int lineNo = 0;
+-    if (fp1)
+-    {
+-        OIC_LOG(DEBUG,TAG, "Inside File");
+-        while (fgets(line, MAX_LOG_V_BUFFER_SIZE - 1, fp1))
+-        {
+-            ++lineNo;
+-            if ( (strstr(line, ". ") != NULL) &&
+-                 //(strstr(line , "-") != NULL) &&
+-                 (strstr(line , searchString) != NULL))
+-            {
+-                char *pos = strstr(line, ".");
+-                char data;
+-                for (i = 0, j = 0; (i < 8) && (line[i] != *pos); i++)
+-                {
+-                    data = *(line + i);
+-                    if (!isspace(data))
+-                    {
+-                        *(key + j) = data;
+-                        j++;
+-                    }
+-                }
+-                *(key + j) = '\0';
+-
+-                OIC_LOG_V(INFO, TAG, "value=%s", key);
+-            }
+-
+-        }
+-        fclose(fp1);
++    OIC_LOG(INFO, TAG, "Start TAF server");
+ 
+-    }
+-}
++    initDutControllers();
+ 
++    addRouteBasic("POST", "/actions", actionHandler, cleanXmlDocPtr);
++    addRouteBasic("GET", "/abortSignal", abortSignalHandler, cleanXmlDocPtr);
++    addRouteSetup("GET", "/processes/ctt/configuration", configurationHandler, cleanXmlDocPtr);
+ 
+-/*Send command to the IUT Simulator in bulk*/
+-void SendCommands(int commandLength)
+-{
+-    OIC_LOG_V(DEBUG, TAG, "Inside SendCommand");
+-    sleep(2 * SLEEP_TIME);
+-    for (int i = 0; i < commandLength; i++)
+-    {
+-        SendCommand(gCommandsArray[i]);
+-        sleep(SLEEP_TIME);
+-    }
+-}
++    startDutControllerBasic("0.0.0.0", 32000);
++    startDutControllerExtended("0.0.0.0", 32001);
++    startDutControllerSetup("0.0.0.0", 32002);
+ 
+-/*XML Doc Ptr Clean*/
+-void CleanXmlDocPtr(xmlDocPtr doc)
+-{
+-    if(doc)
+-        xmlFreeDoc(doc);
++    OIC_LOG(INFO, TAG, "TAF server started");
+ }
+ 
+-/*XML action handler*/
+-xmlDocPtr ActionHandler(xmlDocPtr doc)
++void parseArguments(int argc, char* argv[])
+ {
+-
+-    char *result = (char *)"";
+-    char val[8], value[128];
+-
+-    const char *messageXml = docToString(doc);
+-
+-    if (strlen(messageXml) != 0)
++    try
+     {
+-        gCTTLogsResetTimeout = true;
+-        gCTTLogsStarted = true;
+-    }
++        boost::program_options::options_description defined_options("Allowed options");
++        defined_options.add_options()
++            ("help", "Print this description")
++            ("confPath", boost::program_options::value< std::string >()->required(), "Specifies path to configuration file")
++            ("discoveryIpVer", boost::program_options::value< std::string >()->required(), "Specifies ip version to select from discovery endpoints, example: 4")
++            ("iutApiEndpoint", boost::program_options::value< std::string >()->required(), "Specifies location of endpoint for IUT http input server, example: 127.0.0.1:12345");
+ 
+-    if (strstr(messageXml, "<message>Waiting for CoAP response... ") == NULL &&
+-        strstr(messageXml, "<message>Please wait...") == NULL )
+-    {
+-        OIC_LOG_V(INFO, TAG, "Received: \n%s", messageXml);
+-    }
++        boost::program_options::variables_map given_options;
++        boost::program_options::store(boost::program_options::parse_command_line(argc, argv, defined_options), given_options);
+ 
+-    if (strstr(messageXml, "<message>Waiting for CoAP response... ") != NULL)
+-    {
+-        //SKIP
+-    }
+-    else if ( strstr(messageXml , "<message>If the device uses an OCF Rooted Certificate Chain") != NULL)
+-    {
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Skip</answer></userDialogResponse></actionResult>");
+-    }
+-    else if ( strstr(messageXml , "<message>Please provide (paste) public key of CA (PEM type)") != NULL)
+-    {
+-        const char *publicKey =
+-            "-----BEGIN CERTIFICATE-----\n"
+-            "MIICBDCCAaugAwIBAgIIZ0QY0VJs8zIwCgYIKoZIzj0EAwIwSjELMAkGA1UEBhMC\n"
+-            "VVMxDDAKBgNVBAoMA09DRjETMBEGA1UECwwKT0NGIENUVCBDQTEYMBYGA1UEAwwP\n"
+-            "T0NGIENUVCBST09UIENBMB4XDTE3MDEwMTAwMDAwMFoXDTI3MDEwMTAwMDAwMFow\n"
+-            "SjELMAkGA1UEBhMCVVMxDDAKBgNVBAoMA09DRjETMBEGA1UECwwKT0NGIENUVCBD\n"
+-            "QTEYMBYGA1UEAwwPT0NGIENUVCBST09UIENBMFkwEwYHKoZIzj0CAQYIKoZIzj0D\n"
+-            "AQcDQgAEuKkiScoLLyjGALXhr2PijOyf0RRqXnKY8VXFM+aHkdYxiJHD5MziSXsT\n"
+-            "hDB82Hx7ykz8Fil0cBuE1tX4gX87/qN7MHkwKwYDVR0jBCQwIoAgVapQxp8Fthci\n"
+-            "DZjQdj0AdbaKBr9aXrlJxD9unFaRlCswKQYDVR0OBCIEIFWqUMafBbYXIg2Y0HY9\n"
+-            "AHW2iga/Wl65ScQ/bpxWkZQrMA8GA1UdEwEB/wQFMAMBAf8wDgYDVR0PAQH/BAQD\n"
+-            "AgEGMAoGCCqGSM49BAMCA0cAMEQCIEfUv9VTQrFDg9/kqnTHpLBDRVgoMlAFsDgW\n"
+-            "S02KANuyAiAQsZeEhxTCqGhQwRQpIoI+WJ2maHa+pfuuwGXc+GH+Tg==\n"
+-            "-----END CERTIFICATE-----";
+-
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Set_Value</answer><data>%s</data></userDialogResponse></actionResult>",
+-                 publicKey);
+-    }
+-    else if ( strstr(messageXml , "<message>Please enter PIN:") != NULL)
+-    {
+-        // Get PIN generated by the IUTSimulator
+-        OIC_LOG(INFO, TAG, "Please enter PIN:");
+-        FindValue("PIN CODE : ", gPinValue);
+-        OIC_LOG_V(INFO, TAG, "PIN=%s", gPinValue);
+-
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Set_Value</answer><data>%s</data></userDialogResponse></actionResult>",
+-                 gPinValue);
+-    }
+-    else if ( strstr(messageXml, "<message>Please initiate device to revert to \"ready for OTM\" state") != NULL ||
+-              strstr(messageXml, "<message>Please reset DUT's ACL in order to have empty list.") != NULL ||
+-              strstr(messageXml, "<message>Please revert IUT to RFOTM / reset the device") != NULL)
+-    {
+-        // Reset the IUTSimulator
+-        gRestartFlag = 1;
+-	sleep(1);
+-	while(gInsideMainLoop == 0){
+-	    sleep(1);
+-	}
+-        asprintf(&result, "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    else if ( strstr(messageXml, "<message>Please cycle power on the IUT") != NULL)
+-    {
+-        /* Reset the IUTSimulator */
+-        gRestartFlag = 1;
+-        gReuseIUT = 1;
+-        gIPDiscovered = 0;
+-        OIC_LOG(INFO, TAG, "Wait for TAF to discover IUT after reset");
+-        do {sleep(1);} while (!gIPDiscovered);
+-        asprintf(&result, "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    else if ( strstr(messageXml, "<message>Please reset the IUT") != NULL)
+-    {
+-        /* Reset the IUTSimulator */
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "<message>Does the Vendor Attestation Document have the following item checked:") != NULL)
+-    {
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "<message>Did IUT receive response:") != NULL)
+-    {
+-
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "<message>Was device discovered sucessfully?") != NULL)
+-    {
+-        //TODO: Check if device was indeed discovered
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "<message>Did IUT received NOTIFY:") != NULL)
+-    {
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-
+-    }
+-    else if (strstr(messageXml, "<message>Please change some value in") != NULL)
+-    {
+-        if (strstr(messageXml, "and press OK") != NULL)
++        if (given_options.count("help") || argc == 1)
+         {
+-            sleep(10);
+-            asprintf(&result,
+-                     "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
++            std::stringstream descrption;
++            descrption << defined_options;
++            OIC_LOG_V(INFO, TAG, "%s", descrption.str().c_str());
++            exit(1);
+         }
+-        else if (strstr(messageXml, "/BinarySwitchResURI") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Changing value in /BinarySwitchResURI");
+-            strcpy(gCommandsArray[0], "34");
+-            strcpy(gCommandsArray[1], "1");
+-            strcpy(gCommandsArray[2], "value");
+-            strcpy(gCommandsArray[3], "4");
+-            strcpy(gCommandsArray[4], "0");
+-            SendCommands(5);
+ 
+-            strcpy(gCommandsArray[0], "34");
+-            strcpy(gCommandsArray[1], "1");
+-            strcpy(gCommandsArray[2], "value");
+-            strcpy(gCommandsArray[3], "4");
+-            strcpy(gCommandsArray[4], "0");
+-            SendCommands(5);
+-        }
+-        else if (strstr(messageXml, "/AirFlowResURI") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Changing value in /AirFlowResURI");
+-            strcpy(gCommandsArray[0], "34");
+-            strcpy(gCommandsArray[1], "5");
+-            strcpy(gCommandsArray[2], "speed");
+-            strcpy(gCommandsArray[3], "1");
+-            strcpy(gCommandsArray[4], "25");
+-            SendCommands(5);
+-        }
+-        else if (strstr(messageXml, "/TemperatureResURI") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Changing value in /TemperatureResURI");
+-            strcpy(gCommandsArray[0], "34");
+-            strcpy(gCommandsArray[1], "3");
+-            strcpy(gCommandsArray[2], "temperature");
+-            strcpy(gCommandsArray[3], "3");
+-            strcpy(gCommandsArray[4], "25.5");
+-            SendCommands(5);
+-        }
+-        else if (strstr(messageXml, "/myPulseRateResUR") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Resource /myPulseRateResUR handled automatically.\n");
+-        }
+-        else if (strstr(messageXml, "/BloodPressureMonitorAMResURI") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Resource /BloodPressureMonitorAMResURI handled automatically.\n");
+-        }
+-        else
+-        {
+-            OIC_LOG(ERROR, TAG, "Unknow resource, cannot be handled");
+-            sleep(2);
+-            asprintf(&result, "<actionResult><userDialogResponse><answer>Skip</answer></userDialogResponse></actionResult>");
+-        }
+-    }
+-    else if (strstr(messageXml, "<message>Are you sure you want to skip this step?") != NULL)
+-    {
+-        sleep(2);
+-        asprintf(&result, "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml,
+-                    "<message>Please send a multicast discovery request message (i.e. CoAP GET) to") != NULL)
+-            //         ||
+-            //  strstr(messageXml,
+-            //         "Please initiate the Endpoint discovery process") != NULL)
+-    {
+-        SendCommand("12");
+-        sleep(SLEEP_TIME);
+-    }
+-    else if ( strstr(messageXml, "Please initiate the Endpoint discovery process") != NULL)
+-    {
+-        SendCommand("12");
+-        sleep(SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml, "<message>Please have the IUT establish a TCP connection") != NULL)
+-    {
+-        OIC_LOG(INFO, TAG, "IUT establishing TCP connection");
+-            SendCommand("12");
+-            sleep(2 * SLEEP_TIME);
+-            SendCommand("17");
+-            FindKey("/BinarySwitchResURI", val);
+-            SendCommand(val);
+-            sleep(SLEEP_TIME);
+-            FindKey("coaps+tcp", val);
+-            SendCommand(val);
+-            sleep(SLEEP_TIME);
+-
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, " send a unicast RETRIEVE request (i.e. CoAP GET) to ") != NULL)
+-    {
+-        char resourceUri[URI_SIZE] = "/";
+-        strcat(resourceUri, getStringBetween(messageXml, "\"/", "\""));
+-        OIC_LOG_V(INFO, TAG, "Sending RETRIVE request to %s", resourceUri);
++        boost::program_options::notify(given_options);
+ 
+-        SendCommand("12");
+-        sleep(2 * SLEEP_TIME);
+-        SendCommand("17");
+-        FindKey(resourceUri, val);
+-        SendCommand(val);
+-        sleep(SLEEP_TIME);
+-        if (strstr(messageXml, "over TCP") != NULL)
+-        {
+-            FindKey("coaps+tcp", val);
+-            SendCommand(val);
+-        }
+-        else
++        if (given_options.count("confPath"))
+         {
+-             SendCommand("0");
++            g_configurationFilePath = given_options["confPath"].as<std::string>();
+         }
+-        sleep(SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml, "send a unicast partial UPDATE request") != NULL)
+-    {
+-        sleep(2 * SLEEP_TIME);
+-        if (strstr(messageXml, "/BinarySwitchResURI") != NULL)
+-        {
+-            OIC_LOG(INFO, TAG, "Inside Switch");
+-            SendCommand("12");
+-            sleep(2 * SLEEP_TIME);
+-            SendCommand("17");
+-            FindKey("/BinarySwitchResURI", val);
+-            SendCommand(val);
+-            sleep(SLEEP_TIME);
+-            if (strstr(messageXml, "over TCP") != NULL)
+-            {
+-                FindKey("coaps+tcp", val);
+-                SendCommand(val);
+-            }
+-            else
+-            {
+-                SendCommand("0");
+-            }
+-            sleep(SLEEP_TIME);
+-            FindValue("value : ", value);
+-            SendCommand("22");
+-            FindKey("/BinarySwitchResURI", val);
+-            SendCommand(val);
+-            sleep(SLEEP_TIME);
+-            if (strstr(messageXml, "over TCP") != NULL)
+-            {
+-                FindKey("coaps+tcp", val);
+-                SendCommand(val);
+-            }
+-            else
+-            {
+-                SendCommand("0");
+-            }
+-            sleep(SLEEP_TIME);
+-            SendCommand("value");
+-            sleep(SLEEP_TIME);
+-            SendCommand("4");
+-            sleep(SLEEP_TIME);
+-            if (strcmp(value, "false") == 0)
+-            {
+-                SendCommand("1");
+-            }
+-            else if (strcmp(value, "true") == 0)
+-            {
+-                SendCommand("0");
+ 
+-            }
+-            else
+-            {
+-                OIC_LOG_V(WARNING, TAG, "Sending \"true\", as acquired value: %s could not be interpreted as true or false\n", value);
+-                SendCommand("0");
+-            }
+-            sleep(SLEEP_TIME);
+-        }
+-        else if (strstr(messageXml, "/TemperatureResURI") != NULL)
++        if (given_options.count("discoveryIpVer"))
+         {
+-            OIC_LOG(INFO, TAG, "Inside Switch");
+-            SendCommand("12");
+-            sleep(2 * SLEEP_TIME);
+-            SendCommand("22");
+-            FindKey("/TemperatureResURI", val);
+-            SendCommand(val);
+-            sleep(SLEEP_TIME);
+-            if (strstr(messageXml, "over TCP") != NULL)
++            if (given_options["discoveryIpVer"].as<std::string>() == "4" ||
++                given_options["discoveryIpVer"].as<std::string>() == "6")
+             {
+-                FindKey("coaps+tcp", val);
+-                SendCommand(val);
++                g_discoveryIpVersion = given_options["discoveryIpVer"].as<std::string>();
+             }
+             else
+             {
+-                SendCommand("0");
+-            }
+-            sleep(SLEEP_TIME);
+-            SendCommand("temperature");
+-            sleep(SLEEP_TIME);
+-            SendCommand("3");
+-            sleep(SLEEP_TIME);
+-            SendCommand("22.5");
+-            sleep(SLEEP_TIME);
+-
+-        }
+-        else
+-        {
+-            asprintf(&result,
+-                    "<actionResult><userDialogResponse><answer>CANCEL</answer></userDialogResponse></actionResult>");
+-        }
+-    }
+-    else if (strstr(messageXml, " send a unicast request message (") != NULL)
+-    {
+-        OIC_LOG(INFO, TAG, "Inside unicast request");
+-        char resourceUri[URI_SIZE] = "/";
+-        strcat(resourceUri, getStringBetween(messageXml, "'/", "'"));
+-
+-        sleep(SLEEP_TIME);
+-        SendCommand("12");
+-        sleep(2 * SLEEP_TIME);
+-        if (strstr(messageXml, "with observe option = 0") != NULL)
+-        {
+-            SendCommand("25");
+-        }
+-        else if (strstr(messageXml, "with observe option = 1") != NULL)
+-        {
+-            SendCommand("26");
+-        }
+-        else
+-        {
+-            OIC_LOG(WARNING, TAG, "Cannot find information about observe option, sending with option = 0");
+-            SendCommand("25");
+-        }
+-        FindKey(resourceUri, val);
+-        SendCommand(val);
+-        sleep(SLEEP_TIME);
+-        if (strstr(messageXml, "over TCP") != NULL)
+-        {
+-            FindKey("coaps+tcp", val);
+-            SendCommand(val);
+-        }
+-        else
+-        {
+-            SendCommand("0");
+-        }
+-        sleep(SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml, "send UPDATE to /oic/rd") != NULL)
+-    {
+-        OIC_LOG(INFO, TAG, "Inside RD request");
+-        SendCommand("12");
+-        sleep(4 * SLEEP_TIME);
+-        SendCommand("110");
+-        sleep(2 * SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml, "send DELETE to /oic/rd") != NULL)
+-    {
+-        OIC_LOG(INFO, TAG, "Inside RD request");
+-        SendCommand("12");
+-        sleep(2 * SLEEP_TIME);
+-        SendCommand("112");
+-        sleep(2 * SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml, "Please provide the Mediator with the generated cis") != NULL)
+-    {
+-        asprintf(&result,
+-                "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "Please initiate transfer of Cloud configuration") != NULL)
+-    {
+-        SendCommand("12");
+-        sleep(SLEEP_TIME);
+-        SendCommand("39");
+-        sleep(SLEEP_TIME);
+-    }
+-    else if (strstr(messageXml,
+-                    "<message>Does IUT have the possibility to display received properties values?") != NULL)
+-    {
+-#if 0
+-        asprintf(&result, "<actionResult><userDialogResponse><answer>No</answer></userDialogResponse></actionResult>");
+-#endif
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml,
+-                    "<message>Does IUT has discovered a device (i.e. the CTT) with the expected Resource Types?") !=
+-             NULL)
+-    {
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "<message>Does IUT presents following properties values?") != NULL)
+-    {
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>Yes</answer></userDialogResponse></actionResult>");
+-    }
+-    else if (strstr(messageXml, "Please trigger the IUT to log out of the CTT Cloud") != NULL)
+-    {
+-        SendCommand("121");
+-    }
+-    else if (strstr(messageXml, "Please trigger the IUT to deregister from the CTT Cloud") != NULL)
+-    {
+-        SendCommand("122");
+-    }
+-    else if (strstr(messageXml, "Please trigger the IUT to register with the CTT Cloud") != NULL)
+-    {
+-        sleep(2);
+-        asprintf(&result,
+-                 "<actionResult><userDialogResponse><answer>OK</answer></userDialogResponse></actionResult>");
+-    }
+-    /*Currently works only with IPv4*/
+-    else if (strstr(messageXml, "Please send a CoAP Ping message to the CTT") != NULL)
+-    {
+-        char* address = getStringBetween(messageXml, "(", ")");
+-        char ip[IP_WITH_INTERFACE_SIZE] = "";
+-        char* port;
+-
+-        if (glocalIpVersion == IPv4)
+-        {
+-            strcat(ip, strtok(address, ":"));
+-            port = strtok(NULL, ":");
+-        }
+-        else if (glocalIpVersion == IPv6)
+-        {
+-            strcat(ip, strtok(address, "[]"));
+-            strcat(ip, "%");
+-            strcat(ip, gLocalNetworkInterface);
+-            port =  strtok(NULL, ":");
+-        }
+-
+-        OIC_LOG_V(INFO, TAG, "Sending Ping message to %s:%s", ip, port);
+-        SendCommand("124");
+-        sleep(SLEEP_TIME);
+-        SendCommand(ip);
+-        sleep(SLEEP_TIME);
+-        SendCommand(port);
+-    }
+-    else
+-    {
+-        OIC_LOG_V(DEBUG, TAG, "TAF==Received not handled POST /actions: %s", messageXml);
+-    }
+-
+-    if (result[0] != '\0')
+-    {
+-        OIC_LOG_V(INFO, TAG, "Sending: \n%s", result);
+-    }
+-
+-    return stringToDoc(result);
+-}
+-
+-/*Abort Signal Handler*/
+-xmlDocPtr AbortSignalHandler(xmlDocPtr doc)
+-{
+-    if (gCTTLogsTimeout)
+-    {
+-        OIC_LOG(INFO, TAG, "Sending Abort Test Case to CTT.\n");
+-        gCTTLogsTimeout = false;
+-        return stringToDoc("<abortSignal><abortTestcase>true</abortTestcase><abortTestRun>false</abortTestRun></abortSignal>");
+-    }
+-    else
+-    {
+-        return stringToDoc("<abortSignal><abortTestcase>false</abortTestcase><abortTestRun>false</abortTestRun></abortSignal>");
+-    }
+-}
+-
+-/*Configuration handler*/
+-xmlDocPtr ConfigurationHandler(xmlDocPtr doc)
+-{
+-    OIC_LOG(INFO , TAG, "Inside Configuration Handler");
+-    if (gConfigFileContent == NULL)
+-    {
+-        long length;
+-        FILE *f = fopen (gConfigPath, "rb");
+-        if (f)
+-        {
+-            OIC_LOG(INFO, TAG, "FILE OPENED");
+-            fseek (f, 0, SEEK_END);
+-            length = ftell (f);
+-            fseek (f, 0, SEEK_SET);
+-            gConfigFileContent = (char*) malloc (length + 1);
+-
+-            if (gConfigFileContent )
+-            {
+-                fread (gConfigFileContent , 1, length, f);
+-                gConfigFileContent[length] = '\0';
++                OIC_LOG(ERROR, TAG, "Invalid discovery ip version, use 4 or 6");
++                exit(1);
+             }
+-            fclose (f);
+-        }
+-        else
+-        {
+-            OIC_LOG_V(ERROR, TAG, "Could not open file %s", gConfigFileContent);
+-            return stringToDoc("");
+         }
+-    }
+-    char *result = gConfigFileContent;
+-    char *tmp = replaceString(gConfigFileContent, "%IP%", gIp);
+-    tmp = replaceString(tmp, "%UUID%", gUuid);
+-    result = replaceString(tmp, "%PORT%", gPort);
+-    return stringToDoc(result);
+-}
+-
+-/*Init TAF Agent*/
+-void  InitTAF()
+-{
+-    OIC_LOG(INFO, TAG, "Start TAF server");
+-
+-    initDutControllers();
+-    addRouteBasic("POST", "/actions", ActionHandler, CleanXmlDocPtr);
+-    addRouteBasic("GET", "/abortSignal", AbortSignalHandler, CleanXmlDocPtr);
+-    if (gConfigPath != NULL)
+-    {
+-        addRouteSetup("GET", "/processes/ctt/configuration", ConfigurationHandler, CleanXmlDocPtr);
+-    }
+-    startDutControllerBasic("0.0.0.0", 32000);
+-    startDutControllerExtended("0.0.0.0", 32001);
+-    startDutControllerSetup("0.0.0.0", 32002);
+-
+-    OIC_LOG(INFO, TAG, "TAF server started");
+-}
+-
+-
+-/*Init the IUT Simulator*/
+-void initIUT(int qos, int ipVer, int security, char *ocfVer, char initialCommands[][5], int initialCommandsSize)
+-{
+-    OIC_LOG(INFO, TAG, "Start IUT\n");
+-    OIC_LOG_V(INFO, TAG, "IUT options: %d %d %d %s\n", qos, ipVer, security, ocfVer);
+-    char app[255] = "IUTSimulator";
+-
+-    switch (qos)
+-    {
+-        case QOS_NON:
+-            strcat(app, " 0");
+-            break;
+-
+-        case QOS_CON:
+-            strcat(app, " 1");
+-            break;
+-
+-        default:
+-            OIC_LOG_V(ERROR, TAG, "QoS argument \"%d\" is invalid\n", qos);
+-            exit(EXIT_FAILURE);
+-    }
+-
+-    switch (ipVer)
+-    {
+-        case IPv4:
+-            strcat(app, " 4");
+-            break;
+-
+-        case IPv6:
+-            strcat(app, " 6");
+-            break;
+-
+-        default:
+-            OIC_LOG_V(ERROR, TAG, "IP version argument \"%d\" is invalid\n", ipVer);
+-            exit(EXIT_FAILURE);
+-    }
+-
+-    switch (security/10)
+-    {
+-        case FRESH_CLIENT:
+-            strcat(app, " 1");
+-            break;
+-
+-        case REUSE_CLIENT:
+-            strcat(app, " 3");
+-            break;
+-
+-        case FRESH_SERVER:
+-            strcat(app, " 2");
+-            break;
+-
+-        case REUSE_SERVER:
+-            strcat(app, " 4");
+-            break;
+-
+-        default:
+-            OIC_LOG_V(ERROR, TAG, "Security argument \"%d\" is invalid\n", security);
+-            exit(EXIT_FAILURE);
+-    }
+-
+-    switch (security%10)
+-    {
+-        case JUSTWORKS:
+-            strcat(app, "1");
+-            break;
+-
+-        case RANDOMPIN:
+-            strcat(app, "2");
+-            break;
+ 
+-        case MFG_CERT:
+-            strcat(app, "3");
+-            break;
+-
+-        default:
+-            OIC_LOG_V(ERROR, TAG, "Security argument \"%d\" is invalid\n", security);
+-            exit(EXIT_FAILURE);
+-    }
+-
+-    strcat(app, " ");
+-    strcat(app, ocfVer);
+-
+-    for(int i = 0; i < initialCommandsSize; i++)
+-    {
+-        strcat(app, " ");
+-        strcat(app, initialCommands[i]);
+-    }
+-
+-    addDir(gIUTlogDir);
+-
+-    char parameters[255] = "result=1\nwhile [ $result -ne 0 ]; do \nxterm -title \"";
+-    strcat(parameters, gIUTSimulator);
+-    strcat(parameters, "\" -e \"./");
+-    strcat(parameters, app);
+-    strcat(parameters, " | tee ");
+-    strcat(parameters, gIUTlog);
+-    strcat(parameters, "\"\n result=$?\ndone");
+-    OIC_LOG_V(DEBUG, TAG, "Command Executed:%s", parameters);
+-    if ((gPid = fork()) < 0)
+-    {
+-        OIC_LOG(ERROR, TAG, "Fork failed");
+-        exit(EXIT_FAILURE);
+-    }
+-    if (gPid == 0)
+-    {
+-        system("pkill --signal SIGKILL IUTSimulator");
+-        sleep(1);
+-        OIC_LOG(INFO, TAG, "gPid == 0\n");
+-        execlp("/bin/sh", "/bin/sh", "-c", parameters, NULL);
+-        sleep(5);
+-        exit(EXIT_FAILURE);
+-    }
+-}
+-
+-/*Callback function on discovery*/
+-OCStackApplicationResult HandleDiscover(void *ctx,
+-                                        OCDoHandle handle,
+-                                        OCClientResponse *clientResponse)
+-{
+-    if (!clientResponse)
+-    {
+-        OIC_LOG(ERROR, TAG, "Payload is NULL, No resources found");
+-        return OC_STACK_DELETE_TRANSACTION;
+-    }
+-    if (!gIPDiscovered)
+-    {
+-
+-        if (!strcmp(gLocalIp, clientResponse->devAddr.addr))
++        if (given_options.count("iutApiEndpoint"))
+         {
+-            OIC_LOG_V(INFO, TAG,
+-                      "Device =============> Discovered @ %s:%d",
+-                      clientResponse->devAddr.addr,
+-                      clientResponse->devAddr.port);
++            std::string endpoint = given_options["iutApiEndpoint"].as<std::string>();
+ 
+-            strcpy(gIp, clientResponse->devAddr.addr);
+-            strcpy(gIp, strtok(gIp, "%"));
+-            sprintf(gPort, "%d", clientResponse->devAddr.port);
+-            strcpy(gUuid, clientResponse->devAddr.remoteId);
+-
+-            OIC_LOG_V(INFO, TAG, "Port: %s", gPort);
+-
+-            gIPDiscovered = 1;
+-        }
+-    }
+-    return OC_STACK_KEEP_TRANSACTION;
+-
+-}
+-
+-/*Send Discovery to discover the OCF Devices*/
+-void SendDiscovery()
+-{
+-    OCCallbackData cbData = {NULL, NULL, NULL};
+-    OCStackResult ret;
+-    char queryUri[200];
+-    char ipaddr[100] = {'\0'};
+-
+-    snprintf(queryUri, sizeof(queryUri), s_DISCOVERY_QUERY, ipaddr);
+-
+-    cbData.cb = HandleDiscover;
+-    cbData.context = (void *)DEFAULT_CONTEXT_VALUE;
+-
+-    //Start a discovery query
+-    OIC_LOG_V(INFO, TAG, "Resource Discovery:%s\n", queryUri);
+-
+-    ret = OCDoResource(NULL, OC_REST_DISCOVER, queryUri, NULL, 0, CT_DEFAULT, OC_LOW_QOS, &cbData, NULL,
+-                       0);
+-    if (ret != OC_STACK_OK)
+-    {
+-        OIC_LOG(ERROR, TAG, "Device Discovery error");
+-    }
+-    else
+-    {
+-        OIC_LOG(INFO, TAG, "Device Discovery Success");
+-    }
+-}
+-
+-
+-/*Stop the IUTSimulator*/
+-void stopIUT()
+-{
+-    char value[255] = "0";
+-    OIC_LOG_V(INFO, TAG, "Sending %s to IUTSimulator\n", value);
+-    SendCommand(value);
+-}
+-
+-/*Discovery the IUT Simulator port */
+-void discoverIUT(int ipVersion)
+-{
+-    OIC_LOG(INFO, TAG, "Discover IUT");
+-
+-    switch (ipVersion)
+-    {
+-        case IPv4:
+-            if (OCInit1(OC_CLIENT, OC_IP_USE_V4 , OC_IP_USE_V4) != OC_STACK_OK)
++            if (endpoint.find("[") == 0)
+             {
+-                OIC_LOG(ERROR, TAG, "OCStack init error");
+-                exit(EXIT_FAILURE);
++                g_IUTHttpInputServerIP = endpoint.substr(1, endpoint.find("]") - 1);
+             }
+-            break;
+-
+-        case IPv6:
+-            if (OCInit1(OC_CLIENT, OC_IP_USE_V6 , OC_IP_USE_V6) != OC_STACK_OK)
++            else
+             {
+-                OIC_LOG(ERROR, TAG, "OCStack init error");
+-                exit(EXIT_FAILURE);
++                g_IUTHttpInputServerIP = endpoint.substr(0, endpoint.find_last_of(":"));
+             }
+-            break;
+-    }
+-
+-    SendDiscovery();
+ 
+-    do
+-    {
+-        OIC_LOG(INFO, TAG, "Waiting for IUT discovery...");
+-        if (OCProcess() != OC_STACK_OK)
+-        {
+-            fprintf(stdout, "OCStack process error\n");
+-            fflush(stdout);
+-            exit(EXIT_FAILURE);
++            g_IUTHttpInputServerPort = endpoint.substr(endpoint.find_last_of(":") + 1);
+         }
+-        sleep(1);
+-    } while (!gIPDiscovered);
+-
+-    OIC_LOG(INFO, TAG, "Stopping OC Stack");
+-    if (OCStop() != OC_STACK_OK)
+-    {
+-        OIC_LOG(ERROR, TAG, "OCStack process error");
+-        return OC_STACK_DELETE_TRANSACTION;
+-    }
+-    else
++    } catch (std::exception &e)
+     {
+-        OIC_LOG(INFO, TAG, "OC Stack Stopped");
++        OIC_LOG_V(ERROR, TAG, "Invalid argument: %s", e.what());
++        exit(0);
+     }
+ }
+ 
+-/*SIGINT handler: set gQuitFlag to 1 for graceful termination*/
+-void HandleSigInt(int signum)
+-{
+-    if ((signum == SIGINT) || (signum == SIGTERM) || (signum == SIGTSTP))
+-    {
+-        gQuitFlag = 1;
+-        gRestartFlag = 1;
+-        //stopIUT();
+-    }
+-
+-}
+-
+-void startIUTfromArguments(int argc, char **argv)
++void signalHandler(int signal)
+ {
+-    int qosArg = atoi(argv[2]);
+-    int ipVerArg = atoi(argv[3]);
+-    int securityArg = atoi(argv[4]);
+-    char* ocfVerArg = argv[5];
+-    int initialCommandsSize = argc - 6;
+-    char initialCommands[initialCommandsSize][5];
+-    for(int i = 0; i < initialCommandsSize; i++)
++    if (IUTController::getInstance().getState() != IUTController::ControllerState::ERROR)
+     {
+-        strcpy(initialCommands[i], argv[6 + i]);
+-    }
+-
+-    if (gReuseIUT)
+-    {
+-        initIUT(qosArg, ipVerArg, securityArg + 20, ocfVerArg, initialCommands, initialCommandsSize);
+-        gReuseIUT = 0;
++        g_quitFlag = true;
+     }
+     else
+     {
+-        initIUT(qosArg, ipVerArg, securityArg, ocfVerArg, initialCommands, initialCommandsSize);
+-    }
+-}
+-
+-void setConfigurationFilePath(char *path)
+-{
+-    gConfigPath = path;
+-
+-    OIC_LOG_V(INFO, TAG, "Start to open file %s", gConfigPath);
+-    FILE *fp;
+-
+-    fp = fopen(gConfigPath, "r");
+-    if (fp == NULL)
+-    {
+-        OIC_LOG_V(ERROR, TAG, "Could not find file %s", gConfigPath);
+-        exit(EXIT_FAILURE);
+-    }
+-    fclose(fp);
+-}
+-
+-void setIUTlogPath(char *filename) {
+-    gConfigFilename = filename;
+-    strcat(gIUTlog, gIUTlogDir);
+-    strcat(gIUTlog, "/IUTSimulator_");
+-    strcat(gIUTlog, gConfigFilename);
+-    strcat(gIUTlog, ".log");
+-}
+-
+-void checkForCTTtimeout(time_t *lastCTTLog)
+-{
+-    if (gCTTLogsStarted)
+-    {
+-        if (gCTTLogsResetTimeout)
+-        {
+-            *lastCTTLog = time(NULL);
+-            gCTTLogsResetTimeout = false;
+-        }
+-        if (time(NULL) > *lastCTTLog + CTT_TIMEOUT)
+-        {
+-            OIC_LOG(INFO, TAG, "CTT logs timeout has been reached.\n");
+-            gCTTLogsTimeout = true;
+-            gCTTLogsStarted = false;
+-        }
++        exit(1);
+     }
+ }
+ 
+-/*Main Entry point of the code*/
+-/*
+-    Arguments:
+-    1 - TAF configuration xml file path
+-    2 - QoS option for IUT (first IUT argument)
+-    3 - Ip version for TAF and IUT (second IUT argument)
+-    4 - Security option for IUT (third IUT argument)
+-    5 - OCF version for IUT (4-th IUT argument)
+-    ... - IUT initial commands (5-th and more IUT arguments)
+-*/
+ int main(int argc, char **argv)
+ {
+-    if (argc < 6)
+-    {
+-        OIC_LOG(ERROR, TAG, "Error: Wrong amount of arguments, arguments are:\n./TAFAgent conf_path QoS ipVersion security ocfVersion\n");
+-        return -1;
+-    }
+-
+-    OIC_LOG(INFO, TAG, "Started");
++    signal(SIGSEGV, signalHandler);
+ 
+-    signal(SIGINT, HandleSigInt);
++    parseArguments(argc, argv);
+ 
+-    setConfigurationFilePath(argv[1]);
+-    setIUTlogPath(replaceString(basename(argv[1]), ".xml", ""));
+-    setLocalIPAddress(atoi(argv[3]));
+-
+-    startIUTfromArguments(argc, argv);
+-
+-    sleep(3);
+-
+-    discoverIUT(atoi(argv[3]));
+-
+-    InitTAF();
+-
+-    const int trigger = CLOCKS_PER_SEC;
+-    while (!gQuitFlag)
++    if(IUTController::getInstance().initialize(g_configurationFilePath, g_IUTHttpInputServerIP, g_IUTHttpInputServerPort, g_discoveryIpVersion))
+     {
+-        if (!gIPDiscovered)
+-        {
+-            startIUTfromArguments(argc, argv);
+-            discoverIUT(atoi(argv[3]));
+-        }
++        initTAF();
++
+         OIC_LOG(INFO, TAG, "Entering TAF Agent main loop...");
+-        clock_t prevClock = clock() - trigger;
+-        time_t lastCTTLog = 0;
+-        while (!gRestartFlag)
++        clock_t prevClock = clock() - CLOCKS_PER_SEC;
++        while (!g_quitFlag && IUTController::getInstance().getState() != IUTController::ControllerState::ERROR)
+         {
+-            gInsideMainLoop = 1;
+             clock_t curClock = clock();
+-            if(curClock - prevClock >= trigger){
++            if(curClock - prevClock >= CLOCKS_PER_SEC){
+                 printf(".\n");
+-                checkForCTTtimeout(&lastCTTLog);
+                 prevClock = curClock;
+             }
+         }
+-        gInsideMainLoop = 0;
++
+         OIC_LOG(INFO, TAG, "Exiting TAF Agent main loop...");
+-        stopIUT();
+-        gIPDiscovered = 0;
+-        gRestartFlag = 0;
++        stopDutControllers();
++        disposeDutControllers();
++    }
++    else
++    {
++        OIC_LOG(ERROR, TAG, "Failed to initialize IUT controller");
+     }
+-    stopDutControllers();
+-    disposeDutControllers();
+-    FREE(gConfigFileContent);
+ 
+     return 0;
+ }
+diff --git a/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Client.hpp b/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Client.hpp
+new file mode 100644
+index 000000000..e1c7159f5
+--- /dev/null
++++ b/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Client.hpp
+@@ -0,0 +1,21 @@
++#ifndef HTTP_CLIENT_HPP
++#define HTTP_CLIENT_HPP
++
++#include <string>
++
++namespace http {
++
++class Client
++{
++public:
++    Client() = delete;
++
++    static std::string sendHttpPostRequest(std::string ip, std::string port, std::string query, std::string body);
++
++    static std::string sendHttpGetRequest(std::string ip, std::string port, std::string query);
++
++};
++
++} // namespace http
++
++#endif // HTTP_CLIENT_HPP
+\ No newline at end of file
+diff --git a/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Request.hpp b/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Request.hpp
+new file mode 100644
+index 000000000..ea49866a0
+--- /dev/null
++++ b/test/src/testapp/IUTSimulatorApp/c_cpp/include/http/Request.hpp
+@@ -0,0 +1,26 @@
++#ifndef HTTP_REQUEST_HPP
++#define HTTP_REQUEST_HPP
++
++#include <string>
++#include <map>
++
++namespace http {
++
++struct Request
++{
++    static const size_t MAX_REQUEST_SIZE = 8192;
++    static const std::string SUPPORTED_HTTP_VERSION;
++    static const std::string SUPPORTED_METHODES;
++
++    std::string method;
++    std::string url;
++    std::string version = "HTTP/1.1";
++    std::map<std::string, std::string> headers;
++    std::string body;
++
++    std::string toBuffer();
++};
++
++} // namespace http
++
++#endif // HTTP_REQUEST_HPP
+\ No newline at end of file
+diff --git a/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Client.cpp b/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Client.cpp
+new file mode 100644
+index 000000000..704512410
+--- /dev/null
++++ b/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Client.cpp
+@@ -0,0 +1,82 @@
++#include "Client.hpp"
++
++#include <iostream>
++
++#include <boost/asio.hpp>
++
++#include "Request.hpp"
++
++namespace http {
++
++std::string Client::sendHttpPostRequest(std::string ip, std::string port, std::string url, std::string body)
++{
++    boost::asio::io_service io_service;
++
++    boost::asio::ip::tcp::resolver resolver(io_service);
++    boost::asio::ip::tcp::resolver::query query(ip, port);
++    boost::asio::ip::tcp::resolver::iterator endpointIterator = resolver.resolve(query);
++
++    boost::asio::ip::tcp::socket socket(io_service);
++    boost::asio::connect(socket, endpointIterator);
++
++    Request request;
++    request.method = "POST";
++    request.url = url;
++    request.headers["Host"] = ip + ":" + port;
++    request.headers["Connection"] = "close";
++    request.headers["Accept"] = "*/*";
++    request.headers["Content-Type"] = "text/plain; charset=utf-8";
++    request.headers["Content-Length"] = std::to_string(body.size());
++    request.body = body;
++
++    boost::asio::write(socket, boost::asio::buffer(request.toBuffer()));
++
++    boost::asio::streambuf buffer;
++    boost::system::error_code ec;
++    boost::asio::read(socket, buffer, ec);
++    if (!ec || ec == boost::asio::error::eof) {}
++
++    std::string response = std::string(boost::asio::buffers_begin(buffer.data()), boost::asio::buffers_end(buffer.data()));
++
++    std::string responseBody = response.substr(response.find("\r\n\r\n") + 4, response.size() - 1);
++
++    std::cout << responseBody << std::endl;
++
++    return responseBody;
++}
++
++std::string Client::sendHttpGetRequest(std::string ip, std::string port, std::string url)
++{
++    boost::asio::io_service io_service;
++
++    boost::asio::ip::tcp::resolver resolver(io_service);
++    boost::asio::ip::tcp::resolver::query query(ip, port);
++    boost::asio::ip::tcp::resolver::iterator endpointIterator = resolver.resolve(query);
++
++    boost::asio::ip::tcp::socket socket(io_service);
++    boost::asio::connect(socket, endpointIterator);
++
++    Request request;
++    request.method = "GET";
++    request.url = url;
++    request.headers["Host"] = ip + ":" + port;
++    request.headers["Connection"] = "close";
++    request.headers["Accept"] = "*/*";
++
++    boost::asio::write(socket, boost::asio::buffer(request.toBuffer()));
++
++    boost::asio::streambuf buffer;
++    boost::system::error_code ec;
++    boost::asio::read(socket, buffer, ec);
++    if (!ec || ec == boost::asio::error::eof) {}
++
++    std::string response = std::string(boost::asio::buffers_begin(buffer.data()), boost::asio::buffers_end(buffer.data()));
++
++    std::string body = response.substr(response.find("\r\n\r\n") + 4, response.size() - 1);
++
++    std::cout << body << std::endl;
++
++    return body;
++}
++
++} // namespace http
+\ No newline at end of file
+diff --git a/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Request.cpp b/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Request.cpp
+new file mode 100644
+index 000000000..c96a36de9
+--- /dev/null
++++ b/test/src/testapp/IUTSimulatorApp/c_cpp/src/http/Request.cpp
+@@ -0,0 +1,23 @@
++#include "Request.hpp"
++
++namespace http {
++
++const std::string Request::SUPPORTED_HTTP_VERSION = "HTTP/1.1 HTTP/1.0";
++const std::string Request::SUPPORTED_METHODES = "GET POST";
++
++std::string Request::toBuffer()
++{
++    std::string requestData;
++
++    requestData = method + " " + url + " " + version + "\r\n";
++    for (auto const& header : headers)
++    {
++        requestData += header.first + ": " + header.second + "\r\n";
++    }
++    requestData += "\r\n";
++    requestData += body;
++
++    return requestData;
++}
++
++} // namespace http
+\ No newline at end of file
+-- 
+2.16.1.windows.1
+

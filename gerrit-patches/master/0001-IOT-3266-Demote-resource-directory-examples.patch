@@ -1,0 +1,69 @@
+From a38f12aabb3480e3aeaaaed43ef0287be7dc7d9d Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 14:59:39 -0700
+Subject: [PATCH] IOT-3266 Demote resource directory examples
+
+Change-Id: I0b69a765eb66c3cb891b657fb029927525ac0887
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ resource/csdk/resource-directory/SConscript         | 7 ++++---
+ resource/csdk/resource-directory/samples/README.md  | 9 +++++++++
+ resource/csdk/resource-directory/samples/SConscript | 3 +--
+ 3 files changed, 14 insertions(+), 5 deletions(-)
+ create mode 100644 resource/csdk/resource-directory/samples/README.md
+
+diff --git a/resource/csdk/resource-directory/SConscript b/resource/csdk/resource-directory/SConscript
+index 136c94f2f..9954942f5 100644
+--- a/resource/csdk/resource-directory/SConscript
++++ b/resource/csdk/resource-directory/SConscript
+@@ -114,8 +114,8 @@ elif target_os in ['msys_nt', 'windows']:
+ else:
+     rdsdk = rd_env.StaticLibrary('resource_directory', rd_src_all)
+ 
+-rd_env.InstallTarget(rdsdk, 'resource_directory')
+-rd_env.UserInstallTargetLib(rdsdk, 'resource_directory')
++rd_env.InstallTarget(rdsdk, 'resource-directory')
++rd_env.UserInstallTargetLib(rdsdk, 'resource-directory')
+ 
+ if 'CLIENT' in rd_mode:
+     rd_env.UserInstallTargetHeader(
+@@ -132,7 +132,8 @@ if 'SERVER' in rd_mode:
+ ######################################################################
+ # Samples for the resource directory
+ ######################################################################
+-if target_os in ['linux']:
++env.AppendTarget('resource-directory-examples', default=False)
++if target_os in ['linux'] and 'resource-directory-examples' in COMMAND_LINE_TARGETS:
+     SConscript('samples/SConscript')
+ 
+ ######################################################################
+diff --git a/resource/csdk/resource-directory/samples/README.md b/resource/csdk/resource-directory/samples/README.md
+new file mode 100644
+index 000000000..5858488a3
+--- /dev/null
++++ b/resource/csdk/resource-directory/samples/README.md
+@@ -0,0 +1,9 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run 
++
++scons [options] resource-directory-examples
++
+diff --git a/resource/csdk/resource-directory/samples/SConscript b/resource/csdk/resource-directory/samples/SConscript
+index aa172f6c6..93f33892c 100644
+--- a/resource/csdk/resource-directory/samples/SConscript
++++ b/resource/csdk/resource-directory/samples/SConscript
+@@ -77,6 +77,5 @@ if 'CLIENT' in rd_sample_app_env.get('RD_MODE'):
+                                                     'rd_publishingClient.cpp')
+     examples += [rd_queryClient, rd_publishingClient]
+ 
+-Alias("resource_directory", examples)
+-env.AppendTarget('resource_directory')
++Alias("resource-directory-examples", examples)
+ rd_sample_app_env.UserInstallTargetExtra(examples)
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,62 @@
+From 0398b93edd404981b153d792970907ccb34442ce Mon Sep 17 00:00:00 2001
+From: sourav bhuwalka <s.bhuwalka@samsung.com>
+Date: Fri, 15 Feb 2019 15:13:46 +0530
+Subject: [PATCH] Changing the rt value in batchInterface
+
+Removing the rt value which was specified to be EasySetupUri in case of batch interface as
+it would not call its child resources
+
+Change-Id: I264b685b9c2f8a3fb533aa00cae3ff888306f675
+Signed-off-by: sourav bhuwalka <s.bhuwalka@samsung.com>
+---
+ service/easy-setup/mediator/richsdk/src/CloudResource.cpp    | 2 +-
+ service/easy-setup/mediator/richsdk/src/EnrolleeResource.cpp | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/service/easy-setup/mediator/richsdk/src/CloudResource.cpp b/service/easy-setup/mediator/richsdk/src/CloudResource.cpp
+index 7bef4c04c..b2ae2759c 100644
+--- a/service/easy-setup/mediator/richsdk/src/CloudResource.cpp
++++ b/service/easy-setup/mediator/richsdk/src/CloudResource.cpp
+@@ -115,7 +115,7 @@ namespace OIC
+                             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
+                             shared_from_this());
+ 
+-            m_ocResource->post(OC_RSRVD_ES_RES_TYPE_EASYSETUP, BATCH_INTERFACE,
++            m_ocResource->post("", BATCH_INTERFACE,
+                         provisioningRepresentation, QueryParamsMap(), cb, OC::QualityOfService::HighQos);
+ 
+             OIC_LOG(DEBUG, ES_CLOUD_RES_TAG, "provisionProperties OUT");
+diff --git a/service/easy-setup/mediator/richsdk/src/EnrolleeResource.cpp b/service/easy-setup/mediator/richsdk/src/EnrolleeResource.cpp
+index c2f91eb73..231a426e2 100644
+--- a/service/easy-setup/mediator/richsdk/src/EnrolleeResource.cpp
++++ b/service/easy-setup/mediator/richsdk/src/EnrolleeResource.cpp
+@@ -285,7 +285,7 @@ namespace OIC
+                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
+                                 shared_from_this());
+ 
+-                return m_ocResource->get(m_ocResource->getResourceTypes().at(0),
++                return m_ocResource->get("",
+                         DEFAULT_INTERFACE, query, cb, OC::QualityOfService::HighQos);
+             };
+ 
+@@ -324,7 +324,7 @@ namespace OIC
+                                 std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
+                                 shared_from_this());
+ 
+-                return m_ocResource->get(m_ocResource->getResourceTypes().at(0),
++                return m_ocResource->get("",
+                         BATCH_INTERFACE, query, cb, OC::QualityOfService::HighQos);
+             };
+ 
+@@ -364,7 +364,7 @@ namespace OIC
+                             std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)),
+                             shared_from_this());
+ 
+-            m_ocResource->post(OC_RSRVD_ES_RES_TYPE_EASYSETUP, BATCH_INTERFACE,
++            m_ocResource->post("", BATCH_INTERFACE,
+                     provisioningRepresentation, QueryParamsMap(), cb, OC::QualityOfService::HighQos);
+ 
+             OIC_LOG(DEBUG, ES_REMOTE_ENROLLEE_RES_TAG, "provisionProperties OUT");
+-- 
+2.16.1.windows.1
+

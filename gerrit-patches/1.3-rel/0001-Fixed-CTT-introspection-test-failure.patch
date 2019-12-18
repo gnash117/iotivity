@@ -1,0 +1,64 @@
+From e9cac163808e6fc4dc4f77483a3269b275f397b7 Mon Sep 17 00:00:00 2001
+From: Rami Alshafi <ralshafi@vprime.com>
+Date: Fri, 9 Nov 2018 16:02:30 -0800
+Subject: [PATCH] Fixed CTT introspection test failure
+
+The n, id and range properties defined in the introspection file
+are optional for the binary switch resource. Removing them for
+CTT introspection test to pass.
+
+Change-Id: Id41c78cbe01878a35dbc35f5bc8b0b79beed03ec
+Signed-off-by: Rami Alshafi <ralshafi@vprime.com>
+---
+ examples/OCFSecure/switch_introspection.dat  | Bin 1236 -> 936 bytes
+ examples/OCFSecure/switch_introspection.json |  21 ---------------------
+ 2 files changed, 21 deletions(-)
+
+diff --git a/examples/OCFSecure/switch_introspection.dat b/examples/OCFSecure/switch_introspection.dat
+index 32936528029ec7f8686d484ccb7608b679d0c36c..768bdb5477f5d1a7ed026938373b9c4658c73405 100644
+GIT binary patch
+delta 40
+ucmcb@xq^Lyq(rvAvzvlTYMFv}W=VQkYEf}!eqOSnp20@fVrG{AKmY(6cMszL
+
+delta 321
+zcmZvXu}T9$5Qf1N;v1MkoW@i(zJY}Z2SO~Y4V&HnZU=8?FSC2cUF9nXzJ#q$;7j-_
+z*73XqB#^0wZ<ufX`8fSPdz)Wx!mvVbLQ`Yq(6L3;K@&$AC$uB9C!aTI_G;wI<)J~D
+zva(bhO#c9>vOm9laY$CV$>Vl^ajy(<^*~|*D3+8xNReWz7G7c8QtIJnyJmM_Jg{69
+zlClvCD()u7!gHe3z;em<m=0>B!u#cH{=9e^FLtJ8M-!wn>Xc$+E$C5W1I@#K79UuO
+WjF3+J_|~oi|ABo%X~P=2o$430B7=|s
+
+diff --git a/examples/OCFSecure/switch_introspection.json b/examples/OCFSecure/switch_introspection.json
+index 6e02a21a0..68474b682 100644
+--- a/examples/OCFSecure/switch_introspection.json
++++ b/examples/OCFSecure/switch_introspection.json
+@@ -107,27 +107,6 @@
+                             "oic.if.a"
+                         ]
+                     }
+-                },
+-                "n": {
+-                    "type": "string",
+-                    "maxLength": 64,
+-                    "description": "Friendly name of the resource",
+-                    "readOnly" : true
+-                },
+-                "id": {
+-                    "type": "string",
+-                    "description": "Instance ID of this specific resource",
+-                    "readOnly" : true
+-                },
+-                "range": {
+-                    "type": "array",
+-                    "description": "The valid range for the value Property",
+-                    "readOnly" : true,
+-                    "minItems": 2,
+-                    "maxItems": 2,
+-                    "items": {
+-                        "type": "number"
+-                    }
+                 }
+             }
+         }
+-- 
+2.16.1.windows.1
+

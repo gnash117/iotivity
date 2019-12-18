@@ -1,0 +1,491 @@
+From 36e3a0a445028b4766ef4c529d4796a3f7c6bbe8 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Wed, 2 Jan 2019 11:01:40 +0200
+Subject: [PATCH] 1.2 client support
+
+The 1.2 client able provisioning 2.0 server
+
+Change-Id: I45a518b2c77375fc963454ba02ce70006562935c
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ build_common/SConscript                            |   3 +
+ resource/csdk/security/SConscript                  |   2 +
+ .../security/include/experimental/doxmresource.h   |   5 +
+ .../csdk/security/include/internal/aclresource.h   |   7 +-
+ resource/csdk/security/src/aclresource.c           | 175 +++++++++++++++++++--
+ resource/csdk/security/src/doxmresource.c          |  99 ++++++++++++
+ resource/csdk/security/src/pstatresource.c         |  31 ++++
+ 7 files changed, 306 insertions(+), 16 deletions(-)
+
+diff --git a/build_common/SConscript b/build_common/SConscript
+index b485ffc20..9e955518d 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -202,6 +202,9 @@ help_vars.AddVariables(
+                  default=False,
+                  allowed_values=('True', 'False')),
+     BoolVariable('MANDATORY',
++                 'Enable/disable(default) mandatory',
++                 default=False),
++    BoolVariable('SEC_CLIENT_V1',
+                  'Enable/disable(default) mandatory',
+                  default=False)
+ )
+diff --git a/resource/csdk/security/SConscript b/resource/csdk/security/SConscript
+index 83d588d60..c3824c710 100644
+--- a/resource/csdk/security/SConscript
++++ b/resource/csdk/security/SConscript
+@@ -69,6 +69,8 @@ if target_os in ['windows', 'msys_nt']:
+ if libocsrm_env.get('SECURED') == '1':
+     if target_os in ['linux', 'android', 'tizen', 'msys_nt', 'windows', 'ios', 'webos']:
+         SConscript('provisioning/SConscript', 'libocsrm_env')
++    if env.get('SEC_CLIENT_V1') == True:
++        libocsrm_env.AppendUnique(CFLAGS=['-DSEC_CLIENT_V1'])
+ 
+     if target_os in ['linux', 'tizen', 'windows', 'darwin', 'webos']:
+         SConscript('tool/SConscript', 'libocsrm_env')
+diff --git a/resource/csdk/security/include/experimental/doxmresource.h b/resource/csdk/security/include/experimental/doxmresource.h
+index 4b68a7687..7646fdf31 100644
+--- a/resource/csdk/security/include/experimental/doxmresource.h
++++ b/resource/csdk/security/include/experimental/doxmresource.h
+@@ -292,4 +292,9 @@ bool IsDoxmDeviceuuidTheNilUuid();
+  */
+ bool IsDoxmRowneruuidTheNilUuid();
+ 
++#if defined(SEC_CLIENT_V1)
++int OicSecOwnerNomineeVersion();
++void OicSecOwnerNomineeFree();
++#endif //SEC_CLIENT_V1
++
+ #endif //IOTVT_SRM_DOXMR_H
+diff --git a/resource/csdk/security/include/internal/aclresource.h b/resource/csdk/security/include/internal/aclresource.h
+index 05dfb0874..3462ef009 100644
+--- a/resource/csdk/security/include/internal/aclresource.h
++++ b/resource/csdk/security/include/internal/aclresource.h
+@@ -220,10 +220,15 @@ OicSecAcl_t* CBORPayloadToCloudAcl(const uint8_t *cborPayload, const size_t size
+ #endif //defined(TCP_ADAPTER) && defined(WITH_CLOUD)
+ 
+ /*
+- * Check acl rowner uuid 
++ * Check acl rowner uuid
+  */
+ bool IsAclRowneruuidTheNilUuid();
+ 
++#if defined(SEC_CLIENT_V1)
++OCStackResult CreateACL1Resource(void);
++void DeleteACL1Resource(void);
++#endif //SEC_CLIENT_V1
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/resource/csdk/security/src/aclresource.c b/resource/csdk/security/src/aclresource.c
+index af7ae0f3c..383ddf7e4 100644
+--- a/resource/csdk/security/src/aclresource.c
++++ b/resource/csdk/security/src/aclresource.c
+@@ -2928,14 +2928,19 @@ static OCEntityHandlerResult HandleACLPostRequest(const OCEntityHandlerRequest *
+ 
+     if (payload)
+     {
+-        // Clients should not POST v1 ACL to OCF 1.0 Server
+-        OicSecAclVersion_t payloadVersionReceived = OIC_SEC_ACL_V1;
+-        CBORPayloadToAclVersionOpt(payload, size, &payloadVersionReceived);
+-        if (OIC_SEC_ACL_V1 == payloadVersionReceived)
++#if defined(SEC_CLIENT_V1)
++        if (2 == OicSecOwnerNomineeVersion())
++#endif //SEC_CLIENT_V1
+         {
+-            OIC_LOG_V(WARNING, TAG, "%s /acl2 Resource Update with v1 ACL payload not acceptable.", __func__);
+-            ehRet = OC_EH_NOT_ACCEPTABLE;
+-            goto exit;
++            // Clients should not POST v1 ACL to OCF 1.0 Server
++            OicSecAclVersion_t payloadVersionReceived = OIC_SEC_ACL_V1;
++            CBORPayloadToAclVersionOpt(payload, size, &payloadVersionReceived);
++            if (OIC_SEC_ACL_V1 == payloadVersionReceived)
++            {
++                OIC_LOG_V(WARNING, TAG, "%s /acl2 Resource Update with v1 ACL payload not acceptable.", __func__);
++                ehRet = OC_EH_NOT_ACCEPTABLE;
++                goto exit;
++            }
+         }
+         OicSecAcl_t *newAcl = NULL;
+         OIC_LOG(DEBUG, TAG, "ACL payload from POST request << ");
+@@ -3039,14 +3044,19 @@ static OCEntityHandlerResult HandleACL2PostRequest(const OCEntityHandlerRequest
+ 
+     if (payload)
+     {
+-        // Clients should not POST v1 ACL to OCF 1.0 Server
+-        OicSecAclVersion_t payloadVersionReceived = OIC_SEC_ACL_V1;
+-        CBORPayloadToAclVersionOpt(payload, size, &payloadVersionReceived);
+-        if (OIC_SEC_ACL_V1 == payloadVersionReceived)
++#if defined(SEC_CLIENT_V1)
++        if (2 == OicSecOwnerNomineeVersion())
++#endif //SEC_CLIENT_V1
+         {
+-            OIC_LOG_V(WARNING, TAG, "%s /acl2 Resource Update with v1 ACL payload not acceptable.", __func__);
+-            ehRet = OC_EH_NOT_ACCEPTABLE;
+-            goto exit;
++            // Clients should not POST v1 ACL to OCF 1.0 Server
++            OicSecAclVersion_t payloadVersionReceived = OIC_SEC_ACL_V1;
++            CBORPayloadToAclVersionOpt(payload, size, &payloadVersionReceived);
++            if (OIC_SEC_ACL_V1 == payloadVersionReceived)
++            {
++                OIC_LOG_V(WARNING, TAG, "%s /acl2 Resource Update with v1 ACL payload not acceptable.", __func__);
++                ehRet = OC_EH_NOT_ACCEPTABLE;
++                goto exit;
++            }
+         }
+         OicSecAcl_t *newAcl = NULL;
+         OIC_LOG(DEBUG, TAG, "ACL payload from POST request << ");
+@@ -3266,6 +3276,140 @@ OCEntityHandlerResult ACL2EntityHandler(OCEntityHandlerFlag flag, OCEntityHandle
+     return ehRet;
+ }
+ 
++#if defined(SEC_CLIENT_V1)
++OCStackResult CreateACL1Resource(void)
++{
++    OIC_LOG_V(DEBUG, TAG, "%s In", __func__);
++
++    if (gAclHandle)
++    {
++        return OC_STACK_RESOURCE_CREATED;
++    }
++
++    OCStackResult ret;
++    ret = OCCreateResource(&gAclHandle,
++                           OIC_RSRC_TYPE_SEC_ACL,
++                           OC_RSRVD_INTERFACE_DEFAULT,
++                           OIC_RSRC_ACL_URI,
++                           ACLEntityHandler,
++                           NULL,
++                           OC_SECURE |
++                           OC_DISCOVERABLE);
++
++    if (OC_STACK_OK != ret)
++    {
++        OIC_LOG(ERROR, TAG, "Unable to instantiate ACL resource");
++        OCDeleteResource(gAclHandle);
++        gAclHandle = NULL;
++        return ret;
++    }
++
++    OicSecAce_t *ace = NULL;
++    OicSecRsrc_t *rsrc = NULL;
++    LL_FOREACH(gAcl->aces, ace)
++    {
++        rsrc = NULL;
++        LL_FOREACH(ace->resources, rsrc)
++        {
++            if (rsrc->href && 0 == strncmp(rsrc->href, OIC_RSRC_PSTAT_URI, 15)
++                && ace->permission & PERMISSION_READ && ace->permission & PERMISSION_WRITE)
++            {
++                return ret;
++            }
++        }
++    }
++
++    rsrc = (OicSecRsrc_t *)OICCalloc(1, sizeof(OicSecRsrc_t));
++    if (!rsrc)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s: Unable to allocate resource", __func__);
++        return OC_STACK_NO_MEMORY;
++    }
++    rsrc->href = (char *)OICCalloc(1, strnlen(OIC_RSRC_PSTAT_URI, 15) + 1);
++    if (!rsrc->href)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s: Unable to allocate href", __func__);
++        OICFree(rsrc);
++        return OC_STACK_NO_MEMORY;
++    }
++    sprintf(rsrc->href, OIC_RSRC_PSTAT_URI);
++    rsrc->wildcard = NO_WILDCARD;
++
++    ace = NULL;
++    ace = (OicSecAce_t *)OICCalloc(1, sizeof(OicSecAce_t));
++    if (!ace)
++    {
++        OIC_LOG_V(ERROR, TAG, "%s: Unable to allocate ace", __func__);
++        FreeRsrc(rsrc);
++        return OC_STACK_NO_MEMORY;
++    }
++
++    OicSecAce_t *acem = NULL;
++    LL_FOREACH(gAcl->aces, acem)
++    {
++        ace->aceid |= acem->aceid;
++    }
++
++    ace->subjectType = OicSecAceConntypeSubject;
++    ace->subjectConn = ANON_CLEAR;
++    ace->permission = PERMISSION_READ | PERMISSION_WRITE;
++    LL_APPEND(ace->resources, rsrc);
++    LL_APPEND(gAcl->aces, ace);
++
++    OIC_LOG_V(DEBUG, TAG, "%s Out", __func__);
++    return ret;
++}
++
++void DeleteACL1Resource(void)
++{
++    OIC_LOG_V(DEBUG, TAG, "%s In", __func__);
++
++    if (!gAclHandle)
++    {
++        OIC_LOG(ERROR, TAG, "Unable delete ACL resource");
++        return;
++    }
++
++    OCDeleteResource(gAclHandle);
++    gAclHandle = NULL;
++
++    OicSecAce_t *ace = NULL;
++    OicSecAce_t *aceTmp = NULL;
++    LL_FOREACH_SAFE(gAcl->aces, ace, aceTmp)
++    {
++        OicSecRsrc_t *rs = NULL;
++        OicSecRsrc_t *tmpRs = NULL;
++        LL_FOREACH_SAFE(ace->resources, rs, tmpRs)
++        {
++            if (rs->href && 0 == strncmp(rs->href, OIC_RSRC_PSTAT_URI, 15)
++                && ace->subjectConn == ANON_CLEAR
++                && ace->permission & PERMISSION_READ
++                && ace->permission & PERMISSION_WRITE)
++            {
++                LL_DELETE(gAcl->aces, ace);
++                LL_DELETE(ace->resources, rs);
++                OICFree(ace);
++
++                uint8_t *payload = NULL;
++                size_t size = 0;
++                if (OC_STACK_OK == AclToCBORPayload(gAcl, OIC_SEC_ACL_V2, &payload, &size))
++                {
++                    if (OC_STACK_OK == UpdateSecureResourceInPS(OIC_JSON_ACL_NAME, payload, size))
++                    {
++                        OIC_LOG_V(DEBUG, TAG, "%s: cannot update PS", __func__);
++                    }
++                    OICFree(payload);
++                }
++                OIC_LOG_V(DEBUG, TAG, "%s: removed anon rw %s", __func__, OIC_RSRC_PSTAT_URI);
++                return;
++            }
++        }
++    }
++
++    OIC_LOG_V(DEBUG, TAG, "%s Out", __func__);
++}
++#endif //SEC_CLIENT_V1
++
+ /**
+  * This internal method is used to create the '/oic/sec/acl' and '/oic/sec/acl2' resources.
+  */
+@@ -3286,11 +3430,12 @@ static OCStackResult CreateACLResource(void)
+     {
+         OIC_LOG(FATAL, TAG, "Unable to instantiate ACL2 resource");
+         DeInitACLResource();
++        return ret;
+     }
+-
+     return ret;
+ }
+ 
++
+ // This function sets the default ACL and is defined for the unit test only.
+ OCStackResult SetDefaultACL(OicSecAcl_t *acl)
+ {
+diff --git a/resource/csdk/security/src/doxmresource.c b/resource/csdk/security/src/doxmresource.c
+index 5b343ac09..a8dadc2a0 100644
+--- a/resource/csdk/security/src/doxmresource.c
++++ b/resource/csdk/security/src/doxmresource.c
+@@ -125,6 +125,27 @@ static const uint8_t gDoxmPropertyAccessModes[DOXM_PROPERTY_COUNT][DOS_STATE_COU
+ #undef W
+ #undef RW
+ 
++struct OicSecOwnerNominee
++{
++    OCDevAddr devAddr;
++    int version;
++};
++
++typedef struct OicSecOwnerNominee OicSecOwnerNominee_t;
++
++static  OicSecOwnerNominee_t *gON = NULL;
++
++int OicSecOwnerNomineeVersion()
++{
++    return gON ? gON->version : 2;
++}
++
++void OicSecOwnerNomineeFree()
++{
++    OICFree(gON);
++    gON = NULL;
++}
++
+ static bool IsPropertyReadOnly(DoxmProperty_t p,
+                                OicSecDeviceOnboardingState_t s)
+ {
+@@ -820,6 +841,48 @@ static bool UpdatePersistentStorage(OicSecDoxm_t * doxm)
+     return bRet;
+ }
+ 
++static void OwnerNominee(const OCEntityHandlerRequest *request)
++{
++    OIC_LOG_V(DEBUG, TAG, "In %s", __func__);
++    if(NULL == gDoxm)
++    {
++        OIC_LOG_V(DEBUG, TAG, "Out %s: gDoxm is NULL", __func__);
++        return;
++    }
++
++    if (gDoxm->owned)
++    {
++        OIC_LOG_V(DEBUG, TAG, "Out %s: device owned", __func__);
++        return;
++    }
++
++    if (gON)
++    {
++        OIC_LOG_V(DEBUG, TAG, "Out %s", __func__);
++        return;
++    }
++
++    OicParseQueryIter_t parseIter = {.attrPos = NULL};
++    ParseQueryIterInit((unsigned char*)request->query, &parseIter);
++
++    while (GetNextQuery(&parseIter))
++    {
++        if (strncasecmp((char *)parseIter.attrPos, OIC_JSON_OWNED_NAME, parseIter.attrLen) == 0 && strncasecmp((char *)parseIter.valPos, OIC_SEC_FALSE, parseIter.valLen) == 0)
++        {
++            gON = (OicSecOwnerNominee_t *)OICCalloc(1, sizeof(OicSecOwnerNominee_t));
++            if (gON)
++            {
++                memcpy(&gON->devAddr, &request->devAddr, sizeof(OCDevAddr));
++                gON->version = request->rcvdVendorSpecificHeaderOptions->optionLength;
++                OIC_LOG_V(DEBUG, TAG, "%s: found client ver %d", __func__, gON->version);
++                break;
++            }
++        }
++    }
++    OIC_LOG_V(DEBUG, TAG, "Out %s", __func__);
++}
++
++
+ static bool ValidateQuery(const char * query)
+ {
+     // Send doxm resource data if the state of doxm resource
+@@ -938,6 +1001,8 @@ static OCEntityHandlerResult HandleDoxmGetRequest (const OCEntityHandlerRequest
+         }
+     }
+ 
++    OwnerNominee(ehRequest);
++
+     /*
+      * For GET or Valid Query request return doxm resource CBOR payload.
+      * For non-valid query return NULL json payload.
+@@ -1010,6 +1075,12 @@ OCStackResult DoxmUpdateWriteableProperty(const OicSecDoxm_t* src, OicSecDoxm_t*
+     {
+         OIC_LOG_V(DEBUG, TAG, "%s: updating doxm.owned: (old = %s, new = %s).", __func__,
+             dst->owned?"true":"false", src->owned?"true":"false");
++#if defined(SEC_CLIENT_V1)
++        if (!dst->owned && src->owned)
++        {
++            memcpy((void*)&(src->rownerID), &(src->owner), sizeof(OicUuid_t));
++        }
++#endif //SEC_CLIENT_V1
+         dst->owned = src->owned;
+     }
+ 
+@@ -1554,6 +1625,34 @@ OCEntityHandlerResult StartOwnershipTransfer(OicSecDoxm_t *newDoxm,
+             break;
+     }
+ 
++#if defined(SEC_CLIENT_V1)
++    if (!gDoxm->owned)
++    {
++        if (gON)
++        {
++            if(gON->version == 1)
++            {
++                if(OC_STACK_OK != CreateACL1Resource())
++                {
++                    OIC_LOG_V(ERROR, TAG, "%s: Unable to instantiate ACL resource",__func__);
++                }
++            }
++        }
++        OIC_LOG_V(DEBUG, TAG, "%s: create acl resource", __func__);
++    }
++    else
++    {
++        if (gON)
++        {
++            if(gON->version == 1)
++            {
++                DeleteACL1Resource();
++            }
++        }
++        OIC_LOG_V(DEBUG, TAG, "%s: delete acl resource", __func__);
++    }
++#endif //SEC_CLIENT_V1
++
+     OIC_LOG_V(DEBUG, TAG, "%s: OUT", __func__);
+     return ehRet;
+ }
+diff --git a/resource/csdk/security/src/pstatresource.c b/resource/csdk/security/src/pstatresource.c
+index 1a8e1c855..117f53f90 100644
+--- a/resource/csdk/security/src/pstatresource.c
++++ b/resource/csdk/security/src/pstatresource.c
+@@ -93,6 +93,12 @@ static const uint8_t gPstatPropertyAccessModes[PSTAT_PROPERTY_COUNT][DOS_STATE_C
+ static bool IsPropertyReadOnly(PstatProperty_t p,
+                                OicSecDeviceOnboardingState_t s)
+ {
++#if defined(SEC_CLIENT_V1)
++    if(1 == OicSecOwnerNomineeVersion())
++    {
++        return false;
++    }
++#endif //SEC_CLIENT_V1
+     bool ret = false;
+ 
+     if (PERMISSION_READ == gPstatPropertyAccessModes[p][s])
+@@ -545,6 +551,9 @@ static OCStackResult CBORPayloadToPstatBin(const uint8_t *cborPayload,
+         pstat->dos.state = gPstat->dos.state;
+         pstat->dos.pending = gPstat->dos.pending;
+         cborFindResult = CborNoError;
++#if defined(SEC_CLIENT_V1)
++        OIC_LOG_V(DEBUG, TAG, "%s: Found client version: %d state: %d", __func__, OicSecOwnerNomineeVersion(), pstat->dos.state);
++#endif //SEC_CLIENT_V1
+     }
+ 
+     // pstat.isop Property
+@@ -711,6 +720,28 @@ static OCStackResult CBORPayloadToPstatBin(const uint8_t *cborPayload,
+     }
+     else
+     {
++#if defined(SEC_CLIENT_V1)
++        if(1 == OicSecOwnerNomineeVersion())
++        {
++            bool owned = false;
++            if(OC_STACK_OK == GetDoxmIsOwned(&owned) && owned && 0 == pstat->cm)
++            {
++                OicUuid_t uuid;
++                GetDoxmDevOwnerId(&uuid);
++                memcpy(&gPstat->rownerID, &uuid,sizeof(OicUuid_t));
++                if(gPstat->dos.state == DOS_RFOTM)
++                {
++                    pstat->dos.state = DOS_RFPRO;
++                }
++                else
++                {
++                    pstat->dos.state = DOS_RFNOP;
++
++                    OicSecOwnerNomineeFree();
++                }
++            }
++        }
++#endif //SEC_CLIENT_V1
+         VERIFY_NOT_NULL(TAG, gPstat, ERROR);
+         memcpy(pstat->rownerID.id, gPstat->rownerID.id, sizeof(gPstat->rownerID.id));
+         cborFindResult = CborNoError;
+-- 
+2.16.1.windows.1
+

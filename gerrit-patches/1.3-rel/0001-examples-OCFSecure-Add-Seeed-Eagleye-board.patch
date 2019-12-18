@@ -1,0 +1,51 @@
+From 0d62aed96cb297ccb5445843b862f87e2f2b4c35 Mon Sep 17 00:00:00 2001
+From: Inho Oh <webispy@gmail.com>
+Date: Mon, 1 Oct 2018 18:00:27 +0900
+Subject: [PATCH] examples/OCFSecure: Add Seeed Eagleye board
+
+This patch add Eagleye board[1] to the list of supported devices.
+The Eagleye board is based on the ARTIK 530, but some GPIO number is
+different.
+
+To resolve this issue, if the board is Eagleye('compy' with 'artik' in
+the device-tree/model file), use 159 GPIO number instead of 38.
+
+[1] https://m.seeedstudio.com/productDetail/3035
+
+Change-Id: Ifca4697055382cfd839064ad2f9af457ed981bd3
+Signed-off-by: Inho Oh <webispy@gmail.com>
+---
+ examples/OCFSecure/SConscript | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/examples/OCFSecure/SConscript b/examples/OCFSecure/SConscript
+index 234430e9d..ecdfbc447 100644
+--- a/examples/OCFSecure/SConscript
++++ b/examples/OCFSecure/SConscript
+@@ -55,8 +55,10 @@ raspberry_pi = 'Linux' in platform_info and \
+ if os.path.exists("/proc/device-tree/model"):
+     with open("/proc/device-tree/model") as f:
+         model = f.read()
+-        artik = 'artik' in model or 'compy' in model
++        eagleye = 'compy' in model
++        artik = 'artik' in model
+ else:
++    eagleye = False
+     artik = False
+ if joule or raspberry_pi or artik:
+     conf = Configure(env)
+@@ -84,7 +86,10 @@ if joule or raspberry_pi or artik:
+         elif not joule and raspberry_pi:
+             cpp_defines.append('LED_PIN=7')
+         elif artik:
+-            cpp_defines.append('LED_PIN=38')
++            if eagleye:
++                cpp_defines.append('LED_PIN=159')
++            else:
++                cpp_defines.append('LED_PIN=38')
+             cpp_defines.append('RAW_GPIO')
+         else:
+             print "ERROR: unknown board"
+-- 
+2.16.1.windows.1
+

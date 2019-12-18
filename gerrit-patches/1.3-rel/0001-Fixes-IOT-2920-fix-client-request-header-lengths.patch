@@ -1,0 +1,29 @@
+From 1437a9e34a7e03e5e9f35c9859904d61c07c23c3 Mon Sep 17 00:00:00 2001
+From: David Brody <dbrody@gmail.com>
+Date: Mon, 4 Dec 2017 19:23:25 -0800
+Subject: [PATCH] Fixes IOT-2920 - fix client request header lengths
+
+Change-Id: Id8d7c23f7f13474d7561257ce219dd6ac7fdc3ce
+Signed-off-by: David Brody <dbrody@gmail.com>
+---
+ resource/src/InProcClientWrapper.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/resource/src/InProcClientWrapper.cpp b/resource/src/InProcClientWrapper.cpp
+index 2b1da748b..9151b9572 100644
+--- a/resource/src/InProcClientWrapper.cpp
++++ b/resource/src/InProcClientWrapper.cpp
+@@ -1510,8 +1510,8 @@ namespace OC
+             options[i].optionID = it->getOptionID();
+             options[i].optionLength = (uint16_t)headerOptionLength;
+             strncpy((char*)options[i].optionData, it->getOptionData().c_str(),
+-                sizeof(options[i].optionLength) -1 );
+-            options[i].optionData[sizeof(options[i].optionLength) - 1] = 0;
++                options[i].optionLength - 1);
++            options[i].optionData[options[i].optionLength - 1] = 0;
+             i++;
+         }
+ 
+-- 
+2.16.1.windows.1
+

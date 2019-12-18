@@ -1,0 +1,121 @@
+From a920588b05c0cf8cb801907a5cd7fd792ee881c3 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Wed, 20 Feb 2019 08:43:59 -0700
+Subject: [PATCH] IOT-3266 Demote easy-setup examples
+
+Change-Id: Ie72e6b27b4e756b2b950c89db96bcc4d5bfba2ef
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ service/easy-setup/enrollee/SConscript                     | 14 +++++++++-----
+ service/easy-setup/mediator/richsdk/SConscript             | 11 ++++++-----
+ service/easy-setup/sampleapp/README.md                     | 12 ++++++++++++
+ service/easy-setup/sampleapp/enrollee/linux/SConscript     |  2 +-
+ service/easy-setup/sampleapp/mediator/android/SConscript   |  2 ++
+ .../sampleapp/mediator/linux/richsdk_sample/SConscript     |  2 +-
+ 6 files changed, 31 insertions(+), 12 deletions(-)
+ create mode 100644 service/easy-setup/sampleapp/README.md
+
+diff --git a/service/easy-setup/enrollee/SConscript b/service/easy-setup/enrollee/SConscript
+index 9cba70bb9..2e33db278 100644
+--- a/service/easy-setup/enrollee/SConscript
++++ b/service/easy-setup/enrollee/SConscript
+@@ -115,8 +115,12 @@ if target_os in ['linux', 'tizen']:
+     enrollee_env.UserInstallTargetHeader('inc/easysetup.h',
+                                          'service/easy-setup', 'easysetup.h')
+ 
+-if enrollee_env.get('WITH_TEST') and target_os in ('linux'):
+-    SConscript('../sampleapp/enrollee/linux/SConscript')
+-    #Build UnitTestcases for Enrollee
+-    if enrollee_env.get('SECURED') == '0':
+-        SConscript('../enrollee/unittests/SConscript')
++if target_os in ['linux']:
++    # Build UnitTestcases for Enrollee
++    if enrollee_env.get('WITH_TEST'):
++        if enrollee_env.get('SECURED') == '0':
++            SConscript('../enrollee/unittests/SConscript')
++
++    env.AppendTarget('easy-setup-examples', default=False)
++    if "easy-setup-examples" in COMMAND_LINE_TARGETS:
++        SConscript('../sampleapp/enrollee/linux/SConscript')
+diff --git a/service/easy-setup/mediator/richsdk/SConscript b/service/easy-setup/mediator/richsdk/SConscript
+index 139adfc7a..697507673 100644
+--- a/service/easy-setup/mediator/richsdk/SConscript
++++ b/service/easy-setup/mediator/richsdk/SConscript
+@@ -184,12 +184,13 @@ if target_os in ['android']:
+ ######################################################################
+ # Build RichSDK Mediator Sample App
+ ################################################ ######################
+-if target_os in ['linux']:
+-    SConscript('../../sampleapp/mediator/linux/richsdk_sample/SConscript')
+-
++env.AppendTarget('easy-setup-examples', default=False)
++if "easy-setup-examples" in COMMAND_LINE_TARGETS:
++    if target_os in ['linux']:
++        SConscript('../../sampleapp/mediator/linux/richsdk_sample/SConscript')
+  
+-if target_os in ['android']:
+-    SConscript('../../sampleapp/mediator/android/SConscript')
++    if target_os in ['android']:
++        SConscript('../../sampleapp/mediator/android/SConscript')
+ 
+ ######################################################################
+ #Build UnitTestcases for Mediator[RichSDK]
+diff --git a/service/easy-setup/sampleapp/README.md b/service/easy-setup/sampleapp/README.md
+new file mode 100644
+index 000000000..f11ac0433
+--- /dev/null
++++ b/service/easy-setup/sampleapp/README.md
+@@ -0,0 +1,12 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++
++To build, run:
++
++scons [options] easy-setup-examples
++
++Note these builds are initiated not from the SConscript in
++the directory above, as with most examples, but from
++../enrollee/SConscript and ../mediator/richsdk/SConscript.
+diff --git a/service/easy-setup/sampleapp/enrollee/linux/SConscript b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+index 8da5286d8..325348b5a 100644
+--- a/service/easy-setup/sampleapp/enrollee/linux/SConscript
++++ b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+@@ -74,6 +74,6 @@ enrollee = enrollee_env.Program('enrollee',
+ 
+ enrollee += enrollee_env.ScanJSON('service/easy-setup/sampleapp/enrollee/linux')
+ 
++Alias('easy-setup-examples', enrollee)
+ Alias('enrollee', enrollee)
+-env.AppendTarget('enrollee')
+ enrollee_env.UserInstallTargetExtra(enrollee)
+diff --git a/service/easy-setup/sampleapp/mediator/android/SConscript b/service/easy-setup/sampleapp/mediator/android/SConscript
+index 83b2b80fc..99c598a8b 100644
+--- a/service/easy-setup/sampleapp/mediator/android/SConscript
++++ b/service/easy-setup/sampleapp/mediator/android/SConscript
+@@ -87,6 +87,8 @@ cmdBuildEasysetupApp = jdk_env.Gradle(
+     source=
+     "EasySetup/app/src/main/java/org/iotivity/service/easysetup/EasysetupActivity.java"
+ )
++Alias('easy-setup-examples', cmdBuildEasysetupApp)
++
+ jdk_env.Clean(
+     cmdBuildEasysetupApp,
+     '#/service/easy-setup/sampleapp/mediator/android/EasySetup/build')
+diff --git a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
+index 751607f8d..dc6b347ff 100644
+--- a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
++++ b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
+@@ -82,7 +82,7 @@ submediator = mediator_env.Program('submediator', 'submediator.cpp')
+ 
+ submediator += mediator_env.ScanJSON('service/easy-setup/sampleapp/mediator/linux/richsdk_sample')
+ 
++Alias('easy-setup-examples', submediator)
+ Alias('mediator_rich', submediator)
+-env.AppendTarget('mediator_rich')
+ examples = [mediator, submediator]
+ mediator_env.UserInstallTargetExtra(examples)
+-- 
+2.16.1.windows.1
+

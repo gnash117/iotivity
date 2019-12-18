@@ -1,0 +1,107 @@
+From cc69cf1f010349bea471a7d1ad13f3c06afbabb4 Mon Sep 17 00:00:00 2001
+From: "sungmok.shin" <sungmok.shin@lge.com>
+Date: Tue, 20 Nov 2018 19:36:44 +0900
+Subject: [PATCH] Compile un-built library used for IUTSimulator
+
+Change-Id: I0a024c35bae2e46b42fb30d7fda5bb3e0a407502
+Signed-off-by: sungmok.shin <sungmok.shin@lge.com>
+---
+ resource/csdk/connectivity/src/tcp_adapter/SConscript               | 2 +-
+ .../samples/webos/secure/occlientbasicops/occlientbasicops.cpp      | 3 ++-
+ service/SConscript                                                  | 2 +-
+ service/easy-setup/SConscript                                       | 6 +++---
+ service/easy-setup/enrollee/SConscript                              | 6 +++---
+ 5 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/resource/csdk/connectivity/src/tcp_adapter/SConscript b/resource/csdk/connectivity/src/tcp_adapter/SConscript
+index 82237d941..1ad167d8d 100644
+--- a/resource/csdk/connectivity/src/tcp_adapter/SConscript
++++ b/resource/csdk/connectivity/src/tcp_adapter/SConscript
+@@ -11,7 +11,7 @@ target_os = connectivity_env.get('TARGET_OS')
+ common_files = [File('catcpadapter.c')]
+ 
+ # Target-specific sources
+-if target_os in ['linux', 'tizen', 'android', 'ios', 'windows']:
++if target_os in ['linux', 'tizen', 'android', 'ios', 'windows', 'webos']:
+     common_files.append(File('catcpserver.c'))
+ 
+ connectivity_env.AppendUnique(CA_SRC=common_files)
+diff --git a/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp b/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
+index 5c434f5f0..cace9a33c 100644
+--- a/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
++++ b/resource/csdk/stack/samples/webos/secure/occlientbasicops/occlientbasicops.cpp
+@@ -75,7 +75,8 @@ static char CRED_FILE_NONDEVOWNER[] = "oic_svr_db_client_nondevowner.dat";
+ const char * OIC_STD_URI_PREFIX = "/oic/";
+ 
+ const char * COAPS_STR = "coaps";
+-#ifdef __WITH_TLS__
++//#ifdef __WITH_TLS__
++#if 0
+ const char * COAPS_TCP_STR = "coaps+tcp";
+ #endif
+ 
+diff --git a/service/SConscript b/service/SConscript
+index a848ae02c..ad73fa484 100644
+--- a/service/SConscript
++++ b/service/SConscript
+@@ -50,5 +50,5 @@ if target_os not in ['darwin', 'windows']:
+         SConscript('coap-http-proxy/SConscript')
+ 
+ # Build EasySetup module
+-if target_os in ['android', 'ios', 'linux', 'tizen']:
++if target_os in ['android', 'ios', 'linux', 'tizen', 'webos']:
+     SConscript('easy-setup/SConscript')
+diff --git a/service/easy-setup/SConscript b/service/easy-setup/SConscript
+index 6e9b1dd0d..710fb7c3c 100644
+--- a/service/easy-setup/SConscript
++++ b/service/easy-setup/SConscript
+@@ -26,12 +26,12 @@ Import('env')
+ es_target = env.get('TARGET_OS')
+ service_easy_setup_env = env.Clone()
+ 
+-if es_target in ['android', 'ios', 'linux', 'tizen']:
++if es_target in ['android', 'ios', 'linux', 'tizen', 'webos']:
+     SConscript('mediator/SConscript')
+ 
+-if es_target in ['linux', 'tizen']:
++if es_target in ['linux', 'tizen', 'webos']:
+     SConscript('enrollee/SConscript')
+ 
+-if es_target in ['android', 'linux', 'tizen']:
++if es_target in ['android', 'linux', 'tizen', 'webos']:
+     service_easy_setup_env.UserInstallTargetHeader(
+         'inc/escommon.h', 'service/easy-setup', 'escommon.h')
+diff --git a/service/easy-setup/enrollee/SConscript b/service/easy-setup/enrollee/SConscript
+index 9cba70bb9..86b9c505d 100644
+--- a/service/easy-setup/enrollee/SConscript
++++ b/service/easy-setup/enrollee/SConscript
+@@ -52,7 +52,7 @@ enrollee_env.PrependUnique(CPPPATH=[
+     '#/service/easy-setup/enrollee/src'
+ ])
+ 
+-if target_os not in ['linux', 'tizen']:
++if target_os not in ['linux', 'tizen', 'webos']:
+     enrollee_env.PrependUnique(CPPPATH=['#extlibs/sqlite3'])
+ 
+ if enrollee_env.get('SECURED') == '1':
+@@ -69,7 +69,7 @@ if target_os not in ['windows']:
+ ######################################################################
+ # Linux Enrollee
+ ######################################################################
+-if target_os in ['linux']:
++if target_os in ['linux', 'webos']:
+     enrollee_env.AddPthreadIfNeeded()
+     enrollee_env.AppendUnique(LIBS=['dl'])
+     enrollee_env.PrependUnique(LIBS=[
+@@ -100,7 +100,7 @@ if target_os == 'tizen':
+ ######################################################################
+ es_enrollee_src = None
+ 
+-if target_os in ['linux', 'tizen']:
++if target_os in ['linux', 'tizen', 'webos']:
+     es_enrollee_common_src = ['./src/easysetup.c', './src/resourcehandler.c', './src/es_util.c']
+     enrollee_sdk_shared = enrollee_env.SharedLibrary('ESEnrolleeSDK',
+                                                      es_enrollee_common_src)
+-- 
+2.16.1.windows.1
+

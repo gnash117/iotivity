@@ -1,0 +1,94 @@
+From d314dddeb768ab8ede97f7f0f6e2d0973edd8982 Mon Sep 17 00:00:00 2001
+From: Sushil Yadav <sushil.ky@samsung.com>
+Date: Thu, 13 Jul 2017 12:37:08 +0530
+Subject: [PATCH] [IOT-2415] Null check added to Internal Tests
+
+Change-Id: I79812c8f9c57fda33bbfcd8cbf6c9014e0b572a1
+Signed-off-by: Sushil Yadav <sushil.ky@samsung.com>
+Reviewed-on: https://gerrit.iotivity.org/gerrit/21415
+Reviewed-by: Changjoon Baek <joon.c.baek@samsung.com>
+Reviewed-by: Abitha Shankar <abitha.s@samsung.com>
+Tested-by: jenkins-iotivity <jenkins@iotivity.org>
+Reviewed-by: Uze Choi <uzchoi@samsung.com>
+---
+ .../cpp-wrapper/unittest/NSConsumerServiceSimulator.h      | 14 ++++++++++++--
+ service/notification/unittest/NSConsumerSimulator.h        | 14 ++++++++++++--
+ service/notification/unittest/NSProviderTest.cpp           |  4 +++-
+ 3 files changed, 27 insertions(+), 5 deletions(-)
+
+diff --git a/service/notification/cpp-wrapper/unittest/NSConsumerServiceSimulator.h b/service/notification/cpp-wrapper/unittest/NSConsumerServiceSimulator.h
+index f279d8051..53b4202dc 100644
+--- a/service/notification/cpp-wrapper/unittest/NSConsumerServiceSimulator.h
++++ b/service/notification/cpp-wrapper/unittest/NSConsumerServiceSimulator.h
+@@ -188,12 +188,22 @@ class NSConsumerSimulator
+ 
+         OCStackResult msgResourceCancelObserve(OC::QualityOfService qos)
+         {
+-            return m_msgResource->cancelObserve(qos);
++            //Check the m_msgResource before calling
++            OCStackResult result = OC_STACK_OK;
++            if(m_msgResource != NULL) {
++                result = m_msgResource->cancelObserve(qos);
++            }
++            return result;
+         }
+ 
+         OCStackResult syncResourceCancelObserve(OC::QualityOfService qos)
+         {
+-            return m_syncResource->cancelObserve(qos);
++            //Check the m_syncResource before calling
++            OCStackResult result = OC_STACK_OK;
++            if(m_syncResource != NULL) {
++                result = m_syncResource->cancelObserve(qos);
++            }
++            return result;
+         }
+ };
+ 
+diff --git a/service/notification/unittest/NSConsumerSimulator.h b/service/notification/unittest/NSConsumerSimulator.h
+index 359b831d5..2b9053d0d 100644
+--- a/service/notification/unittest/NSConsumerSimulator.h
++++ b/service/notification/unittest/NSConsumerSimulator.h
+@@ -224,12 +224,22 @@ private:
+ 
+     OCStackResult msgResourceCancelObserve(OC::QualityOfService qos)
+     {
+-        return m_msgResource->cancelObserve(qos);
++        //Check the m_msgResource before calling
++        OCStackResult result = OC_STACK_OK;
++        if(m_msgResource != NULL) {
++            result = m_msgResource->cancelObserve(qos);
++        }
++        return result;
+     }
+ 
+     OCStackResult syncResourceCancelObserve(OC::QualityOfService qos)
+     {
+-        return m_syncResource->cancelObserve(qos);
++        //Check the m_syncResource before calling
++        OCStackResult result = OC_STACK_OK;
++        if(m_syncResource != NULL) {
++            result = m_syncResource->cancelObserve(qos);
++        }
++        return result;
+     }
+ };
+ 
+diff --git a/service/notification/unittest/NSProviderTest.cpp b/service/notification/unittest/NSProviderTest.cpp
+index 985bd4859..72dc70de6 100644
+--- a/service/notification/unittest/NSProviderTest.cpp
++++ b/service/notification/unittest/NSProviderTest.cpp
+@@ -574,7 +574,9 @@ TEST_F(NotificationProviderTest, ExpectFailUnsetConsumerTopics)
+ 
+ TEST_F(NotificationProviderTest, CancelObserves)
+ {
+-    bool ret = g_consumerSimul.cancelObserves();
++    bool ret = false;
++    g_consumerSimul.findProvider();
++    ret = g_consumerSimul.cancelObserves();
+ 
+     std::chrono::milliseconds waitForTerminate(g_timeout);
+     std::this_thread::sleep_for(waitForTerminate);
+-- 
+2.16.1.windows.1
+

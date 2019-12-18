@@ -1,0 +1,80 @@
+From 2bac280ecf931e379fd95ba6a45a8f39f4baae8a Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Wed, 20 Feb 2019 07:58:48 -0700
+Subject: [PATCH] IOT-3266 Demote plugins example
+
+Change-Id: I44a416cf0226dc13b8f3e226454785b8cd4f25c1
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ plugins/README.txt               | 19 +++++++++++++++----
+ plugins/SConscript               |  8 ++++----
+ plugins/samples/linux/SConscript |  4 +---
+ 3 files changed, 20 insertions(+), 11 deletions(-)
+
+diff --git a/plugins/README.txt b/plugins/README.txt
+index 78ae18946..30eb18b5d 100644
+--- a/plugins/README.txt
++++ b/plugins/README.txt
+@@ -8,8 +8,19 @@ Descriptions:
+ 
+   samples: The consumer of IoTivity & Plugin Interface APIs.
+ 
+-  src: The source files.
++           Note: the examples are not officially maintained.
++           While the code may provide useful insights, they should
++           be examined with caution.
++
++           To build examples, run:
++
++             scons [options] plugins-examples
++
++  src:     The source files.
++
++  zigbee_wrapper: 
++           This contains an abstraction shim layer to encapsulate
++           our use case for the zigbee-library (ie. the one pulled
++           in to extlibs directory above).
++
+ 
+-  zigbee_wrapper: This contains an abstraction shim layer to encapsulate our
+-                  use case for the zigbee-library (ie. the one pulled in to
+-                  extlibs directory above).
+diff --git a/plugins/SConscript b/plugins/SConscript
+index a153c0f6f..27774c548 100644
+--- a/plugins/SConscript
++++ b/plugins/SConscript
+@@ -28,7 +28,7 @@ Import('env')
+ target_os = env.get('TARGET_OS')
+ build_sample = env.get('BUILD_SAMPLE')
+ 
+-if target_os not in ['android', 'darwin', 'ios', 'tizen', 'msys_nt', 'windows', 'webos']:
++if target_os in ['linux']:
+ 
+     SConscript('zigbee_wrapper/SConscript')
+ 
+@@ -36,6 +36,6 @@ if target_os not in ['android', 'darwin', 'ios', 'tizen', 'msys_nt', 'windows',
+ 
+     SConscript('unittests/SConscript')
+ 
+-    if build_sample == 'ON':
+-        if target_os in ['linux']:
+-            SConscript('samples/' + target_os + '/SConscript')
++    env.AppendTarget('plugins-examples', default=False)
++    if "plugins-examples" in COMMAND_LINE_TARGETS:
++        SConscript('samples/' + target_os + '/SConscript')
+diff --git a/plugins/samples/linux/SConscript b/plugins/samples/linux/SConscript
+index 00b0ab078..1f81eac27 100644
+--- a/plugins/samples/linux/SConscript
++++ b/plugins/samples/linux/SConscript
+@@ -76,7 +76,5 @@ iotivityandzigbeeclient = samples_env.Program('iotivityandzigbeeclient',
+ 
+ list_of_samples = [iotivityandzigbeeserver, iotivityandzigbeeclient]
+ 
+-Alias("samples", list_of_samples)
+-
+-env.AppendTarget('samples')
++Alias("plugins-examples", list_of_samples)
+ samples_env.UserInstallTargetExtra(list_of_samples)
+-- 
+2.16.1.windows.1
+

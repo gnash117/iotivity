@@ -1,0 +1,63 @@
+From 5f28054abc6d77d60197b98467bffb516407d7e8 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Mon, 17 Jul 2017 18:58:21 +0200
+Subject: [PATCH] gtest: Use portable cmake for gtest on linux
+
+Note that cmake must be installed on linux build hosts,
+which was not nescessary before this change.
+
+This will prepare library update, if requiered.
+
+Bug: https://jira.iotivity.org/browse/IOT-1672
+Change-Id: Ife15dd36d2e17b55303c30d773c8b9d8160aa134
+Origin: https://gerrit.iotivity.org/gerrit/#/c/21495/
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+---
+ extlibs/gtest/SConscript | 23 +++--------------------
+ 1 file changed, 3 insertions(+), 20 deletions(-)
+
+diff --git a/extlibs/gtest/SConscript b/extlibs/gtest/SConscript
+index e66070b2b..c6125aa14 100644
+--- a/extlibs/gtest/SConscript
++++ b/extlibs/gtest/SConscript
+@@ -52,25 +52,7 @@ if not os.path.exists(gtest_unpacked_sentinel):
+     print('Unzipping to : ' + gtest_dir)
+     gtest_env.UnpackAll(gtest_dir, gtest_zip)
+ 
+-if target_os in ['linux']:
+-    if not os.path.exists(gtest_configured_sentinel):
+-        # Run configure on gtest
+-        print('Configuring google unit test')
+-        reconfigure_ran = gtest_env.Configure(gtest_dir, 'autoreconf -i')
+-        if env.get('CROSS_COMPILE'):
+-            configure_ran = env.Configure(
+-                gtest_dir,
+-                './configure --disable-shared --host=' + env['CROSS_COMPILE'])
+-        else:
+-            configure_ran = env.Configure(gtest_dir,
+-                                          './configure --disable-shared')
+-        gtest_env.Depends(configure_ran, reconfigure_ran)
+-
+-    # Run make on gtest
+-    print('Making google unit test')
+-    make_ran = gtest_env.Configure(gtest_dir, 'make')
+-
+-elif target_os in ['darwin', 'msys_nt'] and os.path.exists(gtest_dir):
++if target_os in ['darwin', 'linux', 'msys_nt'] and os.path.exists(gtest_dir):
+     if not os.path.exists(gtest_configured_sentinel):
+         # Create lib dir
+         os.mkdir(gtest_lib_dir)
+@@ -81,8 +63,9 @@ elif target_os in ['darwin', 'msys_nt'] and os.path.exists(gtest_dir):
+         gtest_env.Configure(gtest_dir, 'cmake -G "Unix Makefiles" .')
+ 
+     # Run make on gtest
++
+     print('Making google unit test')
+-    gtest_env.Configure(gtest_dir, 'make')
++    gtest_env.Configure(gtest_dir, 'cmake --build .')
+ 
+     print('Moving libraries to lib folder')
+     gtest_env.Configure(gtest_dir, 'cp libgtest.a lib')
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,28 @@
+From 9f8005d43740e80381dbedde41587ef29fb00010 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Thu, 31 Jan 2019 12:49:00 +0200
+Subject: [PATCH] fixed wrong pointer to next in discover payload
+
+set to null next pointer in OCDiscoveryPayload
+
+Change-Id: Ibf645655180949145451de30bb3e83c4d1b4cd08
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/stack/src/ocpayloadparse.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/resource/csdk/stack/src/ocpayloadparse.c b/resource/csdk/stack/src/ocpayloadparse.c
+index 3837c6a3a..c0d095759 100644
+--- a/resource/csdk/stack/src/ocpayloadparse.c
++++ b/resource/csdk/stack/src/ocpayloadparse.c
+@@ -204,6 +204,7 @@ static OCStackResult OCParseDiscoveryPayloadCbor(OCPayload **outPayload,
+         while (cbor_value_is_map(&rootMap))
+         {
+             ret = OC_STACK_NO_MEMORY;
++            temp = NULL;
+             temp = OCDiscoveryPayloadCreate();
+             VERIFY_PARAM_NON_NULL(TAG, temp, "Failed error initializing discovery payload");
+ 
+-- 
+2.16.1.windows.1
+

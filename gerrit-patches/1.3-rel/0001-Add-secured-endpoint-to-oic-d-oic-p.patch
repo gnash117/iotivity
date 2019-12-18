@@ -1,0 +1,43 @@
+From 93ce62a37e0281d743609e27afe18660e923379a Mon Sep 17 00:00:00 2001
+From: Mushfiqul Islam Antu <i.mushfiq@samsung.com>
+Date: Mon, 18 Dec 2017 11:46:41 +0600
+Subject: [PATCH] Add secured endpoint to /oic/d & /oic/p
+
+According to 1.3.1 spec, allc OCF core resources
+should expose secured port and should be accessible
+via that secured port. Currently, all IoTivity
+virtual resources have secured ports, except /oic/p
+& /oic/d . This patch binds the secured endpoints
+to these 2 resources.
+
+Change-Id: Ifd768076177fb450b12c858f432e75c8fae9ab44
+Signed-off-by: Mushfiqul Islam Antu <i.mushfiq@samsung.com>
+---
+ resource/csdk/stack/src/ocstack.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/resource/csdk/stack/src/ocstack.c b/resource/csdk/stack/src/ocstack.c
+index ac2e6647f..4a0c65282 100644
+--- a/resource/csdk/stack/src/ocstack.c
++++ b/resource/csdk/stack/src/ocstack.c
+@@ -5170,7 +5170,7 @@ OCStackResult initResources()
+                                   OC_RSRVD_DEVICE_URI,
+                                   NULL,
+                                   NULL,
+-                                  OC_DISCOVERABLE);
++                                  OC_DISCOVERABLE | OC_MASK_RESOURCE_SECURE);
+         if(result == OC_STACK_OK)
+         {
+             result = BindResourceInterfaceToResource((OCResource *)deviceResource,
+@@ -5186,7 +5186,7 @@ OCStackResult initResources()
+                                   OC_RSRVD_PLATFORM_URI,
+                                   NULL,
+                                   NULL,
+-                                  OC_DISCOVERABLE);
++                                  OC_DISCOVERABLE | OC_MASK_RESOURCE_SECURE);
+         if(result == OC_STACK_OK)
+         {
+             result = BindResourceInterfaceToResource((OCResource *)platformResource,
+-- 
+2.16.1.windows.1
+

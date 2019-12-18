@@ -1,0 +1,58 @@
+From a3be2e9bafbec944b01badf1d71d2b96089e4412 Mon Sep 17 00:00:00 2001
+From: senthil Kumar G S <senthil.gs@samsung.com>
+Date: Wed, 30 Jan 2019 11:16:48 +0530
+Subject: [PATCH] Patch to test UT.
+
+Do not merge.
+
+Change-Id: Ia5d45fab6dc6dd34def9ea16502b2952419f5dbd
+Signed-off-by: senthil Kumar G S <senthil.gs@samsung.com>
+---
+ auto_build.py           | 4 ++--
+ build_common/SConscript | 2 +-
+ tools/scons/RunTest.py  | 1 +
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/auto_build.py b/auto_build.py
+index ef3fe2354..1362239ce 100755
+--- a/auto_build.py
++++ b/auto_build.py
+@@ -663,8 +663,8 @@ def unit_tests_memcheck_unsecured():
+ 
+ 
+ def unit_tests():
+-    unit_tests_secured()
+-    unit_tests_unsecured()
++    unit_tests_memcheck_secured()
++    unit_tests_memcheck_unsecured()
+ 
+ 
+ # Main module starts here
+diff --git a/build_common/SConscript b/build_common/SConscript
+index b1579f8be..146a39184 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -228,7 +228,7 @@ if target_os in targets_support_valgrind:
+     help_vars.Add(
+         BoolVariable('VALGRIND_CHECKS',
+                      'Build support for running code coverage checks',
+-                      default=False))
++                      default=True))
+ 
+ targets_support_gcov = ['linux', 'darwin']
+ if target_os in targets_support_gcov:
+diff --git a/tools/scons/RunTest.py b/tools/scons/RunTest.py
+index 653fbbee4..f5aae57f1 100644
+--- a/tools/scons/RunTest.py
++++ b/tools/scons/RunTest.py
+@@ -95,6 +95,7 @@ def run_test(env, run_valgrind, test, test_targets=None):
+             "--suppressions=" + suppression_file,
+             "--leak-check=full",
+             "--num-callers=24",
++            "--smc-check=all",
+             "--xml=yes --xml-file=" + out_file,
+         ])
+         test_cmd = '%s valgrind %s %s' % (valgrind_env, vg_opt, test_cmd)
+-- 
+2.16.1.windows.1
+

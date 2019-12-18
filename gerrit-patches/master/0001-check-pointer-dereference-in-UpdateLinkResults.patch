@@ -1,0 +1,47 @@
+From 16d5307948b615a7cd23c61c79254adea0d5e27d Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Thu, 21 Feb 2019 12:34:08 +0200
+Subject: [PATCH] check pointer dereference in UpdateLinkResults
+
+check pointer dereference in UpdateLinkResults
+
+Change-Id: Ifd5b21bbd2b6a4a555a556fd476be7bb684e43ac
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/provisioning/src/ocprovisioningmanager.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+index ed513e8e3..fcd622691 100755
+--- a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
++++ b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+@@ -1036,7 +1036,7 @@ OCStackResult OC_CALL OCConfigSelfOwnership(void)
+  */
+ static void UpdateLinkResults(Linkdata_t *link, int device, OCStackResult stackresult)
+ {
+-    if (NULL == link)
++    if (NULL == link || NULL == link->resArr)
+     {
+         OIC_LOG_V(INFO,TAG,"%s value of link is null",__func__);
+         return;
+@@ -1044,7 +1044,7 @@ static void UpdateLinkResults(Linkdata_t *link, int device, OCStackResult stackr
+     OIC_LOG_V(INFO,TAG,"value of link->currentCountResults is %d",link->currentCountResults);
+     if (1 == device)
+     {
+-        if (NULL == link->pDev1)
++        if (NULL == link->pDev1 || NULL == link->pDev1->doxm)
+         {
+             OIC_LOG_V(INFO,TAG,"%s value of pDev1 is null",__func__);
+             return;
+@@ -1054,7 +1054,7 @@ static void UpdateLinkResults(Linkdata_t *link, int device, OCStackResult stackr
+     }
+     else
+     {
+-        if (NULL == link->pDev2)
++        if (NULL == link->pDev2 || NULL == link->pDev2->doxm)
+         {
+             OIC_LOG_V(INFO,TAG,"%s value of pDev2 is null",__func__);
+             return;
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,30 @@
+From 21019b93b73c63bd8e57100d5b27a04dbd5c5ee8 Mon Sep 17 00:00:00 2001
+From: Rizwan Mahsud <rizwan.mahsud@seliro.com>
+Date: Thu, 31 May 2018 13:03:53 +0200
+Subject: [PATCH] [IOT-2646] Batch query response fix
+
+Batch interface response is missing href for all the child resources responses inside. Therefore this patch adds href to child resources responses so that Batch response complies with OCF specs.
+
+Change-Id: I1045ad57b2bedf8770946a6100748b6248aecbb1
+Signed-off-by: Rizwan Mahsud <rizwan.mahsud@seliro.com>
+---
+ resource/csdk/stack/src/ocserverrequest.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/resource/csdk/stack/src/ocserverrequest.c b/resource/csdk/stack/src/ocserverrequest.c
+index 07a6aa9bc..d3b53d065 100644
+--- a/resource/csdk/stack/src/ocserverrequest.c
++++ b/resource/csdk/stack/src/ocserverrequest.c
+@@ -927,6 +927,9 @@ OCStackResult HandleAggregateResponse(OCEntityHandlerResponse * ehResponse)
+ 
+         OCRepPayload *newPayload = OCRepPayloadBatchClone((OCRepPayload *)ehResponse->payload);
+ 
++        OCResource *resource = (OCResource *)ehResponse->resourceHandle;
++        OCRepPayloadSetUri(newPayload, resource->uri);
++
+         if(!serverResponse->payload)
+         {
+             serverResponse->payload = (OCPayload *)newPayload;
+-- 
+2.16.1.windows.1
+

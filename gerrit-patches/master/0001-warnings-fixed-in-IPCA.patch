@@ -1,0 +1,158 @@
+From 94d73492f775b4d964e86f8d29a9ac2062462eb8 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Tue, 5 Nov 2019 13:57:57 +0200
+Subject: [PATCH] warnings fixed in IPCA
+
+warning: cast between incompatible function types
+
+Change-Id: I20245b7fa78b4a05fb5d8733392837ed84649a23
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/IPCA/src/app.cpp        | 12 ++++++------
+ resource/IPCA/src/callback.cpp   | 15 +++++++++------
+ resource/IPCA/src/inc/app.h      |  2 +-
+ resource/IPCA/src/inc/callback.h |  2 +-
+ 4 files changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/resource/IPCA/src/app.cpp b/resource/IPCA/src/app.cpp
+index 16c5eb951..20844423f 100644
+--- a/resource/IPCA/src/app.cpp
++++ b/resource/IPCA/src/app.cpp
+@@ -488,7 +488,7 @@ IPCAStatus App::GetProperties(
+                                    nullptr,     //  Not discovery request.
+                                    nullptr,     //  Therefore resourceTypeList is not needed.
+                                    0,
+-                                   callback,
++                                   reinterpret_cast<void*>(callback),
+                                    resourcePath,
+                                    resourceInterface,
+                                    resourceType);
+@@ -534,7 +534,7 @@ IPCAStatus App::SetProperties(
+                                        nullptr,     //  Not discovery request.
+                                        nullptr,     //  Therefore resourceTypeList is not needed.
+                                        0,
+-                                       callback,
++                                       reinterpret_cast<void*>(callback),
+                                        resourcePath,
+                                        resourceInterface,
+                                        resourceType);
+@@ -584,7 +584,7 @@ IPCAStatus App::ObserveResource(
+                                        nullptr,     //  Not a discovery request.
+                                        nullptr,     //  Therefore resourceTypeList is not needed.
+                                        0,
+-                                       callback,
++                                       reinterpret_cast<void*>(callback),
+                                        resourcePath,
+                                        nullptr,
+                                        resourceType);
+@@ -635,7 +635,7 @@ IPCAStatus App::CreateResource(
+                                        nullptr,     //  Not a discovery request.
+                                        nullptr,     //  Therefore resourceTypeList is not needed.
+                                        0,
+-                                       reinterpret_cast<GenericAppCallback>(createResourceCb),
++                                       reinterpret_cast<void*>(createResourceCb),
+                                        resourcePath,
+                                        resourceInterface,
+                                        resourceType);
+@@ -678,7 +678,7 @@ IPCAStatus App::DeleteResource(
+                                        nullptr,     // Not a discovery request.
+                                        nullptr,     // Therefore resourceTypeList is not needed.
+                                        0,
+-                                       reinterpret_cast<GenericAppCallback>(deleteResourceCb),
++                                       reinterpret_cast<void*>(deleteResourceCb),
+                                        resourcePath,
+                                        nullptr,
+                                        nullptr);
+@@ -739,7 +739,7 @@ IPCAStatus App::CreateAndRegisterNewCallbackInfo(
+                                 IPCADiscoverDeviceCallback discoverDeviceCallback,
+                                 const char* const* resourceTypeList,
+                                 int resourceTypeCount,
+-                                GenericAppCallback appCallback,
++                                void *appCallback,
+                                 const char* resourcePath,
+                                 const char* resourceInterface,
+                                 const char* resourceType)
+diff --git a/resource/IPCA/src/callback.cpp b/resource/IPCA/src/callback.cpp
+index 5d42e8296..c4cdf8364 100644
+--- a/resource/IPCA/src/callback.cpp
++++ b/resource/IPCA/src/callback.cpp
+@@ -194,7 +194,7 @@ CallbackInfo::Ptr Callback::CreateCallbackInfo(
+                                 IPCADiscoverDeviceCallback discoverDeviceCallback,
+                                 const char* const* resourceTypeList,
+                                 int resourceTypeCount,
+-                                GenericAppCallback appCallback,
++                                void *appCallback,
+                                 const char* resourcePath,
+                                 const char* resourceInterface,
+                                 const char* resourceType)
+@@ -230,33 +230,36 @@ CallbackInfo::Ptr Callback::CreateCallbackInfo(
+ 
+         case CallbackType_ResourceChange:
+         {
+-            cbInfo->resourceChangeCallback= appCallback;
++            cbInfo->resourceChangeCallback =
++                reinterpret_cast<IPCAResourceChangeCallback>(appCallback);
+             break;
+         }
+ 
+         case CallbackType_GetPropertiesComplete:
+         {
+-            cbInfo->getCallback = appCallback;
++            cbInfo->getCallback =
++                reinterpret_cast<IPCAGetPropertiesComplete>(appCallback);
+             break;
+         }
+ 
+         case CallbackType_SetPropertiesComplete:
+         {
+-            cbInfo->setCallback = appCallback;
++            cbInfo->setCallback =
++                reinterpret_cast<IPCASetPropertiesComplete>(appCallback);
+             break;
+         }
+ 
+         case CallbackType_CreateResourceComplete:
+         {
+             cbInfo->createResourceCallback=
+-                        reinterpret_cast<IPCACreateResourceComplete>(appCallback);
++                reinterpret_cast<IPCACreateResourceComplete>(appCallback);
+             break;
+         }
+ 
+         case CallbackType_DeleteResourceComplete:
+         {
+             cbInfo->deleteResourceCallback=
+-                        reinterpret_cast<IPCADeleteResourceComplete>(appCallback);
++                reinterpret_cast<IPCADeleteResourceComplete>(appCallback);
+             break;
+         }
+ 
+diff --git a/resource/IPCA/src/inc/app.h b/resource/IPCA/src/inc/app.h
+index d167a1f8d..9b7df3dc7 100644
+--- a/resource/IPCA/src/inc/app.h
++++ b/resource/IPCA/src/inc/app.h
+@@ -174,7 +174,7 @@ class App
+                                     IPCADiscoverDeviceCallback discoverDeviceCallback,
+                                     const char* const* resourceTypeList,
+                                     int resourceTypeCount,
+-                                    GenericAppCallback appCallback,
++                                    void *appCallback,
+                                     const char* resourcePath,
+                                     const char* resourceInterface,
+                                     const char* resourceType);
+diff --git a/resource/IPCA/src/inc/callback.h b/resource/IPCA/src/inc/callback.h
+index ab326d68d..41037e0ca 100644
+--- a/resource/IPCA/src/inc/callback.h
++++ b/resource/IPCA/src/inc/callback.h
+@@ -117,7 +117,7 @@ class Callback
+                                                                                      /* callback  */
+                                         const char* const* resourceTypeList,
+                                         int resourceTypeCount,
+-                                        GenericAppCallback callback, /* get, set, observe, create &
++                                        void *callback, /* get, set, observe, create &
+                                                                         delete resource callbacks */
+                                         const char* resourcePath,
+                                         const char* resourceInterface,
+-- 
+2.16.1.windows.1
+

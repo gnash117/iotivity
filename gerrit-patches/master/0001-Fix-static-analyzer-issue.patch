@@ -1,0 +1,59 @@
+From e835ef7c5d8cc2a574fbf196a87dc910ab96e1ad Mon Sep 17 00:00:00 2001
+From: Vitalii Irkha <v.irkha@samsung.com>
+Date: Mon, 9 Dec 2019 11:28:20 +0200
+Subject: [PATCH] Fix static analyzer issue
+
+Assignment int to a variable of size_t
+
+Change-Id: Ie2150b5795079a155d2cbf0c6f4bb05f3914e450
+Signed-off-by: Vitalii Irkha <v.irkha@samsung.com>
+---
+ resource/csdk/security/provisioning/src/cloud/csr.c | 4 ++--
+ resource/csdk/security/src/csrresource.c            | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/src/cloud/csr.c b/resource/csdk/security/provisioning/src/cloud/csr.c
+index b95caed3c..9b14385ca 100644
+--- a/resource/csdk/security/provisioning/src/cloud/csr.c
++++ b/resource/csdk/security/provisioning/src/cloud/csr.c
+@@ -247,7 +247,7 @@ static int GenerateCSR(char *subject, OCByteString *csr)
+         goto exit;
+     }
+     memcpy(csr->bytes, buf + bufsize - len, len * sizeof(uint8_t));
+-    csr->len = len;
++    csr->len = (size_t)len;
+     // Private key to output
+     len = mbedtls_pk_write_key_der(key, buf, bufsize);
+     if (len < 0)
+@@ -264,7 +264,7 @@ static int GenerateCSR(char *subject, OCByteString *csr)
+         goto exit;
+     }
+     memcpy(g_privateKey.bytes, buf + bufsize - len, len * sizeof(uint8_t));
+-    g_privateKey.len = len;
++    g_privateKey.len = (size_t)len;
+ 
+ exit:
+     mbedtls_entropy_free(&entropy);
+diff --git a/resource/csdk/security/src/csrresource.c b/resource/csdk/security/src/csrresource.c
+index 221b6e326..934286369 100644
+--- a/resource/csdk/security/src/csrresource.c
++++ b/resource/csdk/security/src/csrresource.c
+@@ -85,13 +85,13 @@ static OCStackResult StoreKeyPair(mbedtls_pk_context *keyPair, const OicUuid_t *
+     ret = mbedtls_pk_write_pubkey_der(keyPair, publicBuf, sizeof(publicBuf));
+     VERIFY_SUCCESS(TAG, 0 <= ret, ERROR);
+     publicData.data = publicBuf + sizeof(publicBuf) - ret;
+-    publicData.len = ret;
++    publicData.len = (size_t)ret;
+     publicData.encoding = OIC_ENCODING_DER;
+ 
+     ret = mbedtls_pk_write_key_der(keyPair, privateBuf, sizeof(privateBuf));
+     VERIFY_SUCCESS(TAG, 0 <= ret, ERROR);
+     privateData.data = privateBuf + sizeof(privateBuf) - ret;
+-    privateData.len = ret;
++    privateData.len = (size_t)ret;
+     privateData.encoding = OIC_ENCODING_DER;
+ 
+     cred = GenerateCredential(myUuid, ASYMMETRIC_KEY, &publicData, &privateData,  NULL);
+-- 
+2.16.1.windows.1
+

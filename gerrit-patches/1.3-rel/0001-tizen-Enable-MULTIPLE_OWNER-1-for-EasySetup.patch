@@ -1,0 +1,30 @@
+From f1be7107d2f9780b0da0035c400016d8ece4c987 Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Wed, 17 May 2017 12:36:51 +0200
+Subject: [PATCH] tizen: Enable MULTIPLE_OWNER=1 for EasySetup
+
+Bug: https://jira.iotivity.org/browse/IOT-2241
+Origin: https://gerrit.iotivity.org/gerrit/#/c/20331/
+Change-Id: I5c10141d76c1d2a1ce3efc656990a628dfd6a246
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+(cherry picked from commit 4eb15475d662534ee6db125ccb311b8bbb4a26ca)
+---
+ auto_build.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/auto_build.py b/auto_build.py
+index cfdfc7df7..b7cf7e4ff 100755
+--- a/auto_build.py
++++ b/auto_build.py
+@@ -480,6 +480,8 @@ def build_tizen(flag, extra_option_str):
+     build_options['ES_TARGET_ENROLLEE'] = 'tizen'
+     build_extra_options = "-f service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/build/tizen/SConscript " + extra_option_str
+     call_scons(build_options, build_extra_options)
++    build_options['MULTIPLE_OWNER'] = 1
++    call_scons(build_options, build_extra_options)
+ 
+ def build_tizen_secured(flag, extra_option_str):
+     build_tizen(flag, extra_option_str + " SECURED=1")
+-- 
+2.16.1.windows.1
+

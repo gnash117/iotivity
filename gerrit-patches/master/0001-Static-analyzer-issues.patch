@@ -1,0 +1,48 @@
+From 03e0e2d44f63567d7b05201ff26ec2483b58b126 Mon Sep 17 00:00:00 2001
+From: Iurii Metelytsia <i.metelytsia@samsung.com>
+Date: Wed, 11 Dec 2019 12:31:27 +0200
+Subject: [PATCH] Static analyzer issues.
+
+Signed-off-by: Iurii Metelytsia <i.metelytsia@samsung.com>
+Change-Id: I3e6968d8944fb87412dceb6c651b4ef0c435a859
+---
+ resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c | 2 +-
+ resource/provisioning/examples/provisioningclient.cpp            | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+index 12a189c29..1e1fcc75a 100644
+--- a/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
++++ b/resource/csdk/connectivity/src/adapter_util/ca_adapter_net_ssl.c
+@@ -2561,7 +2561,7 @@ CAResult_t CAdecryptSsl(const CASecureEndpoint_t *sep, uint8_t *data, size_t dat
+                 }
+                 /* DER data is written to the end of the buffer, so we have to skip ahead in it. */
+                 memcpy(peer->sep.publicKey, (pubKeyBuf + sizeof(pubKeyBuf) - ret), ret);
+-                peer->sep.publicKeyLength = ret;
++                peer->sep.publicKeyLength = (uint32_t)ret;
+ 
+                 /* Find the CN component of the subject name. */
+                 for (name = &peerCert->subject; NULL != name; name = name->next)
+diff --git a/resource/provisioning/examples/provisioningclient.cpp b/resource/provisioning/examples/provisioningclient.cpp
+index 15f3bcd5a..8fd8f78f2 100644
+--- a/resource/provisioning/examples/provisioningclient.cpp
++++ b/resource/provisioning/examples/provisioningclient.cpp
+@@ -246,13 +246,13 @@ int readDeviceNumber(DeviceList_t &list, int count, int *out)
+       //so 1st, 2nd, 3rd, etc devices
+       if ((curr == count - 1) && (devicesCount == count))
+       {
+-         int sum = 0;
++         long long int sum = 0;
+          for (int i = 0; i < curr; i++)
+          {
+              sum += out[i];
+          }
+ 
+-         out[curr] = (count*(count+1))/2 - sum;
++         out[curr] = (int)((count*(count+1))/2 - sum);
+ 
+          std::cout << "Device " << curr + 1 << " : " << out[curr];
+          std::cout << " - selected automatically (because no other options exist)" << std::endl;
+-- 
+2.16.1.windows.1
+

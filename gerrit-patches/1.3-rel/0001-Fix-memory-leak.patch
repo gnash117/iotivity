@@ -1,0 +1,102 @@
+From 86a9fb18072caf6b2b5e92e791340c90973bffe4 Mon Sep 17 00:00:00 2001
+From: Inho Oh <webispy@gmail.com>
+Date: Fri, 1 Dec 2017 16:06:06 +0900
+Subject: [PATCH] Fix memory leak
+
+This patch fix critical memory leak. When I run CTT with CT1.2.3 test
+case, memory is increased every time.
+
+Change-Id: Idee5e3ed9b043a21d55ba5dc752c537156d99d8e
+Signed-off-by: Inho Oh <webispy@gmail.com>
+---
+ resource/csdk/security/src/aclresource.c | 12 ++++++------
+ resource/csdk/stack/src/ocresource.c     |  8 ++++++++
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/resource/csdk/security/src/aclresource.c b/resource/csdk/security/src/aclresource.c
+index 627e774ae..5dc56f631 100644
+--- a/resource/csdk/security/src/aclresource.c
++++ b/resource/csdk/security/src/aclresource.c
+@@ -1453,6 +1453,7 @@ static OicSecAcl_t* CBORPayloadToAclVersionOpt(const uint8_t *cborPayload, const
+                     OIC_LOG_V(DEBUG, TAG, "%s Found v1 ACL; assigning 'versionCheck' and returning NULL.", __func__);
+                     *versionCheck = OIC_SEC_ACL_V1;
+                     OICFree(acl);
++                    free(tagName);
+                     return NULL;
+                 }
+                 OIC_LOG_V(DEBUG, TAG, "%s decoding v1 ACL.", __func__);
+@@ -1467,6 +1468,7 @@ static OicSecAcl_t* CBORPayloadToAclVersionOpt(const uint8_t *cborPayload, const
+                     OIC_LOG_V(DEBUG, TAG, "%s Found v2 ACL; assigning 'versionCheck' and returning NULL.", __func__);
+                     *versionCheck = OIC_SEC_ACL_V2;
+                     OICFree(acl);
++                    free(tagName);
+                     return NULL;
+                 }
+                 OIC_LOG_V(DEBUG, TAG, "%s decoding v2 ACL.", __func__);
+@@ -1481,6 +1483,7 @@ static OicSecAcl_t* CBORPayloadToAclVersionOpt(const uint8_t *cborPayload, const
+                         " Assigning 'versionCheck' to OIC_SEC_ACL_UNKNOWN and returning NULL.", __func__);
+                     *versionCheck = OIC_SEC_ACL_UNKNOWN;
+                     OICFree(acl);
++                    free(tagName);
+                     return NULL;
+                 }
+             }
+@@ -1732,6 +1735,9 @@ static OicSecAcl_t* CBORPayloadToAclVersionOpt(const uint8_t *cborPayload, const
+                                                 {
+                                                     OIC_LOG_V(WARNING, TAG, "Unknown tag in subject map: %s", subjectTag);
+                                                 }
++
++                                                free(subjectTag);
++                                                subjectTag = NULL;
+                                             }
+ 
+                                             // advance to next elt in subject map
+@@ -2080,12 +2086,6 @@ exit:
+         acl = NULL;
+     }
+ 
+-    if(NULL != subjectTag)
+-    {
+-        free(subjectTag);
+-        subjectTag = NULL;
+-    }
+-
+     if (NULL != rMapName)
+     {
+         free(rMapName);
+diff --git a/resource/csdk/stack/src/ocresource.c b/resource/csdk/stack/src/ocresource.c
+index 11a064ef2..d56e22a3a 100644
+--- a/resource/csdk/stack/src/ocresource.c
++++ b/resource/csdk/stack/src/ocresource.c
+@@ -1213,6 +1213,8 @@ OCStackResult BuildIntrospectionResponseRepresentation(const OCResource *resourc
+ 
+                         char *epStr = OCCreateEndpointStringFromCA(&caEps[i]);
+                         urlInfoPayload[dimensions[0]] = BuildUrlInfoWithProtocol(proto, epStr);
++                        OICFree(epStr);
++                        OICFree(proto);
+                         if (!urlInfoPayload[dimensions[0]])
+                         {
+                             OIC_LOG(ERROR, TAG, "Unable to build urlInfo object for protocol");
+@@ -1258,6 +1260,11 @@ exit:
+         }
+     }
+ 
++    if (caEps)
++    {
++        OICFree(caEps);
++    }
++
+     return OC_STACK_OK;
+ }
+ 
+@@ -1799,6 +1806,7 @@ static OCStackResult HandleVirtualResource (OCServerRequest *request, OCResource
+     {
+         OIC_LOG_V(ERROR, TAG, "Resource : %s not permitted for method: %d",
+             request->resourceUrl, request->method);
++        FindAndDeleteServerRequest (request);
+         return OC_STACK_UNAUTHORIZED_REQ;
+     }
+ 
+-- 
+2.16.1.windows.1
+

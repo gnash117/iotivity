@@ -1,0 +1,35 @@
+From 4c820a50a3831e1ae69d92141f13fe501f69caec Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=B6ren=20Tempel?= <tempel@uni-bremen.de>
+Date: Tue, 23 Oct 2018 11:28:04 +0200
+Subject: [PATCH] sampleserver_justworks: include sys/select.h
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When compiling for a POSIX operating system. This header file includes
+the definition of the fd_set type used in the keyEvent function.
+
+Change-Id: Ia056fad79352c6eb193464a184caa04924f0a9a1
+Signed-off-by: Sören Tempel <tempel@uni-bremen.de>
+---
+ resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp b/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
+index c761246e2..dff6f1a32 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
+@@ -38,6 +38,10 @@
+ #include "cloud/cloudresource.h"
+ #endif // __WITH_TLS__ && WITH_CLOUD
+ 
++#if defined(WITH_POSIX)
++#include <sys/select.h>
++#endif
++
+ #ifdef HAVE_WINDOWS_H
+ #include <windows.h>
+ /** @todo stop-gap for naming issue. Windows.h does not like us to use ERROR */
+-- 
+2.16.1.windows.1
+

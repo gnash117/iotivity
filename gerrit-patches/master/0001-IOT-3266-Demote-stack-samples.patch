@@ -1,0 +1,142 @@
+From b9a5f76ab08061723541190310790aa763af829a Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 15:22:29 -0700
+Subject: [PATCH] IOT-3266 Demote stack samples
+
+Change-Id: I91acd89cb9cc551445bccef5fe0cd8ca46f3ed97
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ resource/csdk/stack/samples/README.md                          |  9 +++++++++
+ resource/csdk/stack/samples/SConscript                         | 10 ++++++++--
+ .../csdk/stack/samples/linux/SimpleClientServer/SConscript     |  3 +--
+ resource/csdk/stack/samples/linux/secure/SConscript            |  3 +--
+ .../stack/samples/webos/secure/occlientbasicops/SConscript     |  3 +--
+ .../stack/samples/webos/secure/ocserverbasicops/SConscript     |  3 +--
+ resource/csdk/stack/samples/webos/unsecure/occlient/SConscript |  4 +---
+ resource/csdk/stack/samples/webos/unsecure/ocserver/SConscript |  4 +---
+ 8 files changed, 23 insertions(+), 16 deletions(-)
+ create mode 100644 resource/csdk/stack/samples/README.md
+
+diff --git a/resource/csdk/stack/samples/README.md b/resource/csdk/stack/samples/README.md
+new file mode 100644
+index 000000000..2d7390c51
+--- /dev/null
++++ b/resource/csdk/stack/samples/README.md
+@@ -0,0 +1,9 @@
++The examples in this directory are not officially maintained.
++
++While the code may provide useful insights, they should
++be examined with caution.
++ 
++To build, run 
++
++scons [options] stacksamples
++
+diff --git a/resource/csdk/stack/samples/SConscript b/resource/csdk/stack/samples/SConscript
+index e8039ec2e..e8677513c 100644
+--- a/resource/csdk/stack/samples/SConscript
++++ b/resource/csdk/stack/samples/SConscript
+@@ -22,6 +22,11 @@ Import('stacksamples_env')
+ 
+ target_os = stacksamples_env.get('TARGET_OS')
+ 
++# the stack samples are optional build now
++stacksamples_env.AppendTarget('stacksamples', default=False)
++if "stacksamples" not in COMMAND_LINE_TARGETS:
++    Return()
++
+ if target_os in ['linux', 'windows']:
+     # Build C Samples
+     SConscript('linux/OCSample/SConscript', 'stacksamples_env')
+@@ -34,8 +39,9 @@ elif target_os == 'darwin':
+     # Build linux samples for now
+     SConscript('linux/SimpleClientServer/SConscript', 'stacksamples_env')
+ elif target_os == 'msys_nt':
+-    # Build secure samples. Using linux samples for now.
+-    SConscript('linux/secure/SConscript', 'stacksamples_env')
++    if stacksamples_env.get('SECURED') == '1':
++        # Build secure samples. Using linux samples for now.
++        SConscript('linux/secure/SConscript', 'stacksamples_env')
+ elif target_os == 'webos':
+     if stacksamples_env.get('SECURED') == '1':
+         SConscript('webos/secure/SConscript', 'stacksamples_env')
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript b/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
+index 7742c3d71..d542a55a3 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
+@@ -110,7 +110,6 @@ if with_ra:
+     list_of_samples.append(ocremoteaccessclient)
+ 
+ list_of_samples += samples_env.ScanJSON('resource/csdk/stack/samples/linux/SimpleClientServer')
+-Alias("samples", list_of_samples)
++Alias("stacksamples", list_of_samples)
+ 
+-samples_env.AppendTarget('samples')
+ samples_env.UserInstallTargetExtra(list_of_samples)
+diff --git a/resource/csdk/stack/samples/linux/secure/SConscript b/resource/csdk/stack/samples/linux/secure/SConscript
+index 6fc3d21fe..331fa95af 100644
+--- a/resource/csdk/stack/samples/linux/secure/SConscript
++++ b/resource/csdk/stack/samples/linux/secure/SConscript
+@@ -79,6 +79,5 @@ ocsamples = [ocserverbasicops, occlientbasicops, ocamsservice]
+ 
+ ocsamples += samples_env.ScanJSON('resource/csdk/stack/samples/linux/secure')
+ 
+-Alias("samples", ocsamples)
+-samples_env.AppendTarget('samples')
++Alias("stacksamples", ocsamples)
+ samples_env.UserInstallTargetExtra(ocsamples)
+diff --git a/resource/csdk/stack/samples/webos/secure/occlientbasicops/SConscript b/resource/csdk/stack/samples/webos/secure/occlientbasicops/SConscript
+index 74e159678..da3c31769 100644
+--- a/resource/csdk/stack/samples/webos/secure/occlientbasicops/SConscript
++++ b/resource/csdk/stack/samples/webos/secure/occlientbasicops/SConscript
+@@ -80,8 +80,7 @@ occlientbasicops = samples_env.Program(
+     'occlientbasicops', ['../common.cpp', 'occlientbasicops.cpp'])
+ 
+ ocsamples = [occlientbasicops]
+-Alias("samples", ocsamples)
+-samples_env.AppendTarget('samples')
++Alias("stacksamples", ocsamples)
+ 
+ src_dir = samples_env.get('SRC_DIR')
+ sec_samples_src_dir = src_dir + '/resource/csdk/stack/samples/linux/secure/'
+diff --git a/resource/csdk/stack/samples/webos/secure/ocserverbasicops/SConscript b/resource/csdk/stack/samples/webos/secure/ocserverbasicops/SConscript
+index b18eabec6..8e2d8f074 100644
+--- a/resource/csdk/stack/samples/webos/secure/ocserverbasicops/SConscript
++++ b/resource/csdk/stack/samples/webos/secure/ocserverbasicops/SConscript
+@@ -79,8 +79,7 @@ ocserverbasicops = samples_env.Program(
+     'ocserverbasicops', ['../common.cpp', 'ocserverbasicops.cpp'])
+ 
+ ocsamples = [ocserverbasicops]
+-Alias("samples", ocsamples)
+-samples_env.AppendTarget('samples')
++Alias("stacksamples", ocsamples)
+ 
+ src_dir = samples_env.get('SRC_DIR')
+ sec_samples_src_dir = src_dir + '/resource/csdk/stack/samples/linux/secure/'
+diff --git a/resource/csdk/stack/samples/webos/unsecure/occlient/SConscript b/resource/csdk/stack/samples/webos/unsecure/occlient/SConscript
+index 7d0bb7c50..bf400c5d0 100644
+--- a/resource/csdk/stack/samples/webos/unsecure/occlient/SConscript
++++ b/resource/csdk/stack/samples/webos/unsecure/occlient/SConscript
+@@ -85,6 +85,4 @@ list_of_samples = [
+     occlient
+ ]
+ 
+-Alias("samples", list_of_samples)
+-
+-samples_env.AppendTarget('samples')
++Alias("stacksamples", list_of_samples)
+diff --git a/resource/csdk/stack/samples/webos/unsecure/ocserver/SConscript b/resource/csdk/stack/samples/webos/unsecure/ocserver/SConscript
+index a88c9a0e0..ff8e1652d 100644
+--- a/resource/csdk/stack/samples/webos/unsecure/ocserver/SConscript
++++ b/resource/csdk/stack/samples/webos/unsecure/ocserver/SConscript
+@@ -85,6 +85,4 @@ list_of_samples = [
+     ocserver
+ ]
+ 
+-Alias("samples", list_of_samples)
+-
+-samples_env.AppendTarget('samples')
++Alias("stacksamples", list_of_samples)
+-- 
+2.16.1.windows.1
+

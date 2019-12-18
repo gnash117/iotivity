@@ -1,0 +1,70 @@
+From 499725707d5991c9967bd467a367a7462c5e458d Mon Sep 17 00:00:00 2001
+From: agrkush <kush.agrawal@samsung.com>
+Date: Tue, 19 Mar 2019 16:18:55 +0530
+Subject: [PATCH] Dont resend OIC request when OCF version fail.
+
+Issue: Versioning scheme supports OCF client to send request to
+       OIC server. But this is failing in security provisioning as
+       security ACL does not support backward compatibility
+
+Solution: Providing option to disable sending request to OIC server
+          from OCF client when OIC server returns error.This can be
+          disabled at compile time by adding build option.
+
+DISABLE_VERSIONING=1 can be added in build option to disable versioning.
+
+Change-Id: Idc460c0d758040eed9c5a9a5af7ca97d042faa5d
+Signed-off-by: agrkush <kush.agrawal@samsung.com>
+---
+ build_common/SConscript           | 6 ++++++
+ resource/csdk/stack/src/ocstack.c | 3 ++-
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/build_common/SConscript b/build_common/SConscript
+index c6e04b368..932e8c586 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -198,6 +198,9 @@ help_vars.AddVariables(
+                  allowed_values=('True', 'False')),
+     BoolVariable('MANDATORY',
+                  'Enable/disable(default) mandatory',
++                 default=False),
++    BoolVariable('DISABLE_VERSIONING',
++                 'Build disabling payload versioning feature',
+                  default=False)
+ )
+ 
+@@ -778,6 +781,9 @@ if with_ra_ibb:
+ if env.get('RELEASE'):
+     env.AppendUnique(CPPDEFINES=['NDEBUG'])
+ 
++if env.get('DISABLE_VERSIONING'):
++    env.AppendUnique(CPPDEFINES=['DISABLE_VERSIONING'])
++
+ env.SConscript('external_builders.scons')
+ ######################################################################
+ # Link scons to Yocto cross-toolchain ONLY when target_os is yocto
+diff --git a/resource/csdk/stack/src/ocstack.c b/resource/csdk/stack/src/ocstack.c
+index e24bcfa86..9afdec327 100644
+--- a/resource/csdk/stack/src/ocstack.c
++++ b/resource/csdk/stack/src/ocstack.c
+@@ -1534,7 +1534,7 @@ void OC_CALL OCHandleResponse(const CAEndpoint_t* endPoint, const CAResponseInfo
+                 OIC_LOG(INFO, TAG, "Server doesn't support the requested payload format");
+                 OIC_LOG(INFO, TAG, "Calling into application address space");
+             }
+-
++#ifndef DISABLE_VERSIONING
+             // Check if it is the case that a OCF client connects to a OIC server.
+             // If so, reissue request using OIC format
+             if (CA_NOT_ACCEPTABLE == responseInfo->result &&
+@@ -1643,6 +1643,7 @@ void OC_CALL OCHandleResponse(const CAEndpoint_t* endPoint, const CAResponseInfo
+             }
+ 
+         proceed:;
++#endif
+             OCClientResponse *response = (OCClientResponse *) OICCalloc(1, sizeof(*response));
+             if (!response)
+             {
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,112 @@
+From ded503c6558f21711822900addd7c0a805743993 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Fri, 16 Nov 2018 09:29:06 -0700
+Subject: [PATCH] Fix "catching polymorphic type by value" warnings
+
+gcc8+ issues a number of warnings of this type:
+
+resource/examples/garageserver.cpp:391:23: warning: catching polymorphic type 'class OC::OCException' by value [-Wcatch-value=]
+
+change these to catch by reference rather than by value.
+
+Change-Id: I41a07c0dbacd86a60c149e1ebd6e437278fc0ea7
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ cloud/samples/client/group_invite/group_invite.cpp                    | 2 +-
+ examples/OICMiddle/Client.cpp                                         | 4 ++--
+ resource/examples/garageserver.cpp                                    | 2 +-
+ .../src/inputSensors/WeightSensorApp/src/WeightSensorApp.cpp          | 2 +-
+ service/scene-manager/sampleapp/linux/fanserver.cpp                   | 2 +-
+ service/scene-manager/sampleapp/linux/lightserver.cpp                 | 2 +-
+ 6 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/cloud/samples/client/group_invite/group_invite.cpp b/cloud/samples/client/group_invite/group_invite.cpp
+index 0a5d879c4..a8ce37d28 100644
+--- a/cloud/samples/client/group_invite/group_invite.cpp
++++ b/cloud/samples/client/group_invite/group_invite.cpp
+@@ -1007,7 +1007,7 @@ int main(int argc, char *argv[])
+                 cout << "Error, return code: " << result << endl;
+             }
+         }
+-        catch (exception e)
++        catch (const exception& e)
+         {
+             cout << "Precondition failed." << endl;
+         }
+diff --git a/examples/OICMiddle/Client.cpp b/examples/OICMiddle/Client.cpp
+index ac467c9b4..d811a81f2 100644
+--- a/examples/OICMiddle/Client.cpp
++++ b/examples/OICMiddle/Client.cpp
+@@ -51,7 +51,7 @@ void MiddleClient::foundOCResource(shared_ptr<OCResource> resource)
+ 
+     try {
+         wres = m_resourceMap.at(resourceID);
+-    } catch (const std::out_of_range) {
++    } catch (const std::out_of_range&) {
+         wres = new WrapResource(resourceID, resource);
+         m_resourceMap[resourceID] = wres;
+     }
+@@ -85,7 +85,7 @@ void MiddleClient::addResource(WrapResource *wres)
+     string resourceID = wres->getResourceID();
+     try {
+         m_resourceMap[resourceID];
+-    } catch (const std::out_of_range) {
++    } catch (const std::out_of_range&) {
+         m_resourceMap[resourceID] = wres;
+     }
+ }
+diff --git a/resource/examples/garageserver.cpp b/resource/examples/garageserver.cpp
+index 88a30f486..f14793b57 100644
+--- a/resource/examples/garageserver.cpp
++++ b/resource/examples/garageserver.cpp
+@@ -388,7 +388,7 @@ int main(int /*argc*/, char** /*argv[1]*/)
+         std::unique_lock<std::mutex> lock(blocker);
+         cv.wait(lock);
+     }
+-    catch(OCException e)
++    catch(const OCException& e)
+     {
+         oclog() << e.what();
+     }
+diff --git a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/src/WeightSensorApp.cpp b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/src/WeightSensorApp.cpp
+index 4af7b4df6..a9049e518 100644
+--- a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/src/WeightSensorApp.cpp
++++ b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/src/WeightSensorApp.cpp
+@@ -221,7 +221,7 @@ int main()
+ 
+         OC::OCPlatform::stopPresence();
+     }
+-    catch (std::exception e)
++    catch (const std::exception& e)
+     {
+         cout << e.what() << endl;
+     }
+diff --git a/service/scene-manager/sampleapp/linux/fanserver.cpp b/service/scene-manager/sampleapp/linux/fanserver.cpp
+index b086ba821..e31224190 100644
+--- a/service/scene-manager/sampleapp/linux/fanserver.cpp
++++ b/service/scene-manager/sampleapp/linux/fanserver.cpp
+@@ -313,7 +313,7 @@ int main()
+         std::unique_lock < std::mutex > lock(blocker);
+         cv.wait(lock);
+     }
+-    catch (OCException e)
++    catch (const OCException& e)
+     {
+         //log(e.what());
+     }
+diff --git a/service/scene-manager/sampleapp/linux/lightserver.cpp b/service/scene-manager/sampleapp/linux/lightserver.cpp
+index 326dad99d..4b551e8e7 100644
+--- a/service/scene-manager/sampleapp/linux/lightserver.cpp
++++ b/service/scene-manager/sampleapp/linux/lightserver.cpp
+@@ -313,7 +313,7 @@ int main()
+         std::unique_lock < std::mutex > lock(blocker);
+         cv.wait(lock);
+     }
+-    catch (OCException e)
++    catch (const OCException& e)
+     {
+         //log(e.what());
+     }
+-- 
+2.16.1.windows.1
+

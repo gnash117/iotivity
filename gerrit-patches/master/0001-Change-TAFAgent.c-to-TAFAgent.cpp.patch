@@ -1,0 +1,19 @@
+From 648f7628a4b4d7198f21ecc66e8de0a94371a928 Mon Sep 17 00:00:00 2001
+From: Michal Wieckowski <michal.wieckowski@comarch.com>
+Date: Wed, 27 Feb 2019 08:45:51 +0100
+Subject: [PATCH] Change TAFAgent.c to TAFAgent.cpp
+
+Change-Id: I93a10196a5090ac23476068bcc7a7891be6176a5
+Signed-off-by: Michal Wieckowski <michal.wieckowski@comarch.com>
+---
+ test/src/automation/ctt/src/{TAFAgent.c => TAFAgent.cpp} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename test/src/automation/ctt/src/{TAFAgent.c => TAFAgent.cpp} (100%)
+
+diff --git a/test/src/automation/ctt/src/TAFAgent.c b/test/src/automation/ctt/src/TAFAgent.cpp
+similarity index 100%
+rename from test/src/automation/ctt/src/TAFAgent.c
+rename to test/src/automation/ctt/src/TAFAgent.cpp
+-- 
+2.16.1.windows.1
+

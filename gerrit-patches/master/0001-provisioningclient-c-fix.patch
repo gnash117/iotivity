@@ -1,0 +1,49 @@
+From 58b2ecdd44b69d7868862ef51c0d39791b419cef Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Tue, 5 Nov 2019 14:04:34 +0200
+Subject: [PATCH] provisioningclient(c++) fix
+
+type qualifiers ignored on cast result type
+
+Change-Id: I15bcb1a68b91e7dc178aaa784d6428bb08dc4889
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/provisioning/examples/provisioningclient.cpp | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/resource/provisioning/examples/provisioningclient.cpp b/resource/provisioning/examples/provisioningclient.cpp
+index 15f3bcd5a..afc70aa16 100644
+--- a/resource/provisioning/examples/provisioningclient.cpp
++++ b/resource/provisioning/examples/provisioningclient.cpp
+@@ -877,7 +877,7 @@ int main(void)
+                             break;
+                         }
+                         transferDevIdx = devNum - 1;
+-                    
++
+                         ask = 0;
+                         std::cout << "Transfering ownership for : "<<
+                             pUnownedDevList[devNum-1]->getDeviceID()<<std::endl;
+@@ -1259,8 +1259,8 @@ int main(void)
+ 
+                         if (!pOwnedDevList.size())
+                         {
+-                            if(OC_STACK_OK != pMOTEnabledDeviceList[dev_num-1]->changeMOTMode(
+-                            (const OicSecMomType_t)momType,MOTMethodCB))
++                            if(OC_STACK_OK != pMOTEnabledDeviceList[dev_num-1]->changeMOTMode(momType,
++                            MOTMethodCB))
+                             {
+                                 OIC_LOG(ERROR, TAG, "changeMOTMode API error");
+                             }
+@@ -1331,7 +1331,7 @@ int main(void)
+                             std::cout << "     Entered Wrong Number. Please Enter Again"<<std::endl;
+                         }
+ 
+-                        if(OC_STACK_OK != pMOTEnabledDeviceList[dev_num-1]->selectMOTMethod((const OicSecOxm_t)secOxm,
++                        if(OC_STACK_OK != pMOTEnabledDeviceList[dev_num-1]->selectMOTMethod(secOxm,
+                                               MOTMethodCB))
+                         {
+                             OIC_LOG(ERROR, TAG, "selectMOTMethod API error");
+-- 
+2.16.1.windows.1
+

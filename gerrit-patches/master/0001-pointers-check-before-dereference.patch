@@ -1,0 +1,54 @@
+From e6415bd2ca48be365b1a568c80b3d242ba11848a Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Mon, 18 Feb 2019 10:43:55 +0200
+Subject: [PATCH] pointers check before dereference
+
+pointers check before dereference in UpdateLinkResults
+
+Change-Id: I76163b74d672555ff1a1103d159281c10e3935c7
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ .../csdk/security/provisioning/src/ocprovisioningmanager.c   | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+index ed513e8e3..c910c641b 100755
+--- a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
++++ b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+@@ -1036,17 +1036,17 @@ OCStackResult OC_CALL OCConfigSelfOwnership(void)
+  */
+ static void UpdateLinkResults(Linkdata_t *link, int device, OCStackResult stackresult)
+ {
+-    if (NULL == link)
++    if (NULL == link || NULL == link->resArr)
+     {
+-        OIC_LOG_V(INFO,TAG,"%s value of link is null",__func__);
++        OIC_LOG_V(INFO,TAG,"%s value of %s is null",__func__, link == NULL ? "link" : "link resArr");
+         return;
+     }
+     OIC_LOG_V(INFO,TAG,"value of link->currentCountResults is %d",link->currentCountResults);
+     if (1 == device)
+     {
+-        if (NULL == link->pDev1)
++        if (NULL == link->pDev1 || NULL == link->pDev1->doxm)
+         {
+-            OIC_LOG_V(INFO,TAG,"%s value of pDev1 is null",__func__);
++            OIC_LOG_V(INFO,TAG,"%s value of %s is null", __func__, link->pDev1 == NULL ? "pDev1" : "pDev1 doxm");
+             return;
+         }
+ 
+@@ -1054,9 +1054,9 @@ static void UpdateLinkResults(Linkdata_t *link, int device, OCStackResult stackr
+     }
+     else
+     {
+-        if (NULL == link->pDev2)
++        if (NULL == link->pDev2 || NULL == link->pDev2->doxm)
+         {
+-            OIC_LOG_V(INFO,TAG,"%s value of pDev2 is null",__func__);
++            OIC_LOG_V(INFO,TAG,"%s value of %s is null", __func__, link->pDev2 == NULL ? "pDev2" : "pDev2 doxm");
+             return;
+         }
+ 
+-- 
+2.16.1.windows.1
+

@@ -1,0 +1,34 @@
+From edd4d5f7f886d2510ee8adc054a5294cfd46dc05 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=B6ren=20Tempel?= <tempel@uni-bremen.de>
+Date: Tue, 23 Oct 2018 11:29:28 +0200
+Subject: [PATCH] lifxResource: uint is not a standard type
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Use unsigned int instead.
+
+Change-Id: I017c2eb6ca6afb64ac90e0bbd61fa42bde9c474c
+Signed-off-by: Sören Tempel <tempel@uni-bremen.de>
+---
+ bridging/plugins/lifx_plugin/lifxResource.cpp | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/bridging/plugins/lifx_plugin/lifxResource.cpp b/bridging/plugins/lifx_plugin/lifxResource.cpp
+index e57a9e556..803a5f784 100644
+--- a/bridging/plugins/lifx_plugin/lifxResource.cpp
++++ b/bridging/plugins/lifx_plugin/lifxResource.cpp
+@@ -50,8 +50,8 @@ MPMPluginCtx *g_pluginCtx = NULL;
+ 
+ static std::string OIC_BINARY_SWITCH = "oic.r.switch.binary";
+ static std::string OIC_BRIGHTNESS_LIGHT = "oic.r.light.brightness";
+-const uint BINARY_SWITCH_CALLBACK = 0;
+-const uint BRIGHTNESS_CALLBACK = 1;
++const unsigned int BINARY_SWITCH_CALLBACK = 0;
++const unsigned int BRIGHTNESS_CALLBACK = 1;
+ 
+ static const std::string BINARY_SWITCH_RELATIVE_URI = "/switch";
+ static const std::string BRIGHTNESS_RELATIVE_URI = "/brightness";
+-- 
+2.16.1.windows.1
+

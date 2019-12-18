@@ -1,0 +1,416 @@
+From ba2eff48a52b0b05980699b13bffe408639e5d69 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Mon, 18 Feb 2019 22:40:27 -0700
+Subject: [PATCH] IOT-3266 Demote resource examples
+
+all the single-file examples are moved to "archived" subdir,
+and no longer build by default
+
+ocf_light still builds by default.
+
+Change-Id: Ifd0dc3139d132210346c5bd83ab80f5c0583fe52
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ resource/examples/README.md                        |  11 +++
+ resource/examples/SConscript                       |  67 ++---------------
+ resource/examples/archived/SConscript              |  79 +++++++++++++++++++++
+ .../{ => archived}/devicediscoveryclient.cpp       |   0
+ .../{ => archived}/devicediscoveryserver.cpp       |   0
+ resource/examples/{ => archived}/fridgeclient.cpp  |   0
+ resource/examples/{ => archived}/fridgeserver.cpp  |   0
+ resource/examples/{ => archived}/garageclient.cpp  |   0
+ resource/examples/{ => archived}/garageserver.cpp  |   0
+ resource/examples/{ => archived}/groupclient.cpp   |   0
+ resource/examples/{ => archived}/groupserver.cpp   |   0
+ .../{ => archived}/light_introspection.dat         | Bin
+ .../{ => archived}/light_introspection.json        |   0
+ resource/examples/{ => archived}/lightserver.cpp   |   0
+ resource/examples/{ => archived}/mediaserver.cpp   |   0
+ .../examples/{ => archived}/oic_svr_db_client.dat  | Bin
+ .../examples/{ => archived}/oic_svr_db_client.json |   0
+ .../oic_svr_db_client_directpairing.dat            | Bin
+ .../examples/{ => archived}/oic_svr_db_server.dat  | Bin
+ .../examples/{ => archived}/oic_svr_db_server.json |   0
+ .../examples/{ => archived}/presenceclient.cpp     |   0
+ .../examples/{ => archived}/presenceserver.cpp     |   0
+ resource/examples/{ => archived}/rdclient.cpp      |   0
+ resource/examples/{ => archived}/roomclient.cpp    |   0
+ resource/examples/{ => archived}/roomserver.cpp    |   0
+ resource/examples/{ => archived}/simpleclient.cpp  |   0
+ .../examples/{ => archived}/simpleclientHQ.cpp     |   0
+ .../examples/{ => archived}/simpleclientserver.cpp |   0
+ resource/examples/{ => archived}/simpleserver.cpp  |   0
+ .../examples/{ => archived}/simpleserverHQ.cpp     |   0
+ .../{ => archived}/simpleserver_introspection.dat  | Bin
+ .../{ => archived}/simpleserver_introspection.json |   0
+ .../examples/{ => archived}/threadingsample.cpp    |   0
+ resource/examples/{ => archived}/winuiclient.cpp   |   0
+ resource/examples/{ => archived}/winuiclient.h     |   0
+ .../examples/{ => archived}/winuiclientgui.cpp     |   0
+ resource/examples/ocf_light/SConscript             |   6 +-
+ 37 files changed, 100 insertions(+), 63 deletions(-)
+ create mode 100644 resource/examples/README.md
+ create mode 100644 resource/examples/archived/SConscript
+ rename resource/examples/{ => archived}/devicediscoveryclient.cpp (100%)
+ rename resource/examples/{ => archived}/devicediscoveryserver.cpp (100%)
+ rename resource/examples/{ => archived}/fridgeclient.cpp (100%)
+ rename resource/examples/{ => archived}/fridgeserver.cpp (100%)
+ rename resource/examples/{ => archived}/garageclient.cpp (100%)
+ rename resource/examples/{ => archived}/garageserver.cpp (100%)
+ rename resource/examples/{ => archived}/groupclient.cpp (100%)
+ rename resource/examples/{ => archived}/groupserver.cpp (100%)
+ rename resource/examples/{ => archived}/light_introspection.dat (100%)
+ rename resource/examples/{ => archived}/light_introspection.json (100%)
+ rename resource/examples/{ => archived}/lightserver.cpp (100%)
+ rename resource/examples/{ => archived}/mediaserver.cpp (100%)
+ rename resource/examples/{ => archived}/oic_svr_db_client.dat (100%)
+ rename resource/examples/{ => archived}/oic_svr_db_client.json (100%)
+ rename resource/examples/{ => archived}/oic_svr_db_client_directpairing.dat (100%)
+ rename resource/examples/{ => archived}/oic_svr_db_server.dat (100%)
+ rename resource/examples/{ => archived}/oic_svr_db_server.json (100%)
+ rename resource/examples/{ => archived}/presenceclient.cpp (100%)
+ rename resource/examples/{ => archived}/presenceserver.cpp (100%)
+ rename resource/examples/{ => archived}/rdclient.cpp (100%)
+ rename resource/examples/{ => archived}/roomclient.cpp (100%)
+ rename resource/examples/{ => archived}/roomserver.cpp (100%)
+ rename resource/examples/{ => archived}/simpleclient.cpp (100%)
+ rename resource/examples/{ => archived}/simpleclientHQ.cpp (100%)
+ rename resource/examples/{ => archived}/simpleclientserver.cpp (100%)
+ rename resource/examples/{ => archived}/simpleserver.cpp (100%)
+ rename resource/examples/{ => archived}/simpleserverHQ.cpp (100%)
+ rename resource/examples/{ => archived}/simpleserver_introspection.dat (100%)
+ rename resource/examples/{ => archived}/simpleserver_introspection.json (100%)
+ rename resource/examples/{ => archived}/threadingsample.cpp (100%)
+ rename resource/examples/{ => archived}/winuiclient.cpp (100%)
+ rename resource/examples/{ => archived}/winuiclient.h (100%)
+ rename resource/examples/{ => archived}/winuiclientgui.cpp (100%)
+
+diff --git a/resource/examples/README.md b/resource/examples/README.md
+new file mode 100644
+index 000000000..ca2e4b1a5
+--- /dev/null
++++ b/resource/examples/README.md
+@@ -0,0 +1,11 @@
++Most of the examples in this directory are not officially maintained.
++
++Maintained:  'ocf_light'
++Not maintained: everything in 'archived'
++
++While the code in 'archived' may provide useful insights, it should
++be examined with caution.
++
++To build those, run:
++
++scons [options] resource-examples
+diff --git a/resource/examples/SConscript b/resource/examples/SConscript
+index 5ff29786b..ba0b5fe82 100644
+--- a/resource/examples/SConscript
++++ b/resource/examples/SConscript
+@@ -89,67 +89,10 @@ if target_os in ['msys_nt', 'windows']:
+         'User32'
+     ])
+ 
+-
+-def make_single_file_cpp_program(program_name):
+-    return examples_env.Program(program_name, program_name + ".cpp")
+-
+-
+-######################################################################
+-# Source files and Targets
+-######################################################################
+-example_names = [
+-    'simpleserver',
+-    'simpleclient',
+-    'simpleclientserver',
+-    'devicediscoveryserver',
+-    'devicediscoveryclient',
+-    'simpleserverHQ',
+-    'simpleclientHQ',
+-]
+-
+-if target_os not in ['windows', 'msys_nt']:
+-    example_names += [
+-        'fridgeserver',
+-        'fridgeclient',
+-        'presenceserver',
+-        'presenceclient',
+-        'roomserver',
+-        'roomclient',
+-        'garageserver',
+-        'garageclient',
+-        'groupserver',
+-        'groupclient',
+-        'lightserver',
+-        'threadingsample',
+-    ]
+-    if 'CLIENT' in examples_env.get('RD_MODE'):
+-        examples_env.AppendUnique(
+-            CPPPATH=['../csdk/resource-directory/include'])
+-        examples_env.AppendUnique(LIBS=['resource_directory'])
+-        example_names += ['rdclient']
+-
+-examples = list(map(make_single_file_cpp_program, example_names))
+-
+-######################################################################
+-# Other examples
+-######################################################################
+-cbor = examples_env.ScanJSON()
+-examples_env.Alias("install", cbor)
+-examples += cbor
+-examples_env.UserInstallTargetExtra(examples)
+-
+-if target_os in ['msys_nt', 'windows']:
+-    winUIClient = examples_env.Program(
+-        'winUIClient', ['winuiclientgui.cpp', 'winuiclient.cpp'])
+-    examples += [winUIClient]
+-    # mediaserver uses GetVersionEx which is a windows native/desktop only API.
+-    # Only build for Native/Win32
+-    if env.get('MSVC_UWP_APP') != '1':
+-        mediaserver = examples_env.Program('mediaserver', 'mediaserver.cpp')
+-        examples += [mediaserver]
+-
++# ocf-light is built by default:
+ examples_env.SConscript('ocf_light/SConscript', exports='examples_env')
+ 
+-examples_env.Alias("examples", examples)
+-examples_env.AppendTarget('examples')
+-examples_env.Alias("install", examples)
++# the other examples are not:
++examples_env.AppendTarget('resource-examples', default=False)
++if 'resource-examples' in COMMAND_LINE_TARGETS:
++    examples_env.SConscript('archived/SConscript', exports='examples_env')
+diff --git a/resource/examples/archived/SConscript b/resource/examples/archived/SConscript
+new file mode 100644
+index 000000000..143df625e
+--- /dev/null
++++ b/resource/examples/archived/SConscript
+@@ -0,0 +1,79 @@
++#******************************************************************
++#
++# Copyright 2014 Intel Mobile Communications GmbH All Rights Reserved.
++#
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
++Import('examples_env')
++target_os = examples_env.get('TARGET_OS')
++
++######################################################################
++# Source files and Targets
++######################################################################
++example_names = [
++    'simpleserver',
++    'simpleclient',
++    'simpleclientserver',
++    'devicediscoveryserver',
++    'devicediscoveryclient',
++    'simpleserverHQ',
++    'simpleclientHQ',
++]
++
++if target_os not in ['windows', 'msys_nt']:
++    example_names += [
++        'fridgeserver',
++        'fridgeclient',
++        'presenceserver',
++        'presenceclient',
++        'roomserver',
++        'roomclient',
++        'garageserver',
++        'garageclient',
++        'groupserver',
++        'groupclient',
++        'lightserver',
++        'threadingsample',
++    ]
++    if 'CLIENT' in examples_env.get('RD_MODE'):
++        examples_env.AppendUnique(
++            CPPPATH=['#resource/csdk/resource-directory/include'])
++        examples_env.AppendUnique(LIBS=['resource_directory'])
++        example_names += ['rdclient']
++
++examples = [examples_env.Program(p, p + ".cpp") for p in example_names]
++
++######################################################################
++# Other examples
++######################################################################
++cbor = examples_env.ScanJSON()
++Alias("install", cbor)
++examples += cbor
++examples_env.UserInstallTargetExtra(examples)
++
++if target_os in ['msys_nt', 'windows']:
++    winUIClient = examples_env.Program(
++        'winUIClient', ['winuiclientgui.cpp', 'winuiclient.cpp'])
++    examples += [winUIClient]
++    # mediaserver uses GetVersionEx which is a windows native/desktop only API.
++    # Only build for Native/Win32
++    if env.get('MSVC_UWP_APP') != '1':
++        mediaserver = examples_env.Program('mediaserver', 'mediaserver.cpp')
++        examples += [mediaserver]
++
++Alias("resource-examples", examples)
++Alias("install", examples)
+diff --git a/resource/examples/devicediscoveryclient.cpp b/resource/examples/archived/devicediscoveryclient.cpp
+similarity index 100%
+rename from resource/examples/devicediscoveryclient.cpp
+rename to resource/examples/archived/devicediscoveryclient.cpp
+diff --git a/resource/examples/devicediscoveryserver.cpp b/resource/examples/archived/devicediscoveryserver.cpp
+similarity index 100%
+rename from resource/examples/devicediscoveryserver.cpp
+rename to resource/examples/archived/devicediscoveryserver.cpp
+diff --git a/resource/examples/fridgeclient.cpp b/resource/examples/archived/fridgeclient.cpp
+similarity index 100%
+rename from resource/examples/fridgeclient.cpp
+rename to resource/examples/archived/fridgeclient.cpp
+diff --git a/resource/examples/fridgeserver.cpp b/resource/examples/archived/fridgeserver.cpp
+similarity index 100%
+rename from resource/examples/fridgeserver.cpp
+rename to resource/examples/archived/fridgeserver.cpp
+diff --git a/resource/examples/garageclient.cpp b/resource/examples/archived/garageclient.cpp
+similarity index 100%
+rename from resource/examples/garageclient.cpp
+rename to resource/examples/archived/garageclient.cpp
+diff --git a/resource/examples/garageserver.cpp b/resource/examples/archived/garageserver.cpp
+similarity index 100%
+rename from resource/examples/garageserver.cpp
+rename to resource/examples/archived/garageserver.cpp
+diff --git a/resource/examples/groupclient.cpp b/resource/examples/archived/groupclient.cpp
+similarity index 100%
+rename from resource/examples/groupclient.cpp
+rename to resource/examples/archived/groupclient.cpp
+diff --git a/resource/examples/groupserver.cpp b/resource/examples/archived/groupserver.cpp
+similarity index 100%
+rename from resource/examples/groupserver.cpp
+rename to resource/examples/archived/groupserver.cpp
+diff --git a/resource/examples/light_introspection.dat b/resource/examples/archived/light_introspection.dat
+similarity index 100%
+rename from resource/examples/light_introspection.dat
+rename to resource/examples/archived/light_introspection.dat
+diff --git a/resource/examples/light_introspection.json b/resource/examples/archived/light_introspection.json
+similarity index 100%
+rename from resource/examples/light_introspection.json
+rename to resource/examples/archived/light_introspection.json
+diff --git a/resource/examples/lightserver.cpp b/resource/examples/archived/lightserver.cpp
+similarity index 100%
+rename from resource/examples/lightserver.cpp
+rename to resource/examples/archived/lightserver.cpp
+diff --git a/resource/examples/mediaserver.cpp b/resource/examples/archived/mediaserver.cpp
+similarity index 100%
+rename from resource/examples/mediaserver.cpp
+rename to resource/examples/archived/mediaserver.cpp
+diff --git a/resource/examples/oic_svr_db_client.dat b/resource/examples/archived/oic_svr_db_client.dat
+similarity index 100%
+rename from resource/examples/oic_svr_db_client.dat
+rename to resource/examples/archived/oic_svr_db_client.dat
+diff --git a/resource/examples/oic_svr_db_client.json b/resource/examples/archived/oic_svr_db_client.json
+similarity index 100%
+rename from resource/examples/oic_svr_db_client.json
+rename to resource/examples/archived/oic_svr_db_client.json
+diff --git a/resource/examples/oic_svr_db_client_directpairing.dat b/resource/examples/archived/oic_svr_db_client_directpairing.dat
+similarity index 100%
+rename from resource/examples/oic_svr_db_client_directpairing.dat
+rename to resource/examples/archived/oic_svr_db_client_directpairing.dat
+diff --git a/resource/examples/oic_svr_db_server.dat b/resource/examples/archived/oic_svr_db_server.dat
+similarity index 100%
+rename from resource/examples/oic_svr_db_server.dat
+rename to resource/examples/archived/oic_svr_db_server.dat
+diff --git a/resource/examples/oic_svr_db_server.json b/resource/examples/archived/oic_svr_db_server.json
+similarity index 100%
+rename from resource/examples/oic_svr_db_server.json
+rename to resource/examples/archived/oic_svr_db_server.json
+diff --git a/resource/examples/presenceclient.cpp b/resource/examples/archived/presenceclient.cpp
+similarity index 100%
+rename from resource/examples/presenceclient.cpp
+rename to resource/examples/archived/presenceclient.cpp
+diff --git a/resource/examples/presenceserver.cpp b/resource/examples/archived/presenceserver.cpp
+similarity index 100%
+rename from resource/examples/presenceserver.cpp
+rename to resource/examples/archived/presenceserver.cpp
+diff --git a/resource/examples/rdclient.cpp b/resource/examples/archived/rdclient.cpp
+similarity index 100%
+rename from resource/examples/rdclient.cpp
+rename to resource/examples/archived/rdclient.cpp
+diff --git a/resource/examples/roomclient.cpp b/resource/examples/archived/roomclient.cpp
+similarity index 100%
+rename from resource/examples/roomclient.cpp
+rename to resource/examples/archived/roomclient.cpp
+diff --git a/resource/examples/roomserver.cpp b/resource/examples/archived/roomserver.cpp
+similarity index 100%
+rename from resource/examples/roomserver.cpp
+rename to resource/examples/archived/roomserver.cpp
+diff --git a/resource/examples/simpleclient.cpp b/resource/examples/archived/simpleclient.cpp
+similarity index 100%
+rename from resource/examples/simpleclient.cpp
+rename to resource/examples/archived/simpleclient.cpp
+diff --git a/resource/examples/simpleclientHQ.cpp b/resource/examples/archived/simpleclientHQ.cpp
+similarity index 100%
+rename from resource/examples/simpleclientHQ.cpp
+rename to resource/examples/archived/simpleclientHQ.cpp
+diff --git a/resource/examples/simpleclientserver.cpp b/resource/examples/archived/simpleclientserver.cpp
+similarity index 100%
+rename from resource/examples/simpleclientserver.cpp
+rename to resource/examples/archived/simpleclientserver.cpp
+diff --git a/resource/examples/simpleserver.cpp b/resource/examples/archived/simpleserver.cpp
+similarity index 100%
+rename from resource/examples/simpleserver.cpp
+rename to resource/examples/archived/simpleserver.cpp
+diff --git a/resource/examples/simpleserverHQ.cpp b/resource/examples/archived/simpleserverHQ.cpp
+similarity index 100%
+rename from resource/examples/simpleserverHQ.cpp
+rename to resource/examples/archived/simpleserverHQ.cpp
+diff --git a/resource/examples/simpleserver_introspection.dat b/resource/examples/archived/simpleserver_introspection.dat
+similarity index 100%
+rename from resource/examples/simpleserver_introspection.dat
+rename to resource/examples/archived/simpleserver_introspection.dat
+diff --git a/resource/examples/simpleserver_introspection.json b/resource/examples/archived/simpleserver_introspection.json
+similarity index 100%
+rename from resource/examples/simpleserver_introspection.json
+rename to resource/examples/archived/simpleserver_introspection.json
+diff --git a/resource/examples/threadingsample.cpp b/resource/examples/archived/threadingsample.cpp
+similarity index 100%
+rename from resource/examples/threadingsample.cpp
+rename to resource/examples/archived/threadingsample.cpp
+diff --git a/resource/examples/winuiclient.cpp b/resource/examples/archived/winuiclient.cpp
+similarity index 100%
+rename from resource/examples/winuiclient.cpp
+rename to resource/examples/archived/winuiclient.cpp
+diff --git a/resource/examples/winuiclient.h b/resource/examples/archived/winuiclient.h
+similarity index 100%
+rename from resource/examples/winuiclient.h
+rename to resource/examples/archived/winuiclient.h
+diff --git a/resource/examples/winuiclientgui.cpp b/resource/examples/archived/winuiclientgui.cpp
+similarity index 100%
+rename from resource/examples/winuiclientgui.cpp
+rename to resource/examples/archived/winuiclientgui.cpp
+diff --git a/resource/examples/ocf_light/SConscript b/resource/examples/ocf_light/SConscript
+index 1727d5174..da2306f3d 100644
+--- a/resource/examples/ocf_light/SConscript
++++ b/resource/examples/ocf_light/SConscript
+@@ -33,4 +33,8 @@ ocf_light_files = [
+     'Platform.cpp',
+ ]
+ 
+-output = examples_env.Program(ocf_light_files)
+\ No newline at end of file
++output = examples_env.Program(ocf_light_files)
++
++Alias("resource-ocflight-example", output)
++examples_env.AppendTarget("resource-ocflight-example")
++Alias("install", output)
+-- 
+2.16.1.windows.1
+

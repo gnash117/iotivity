@@ -1,0 +1,51 @@
+From 6c552d2e380589bf8508e8da73b4df8b661d335b Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Tue, 29 Jan 2019 10:28:33 +0200
+Subject: [PATCH] avoid buffer read random
+
+In unix implementation OCGetRandomBytes used fopen/fread,
+which use stdin buffer for read, don't need double buffers.
+That reduse memory usage and speed up.
+
+Change-Id: I7b6d6cb9a8b59d035349fbc16a677a6e71a26832
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/c_common/ocrandom/src/ocrandom.c | 11 +++++------
+ 1 file changed, 5 insertions(+), 6 deletions(-)
+
+diff --git a/resource/c_common/ocrandom/src/ocrandom.c b/resource/c_common/ocrandom/src/ocrandom.c
+index 2eb6d5510..e2879b615 100644
+--- a/resource/c_common/ocrandom/src/ocrandom.c
++++ b/resource/c_common/ocrandom/src/ocrandom.c
+@@ -82,23 +82,22 @@ bool OCGetRandomBytes(uint8_t * output, size_t len)
+     }
+ 
+ #if defined(__unix__) || defined(__APPLE__)
+-    FILE* urandom = fopen("/dev/urandom", "r");
+-    if (urandom == NULL)
++    int fd = open("/dev/urandom", O_RDONLY);
++    if (-1 == fd)
+     {
+         OIC_LOG(FATAL, OCRANDOM_TAG, "Failed open /dev/urandom!");
+         assert(false);
+         return false;
+     }
+ 
+-    if (fread(output, sizeof(uint8_t), len, urandom) != len)
++    if (read(fd, output, sizeof(uint8_t) * len) != len)
+     {
+         OIC_LOG(FATAL, OCRANDOM_TAG, "Failed while reading /dev/urandom!");
+         assert(false);
+-        fclose(urandom);
++        close(fd);
+         return false;
+     }
+-    fclose(urandom);
+-
++    close(fd);
+ #elif defined(_WIN32)
+     /*
+      * size_t may be 64 bits, but ULONG is always 32.
+-- 
+2.16.1.windows.1
+

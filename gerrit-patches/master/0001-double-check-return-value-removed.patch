@@ -1,0 +1,32 @@
+From 7b205d61e62914272a76332962e6501ebd575734 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Fri, 22 Feb 2019 09:57:33 +0200
+Subject: [PATCH] double check return value removed
+
+double check return value in ProvisionCredentialDosCB1
+removed
+
+Change-Id: I05e65f3e5bd06e2df62561a3f721b6ebc746ed5b
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/security/provisioning/src/secureresourceprovider.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/src/secureresourceprovider.c b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+index 2e084bea4..b054b3873 100644
+--- a/resource/csdk/security/provisioning/src/secureresourceprovider.c
++++ b/resource/csdk/security/provisioning/src/secureresourceprovider.c
+@@ -558,9 +558,7 @@ static OCStackApplicationResult ProvisionCredentialDosCB1(void *ctx, OCDoHandle
+             if (OC_STACK_OK != res)
+             {
+                 DeleteCredList(credInfo);
+-            }
+-            if (OC_STACK_OK != res)
+-            {
++
+                 registerResultForCredProvisioning(credData, res, DEVICE_LOCAL_FINISHED);
+                 ((OCProvisionResultCB)(resultCallback))(credData->ctx, credData->numOfResults,
+                                                         credData->resArr,
+-- 
+2.16.1.windows.1
+

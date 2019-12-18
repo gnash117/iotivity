@@ -1,0 +1,362 @@
+From a96a13403d20418bab44b6a1abed24543633538b Mon Sep 17 00:00:00 2001
+From: Peter Rafaj <peter.rafaj@kistler.com>
+Date: Mon, 3 Dec 2018 09:39:14 +0100
+Subject: [PATCH] IOT-3244 configurable JMX_HOSTNAME
+
+Change-Id: I707c2db52492f7585aed307f3a47c6e14824c0b3
+Signed-off-by: Peter Rafaj <peter.rafaj@kistler.com>
+---
+ cloud/account/Dockerfile                           | 27 +++++++++++-----------
+ .../cloud/accountserver/AccountServer.java         |  2 +-
+ cloud/account/start.sh                             | 27 ++++++++++++++++++++++
+ cloud/interface/Dockerfile                         | 25 ++++++++++----------
+ cloud/interface/start.sh                           | 27 ++++++++++++++++++++++
+ cloud/messagequeue/Dockerfile                      | 26 +++++++++++----------
+ cloud/messagequeue/start.sh                        | 27 ++++++++++++++++++++++
+ cloud/resourcedirectory/Dockerfile                 | 24 +++++++++----------
+ .../cloud/rdserver/ResourceDirectoryServer.java    |  2 +-
+ cloud/resourcedirectory/start.sh                   | 27 ++++++++++++++++++++++
+ 10 files changed, 161 insertions(+), 53 deletions(-)
+ create mode 100755 cloud/account/start.sh
+ create mode 100755 cloud/interface/start.sh
+ create mode 100755 cloud/messagequeue/start.sh
+ create mode 100755 cloud/resourcedirectory/start.sh
+
+diff --git a/cloud/account/Dockerfile b/cloud/account/Dockerfile
+index e20c9bdcd..0f10b8085 100644
+--- a/cloud/account/Dockerfile
++++ b/cloud/account/Dockerfile
+@@ -2,11 +2,16 @@ FROM openjdk:8-jre-alpine
+ 
+ RUN apk add --update \
+     curl \
++    shadow \
+     && rm -rf /var/cache/apk/*
+ 
+-ADD ./target/CloudAccount-0.0.1-SNAPSHOT.jar iotivity/AccountServer.jar
+-ADD ./target/lib/* iotivity/lib/
+-ADD ./properties/* iotivity/properties/
++RUN groupadd -r iotivity && useradd --no-log-init --system  -g iotivity iotivity
++
++COPY --chown=iotivity:iotivity ./target/CloudAccount-0.0.1-SNAPSHOT.jar iotivity/AccountServer.jar
++COPY --chown=iotivity:iotivity ./target/lib/* iotivity/lib/
++COPY --chown=iotivity:iotivity ./properties/* iotivity/properties/
++COPY --chown=iotivity:iotivity  ./start.sh iotivity/
++RUN chmod +x iotivity/start.sh
+ 
+ WORKDIR iotivity/
+ 
+@@ -18,17 +23,11 @@ ENV MONGODB_PORT 27017
+ 
+ 
+ ENV JMX_PORT 9002
+-ENV JAVA_JMX_OPTS "-Dcom.sun.management.jmxremote \
+-               -Dcom.sun.management.jmxremote.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.local.only=false \
+-               -Dcom.sun.management.jmxremote.authenticate=false \
+-               -Dcom.sun.management.jmxremote.ssl=false \
+-               -Djava.rmi.server.hostname= \
+-               -XX:MetaspaceSize=30m -XX:MaxMetaspaceSize=40m \
+-               -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server "
++ENV JMX_HOSTNAME ""
++ENV JAVA_MEMORY_OPTS ""
+ 
+ EXPOSE 9002
+ 
+-ENTRYPOINT exec java $JAVA_JMX_OPTS $JAVA_MEMORY_OPTS -jar AccountServer.jar
+-HEALTHCHECK --interval=30s --timeout=2s --retries=3	CMD curl -f http://localhost/api/healthcheck || exit 1
++USER iotivity
++ENTRYPOINT [ "./start.sh" ]
++HEALTHCHECK --interval=30s --timeout=2s --retries=3	CMD curl -f http://localhost:8000/api/healthcheck || exit 1
+diff --git a/cloud/account/src/main/java/org/iotivity/cloud/accountserver/AccountServer.java b/cloud/account/src/main/java/org/iotivity/cloud/accountserver/AccountServer.java
+index 6beea9cd8..934cfc4da 100644
+--- a/cloud/account/src/main/java/org/iotivity/cloud/accountserver/AccountServer.java
++++ b/cloud/account/src/main/java/org/iotivity/cloud/accountserver/AccountServer.java
+@@ -94,7 +94,7 @@ public class AccountServer {
+                 new CoapServer(new InetSocketAddress(coapServerPort)));
+ 
+         if(healthCheckEnabled){
+-            serverSystem.addServer(new SimpleHttpServer(new InetSocketAddress(80),healthHolder));
++            serverSystem.addServer(new SimpleHttpServer(new InetSocketAddress(8000),healthHolder));
+         }
+ 
+         serverSystem.startSystem(tlsMode);
+diff --git a/cloud/account/start.sh b/cloud/account/start.sh
+new file mode 100755
+index 000000000..0ae9417f1
+--- /dev/null
++++ b/cloud/account/start.sh
+@@ -0,0 +1,27 @@
++#!/bin/sh
++
++JAVA_OPTS="$JAVA_OPTS "
++if [ ! -z "$JAVA_MEMORY_OPTS" ]; then
++    JAVA_OPTS="$JAVA_OPTS $JAVA_MEMORY_OPTS"
++fi
++
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.local.only=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false "
++
++if [ ! -z "$JMX_HOSTNAME" ]; then
++   JAVA_OPTS="$JAVA_OPTS  -Djava.rmi.server.hostname=${JMX_HOSTNAME} "
++fi
++
++JAVA_OPTS="$JAVA_OPTS -XX:MetaspaceSize=30m "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=40m "
++JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=100 "
++JAVA_OPTS="$JAVA_OPTS -server "
++
++export JAVA_OPTS
++echo "Start Account server service with option: ${JAVA_OPTS}"
++exec java $JAVA_OPTS -jar AccountServer.jar
+diff --git a/cloud/interface/Dockerfile b/cloud/interface/Dockerfile
+index 4f012cdc0..c42b8be5d 100644
+--- a/cloud/interface/Dockerfile
++++ b/cloud/interface/Dockerfile
+@@ -1,7 +1,14 @@
+ FROM openjdk:8-jre-alpine
+ 
+-ADD ./target/CloudInterface-0.0.1-SNAPSHOT.jar iotivity/CloudInterface.jar
+-ADD ./target/lib/* iotivity/lib/
++RUN apk add --update \
++    shadow \
++    && rm -rf /var/cache/apk/*
++
++RUN groupadd -r iotivity && useradd --no-log-init --system  -g iotivity iotivity
++
++COPY --chown=iotivity:iotivity  ./target/CloudInterface-0.0.1-SNAPSHOT.jar iotivity/CloudInterface.jar
++COPY --chown=iotivity:iotivity  ./target/lib/* iotivity/lib/
++COPY --chown=iotivity:iotivity  ./start.sh iotivity/
+ 
+ WORKDIR iotivity/
+ 
+@@ -17,16 +24,10 @@ ENV ACCOUNT_SERVER_ADDRESS iotivity-accountserver
+ ENV ACCOUNT_SERVER_PORT 5685
+ 
+ ENV JMX_PORT 9001
+-ENV JAVA_JMX_OPTS "-Dcom.sun.management.jmxremote \
+-                -Dcom.sun.management.jmxremote.port=${JMX_PORT} \
+-                -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} \
+-                -Dcom.sun.management.jmxremote.local.only=false \
+-                -Dcom.sun.management.jmxremote.authenticate=false \
+-                -Dcom.sun.management.jmxremote.ssl=false \
+-                -Djava.rmi.server.hostname= \
+-                -XX:MetaspaceSize=20m -XX:MaxMetaspaceSize=25m \
+-                -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server "
++ENV JMX_HOSTNAME ""
++ENV JAVA_MEMORY_OPTS ""
+ 
+ EXPOSE 9001
+ 
+-ENTRYPOINT exec java $JAVA_JMX_OPTS $JAVA_MEMORY_OPTS -jar CloudInterface.jar
++USER iotivity
++ENTRYPOINT [ "./start.sh" ]
+diff --git a/cloud/interface/start.sh b/cloud/interface/start.sh
+new file mode 100755
+index 000000000..2c0c5a665
+--- /dev/null
++++ b/cloud/interface/start.sh
+@@ -0,0 +1,27 @@
++#!/bin/sh
++
++JAVA_OPTS="$JAVA_OPTS "
++if [ ! -z "$JAVA_MEMORY_OPTS" ]; then
++    JAVA_OPTS="$JAVA_OPTS $JAVA_MEMORY_OPTS"
++fi
++
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.local.only=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false "
++
++if [ ! -z "$JMX_HOSTNAME" ]; then
++   JAVA_OPTS="$JAVA_OPTS  -Djava.rmi.server.hostname=${JMX_HOSTNAME} "
++fi
++
++JAVA_OPTS="$JAVA_OPTS -XX:MetaspaceSize=20m "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=30m "
++JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=100 "
++JAVA_OPTS="$JAVA_OPTS -server "
++
++export JAVA_OPTS
++echo "Start Interface service with option: ${JAVA_OPTS}"
++exec java $JAVA_OPTS -jar CloudInterface.jar
+diff --git a/cloud/messagequeue/Dockerfile b/cloud/messagequeue/Dockerfile
+index 25823cdf2..3719fe2d2 100644
+--- a/cloud/messagequeue/Dockerfile
++++ b/cloud/messagequeue/Dockerfile
+@@ -1,7 +1,14 @@
+ FROM openjdk:8-jre-alpine
+ 
+-ADD ./target/CloudMessageQueue-0.0.1-SNAPSHOT.jar iotivity/MessageQueue.jar
+-ADD ./target/lib/* iotivity/lib/
++RUN apk add --update \
++    shadow \
++    && rm -rf /var/cache/apk/*
++
++RUN groupadd -r iotivity && useradd --no-log-init --system  -g iotivity iotivity
++
++COPY --chown=iotivity:iotivity  ./target/CloudMessageQueue-0.0.1-SNAPSHOT.jar iotivity/MessageQueue.jar
++COPY --chown=iotivity:iotivity  ./target/lib/* iotivity/lib/
++COPY --chown=iotivity:iotivity  ./start.sh iotivity/
+ 
+ WORKDIR iotivity/
+ 
+@@ -13,16 +20,11 @@ ENV KAFKA_ADDRESS kafka-zookeeper
+ ENV KAFKA_PORT 9092
+ 
+ ENV JMX_PORT 9003
+-ENV JAVA_JMX_OPTS "-Dcom.sun.management.jmxremote \
+-               -Dcom.sun.management.jmxremote.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.local.only=false \
+-               -Dcom.sun.management.jmxremote.authenticate=false \
+-               -Dcom.sun.management.jmxremote.ssl=false \
+-               -Djava.rmi.server.hostname= \
+-               -XX:MetaspaceSize=20m -XX:MaxMetaspaceSize=25m \
+-               -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server "
++ENV JMX_HOSTNAME ""
++ENV JAVA_MEMORY_OPTS ""
+ 
+ EXPOSE 9003
+ 
+-ENTRYPOINT exec java $JAVA_JMX_OPTS $JAVA_MEMORY_OPTS -jar MessageQueue.jar
++USER iotivity
++ENTRYPOINT [ "./start.sh" ]
++
+diff --git a/cloud/messagequeue/start.sh b/cloud/messagequeue/start.sh
+new file mode 100755
+index 000000000..91205352c
+--- /dev/null
++++ b/cloud/messagequeue/start.sh
+@@ -0,0 +1,27 @@
++#!/bin/sh
++
++JAVA_OPTS="$JAVA_OPTS "
++if [ ! -z "$JAVA_MEMORY_OPTS" ]; then
++    JAVA_OPTS="$JAVA_OPTS $JAVA_MEMORY_OPTS"
++fi
++
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.local.only=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false "
++
++if [ ! -z "$JMX_HOSTNAME" ]; then
++   JAVA_OPTS="$JAVA_OPTS  -Djava.rmi.server.hostname=${JMX_HOSTNAME} "
++fi
++
++JAVA_OPTS="$JAVA_OPTS -XX:MetaspaceSize=20m "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=30m "
++JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=100 "
++JAVA_OPTS="$JAVA_OPTS -server "
++
++export JAVA_OPTS
++echo "Start Message queue service with option: ${JAVA_OPTS}"
++exec java $JAVA_OPTS -jar MessageQueue.jar
+diff --git a/cloud/resourcedirectory/Dockerfile b/cloud/resourcedirectory/Dockerfile
+index 1fddd08bd..0e3cfb380 100644
+--- a/cloud/resourcedirectory/Dockerfile
++++ b/cloud/resourcedirectory/Dockerfile
+@@ -2,10 +2,14 @@ FROM openjdk:8-jre-alpine
+ 
+ RUN apk add --update \
+     curl \
++    shadow \
+     && rm -rf /var/cache/apk/*
+ 
+-ADD ./target/CloudResourceDirectory-0.0.1-SNAPSHOT.jar iotivity/ResourceDirectory.jar
+-ADD ./target/lib/* iotivity/lib/
++RUN groupadd -r iotivity && useradd --no-log-init --system  -g iotivity iotivity
++
++COPY --chown=iotivity:iotivity ./target/CloudResourceDirectory-0.0.1-SNAPSHOT.jar iotivity/ResourceDirectory.jar
++COPY --chown=iotivity:iotivity ./target/lib/* iotivity/lib/
++COPY --chown=iotivity:iotivity ./start.sh iotivity/
+ 
+ WORKDIR iotivity/
+ 
+@@ -16,17 +20,11 @@ ENV MONGODB_ADDRESS mongodb
+ ENV MONGODB_PORT 27017
+ 
+ ENV JMX_PORT 9004
+-ENV JAVA_JMX_OPTS "-Dcom.sun.management.jmxremote \
+-               -Dcom.sun.management.jmxremote.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} \
+-               -Dcom.sun.management.jmxremote.local.only=false \
+-               -Dcom.sun.management.jmxremote.authenticate=false \
+-               -Dcom.sun.management.jmxremote.ssl=false \
+-               -Djava.rmi.server.hostname= \
+-               -XX:MetaspaceSize=20m -XX:MaxMetaspaceSize=25m \
+-               -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -server "
++ENV JMX_HOSTNAME ""
++ENV JAVA_MEMORY_OPTS ""
+ 
+ EXPOSE 9004
+ 
+-ENTRYPOINT exec java $JAVA_JMX_OPTS $JAVA_MEMORY_OPTS -jar ResourceDirectory.jar
+-HEALTHCHECK --interval=30s --timeout=2s --retries=3	CMD curl -f http://localhost/api/healthcheck || exit 1
++USER iotivity
++ENTRYPOINT [ "./start.sh" ]
++HEALTHCHECK --interval=30s --timeout=2s --retries=3	CMD curl -f http://localhost:8000/api/healthcheck || exit 1
+\ No newline at end of file
+diff --git a/cloud/resourcedirectory/src/main/java/org/iotivity/cloud/rdserver/ResourceDirectoryServer.java b/cloud/resourcedirectory/src/main/java/org/iotivity/cloud/rdserver/ResourceDirectoryServer.java
+index 0f99c35dc..fd927d446 100644
+--- a/cloud/resourcedirectory/src/main/java/org/iotivity/cloud/rdserver/ResourceDirectoryServer.java
++++ b/cloud/resourcedirectory/src/main/java/org/iotivity/cloud/rdserver/ResourceDirectoryServer.java
+@@ -74,7 +74,7 @@ public class ResourceDirectoryServer {
+                 new CoapServer(new InetSocketAddress(coapServerPort)));
+ 
+         if(healthCheckEnabled){
+-            serverSystem.addServer(new SimpleHttpServer(new InetSocketAddress(80),healthHolder));
++            serverSystem.addServer(new SimpleHttpServer(new InetSocketAddress(8000),healthHolder));
+         }
+ 
+         serverSystem.startSystem(tlsMode);
+diff --git a/cloud/resourcedirectory/start.sh b/cloud/resourcedirectory/start.sh
+new file mode 100755
+index 000000000..df4380397
+--- /dev/null
++++ b/cloud/resourcedirectory/start.sh
+@@ -0,0 +1,27 @@
++#!/bin/sh
++
++JAVA_OPTS="$JAVA_OPTS "
++if [ ! -z "$JAVA_MEMORY_OPTS" ]; then
++    JAVA_OPTS="$JAVA_OPTS $JAVA_MEMORY_OPTS"
++fi
++
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.rmi.port=${JMX_PORT} "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.local.only=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.authenticate=false "
++JAVA_OPTS="$JAVA_OPTS -Dcom.sun.management.jmxremote.ssl=false "
++
++if [ ! -z "$JMX_HOSTNAME" ]; then
++   JAVA_OPTS="$JAVA_OPTS  -Djava.rmi.server.hostname=${JMX_HOSTNAME} "
++fi
++
++JAVA_OPTS="$JAVA_OPTS -XX:MetaspaceSize=20m "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxMetaspaceSize=30m "
++JAVA_OPTS="$JAVA_OPTS -XX:+UseG1GC "
++JAVA_OPTS="$JAVA_OPTS -XX:MaxGCPauseMillis=100 "
++JAVA_OPTS="$JAVA_OPTS -server "
++
++export JAVA_OPTS
++echo "Start resource directory service with option: ${JAVA_OPTS}"
++exec java $JAVA_OPTS -jar ResourceDirectory.jar
+-- 
+2.16.1.windows.1
+

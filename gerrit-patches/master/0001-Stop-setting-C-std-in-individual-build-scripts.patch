@@ -1,0 +1,1152 @@
+From 935ae2e81e64a66bc1619c386afb6d1030171e63 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Wed, 15 Nov 2017 07:07:39 -0700
+Subject: [PATCH] Stop setting C++ std in individual build scripts
+
+The build mode for gcc/clang -std=c++0x (or actually the preferred
+-std=c++11) should be set in the target-specific sconscript, not
+in all of the individual scripts.  If an individual script absolutely
+has to change the default for the target it can do so, but these
+should not be scattered all over.
+
+Some of the removal remove other options set in CXXFLAGS as well, if
+those are already being set gobally as well.  That work should be
+completed someday - still plenty of places that set -Wall -Wextra -fPIC etc.
+
+Change-Id: Ie8e9bb26eb73e0ce8c71164d048c6b29c1a6d31f
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ bridging/common/SConscript                          |  4 ----
+ bridging/mini_plugin_manager/SConscript             |  3 ---
+ bridging/plugins/hue_plugin/SConscript              |  3 ---
+ bridging/plugins/lifx_plugin/SConscript             |  4 ----
+ bridging/plugins/lyric_plugin/SConscript            |  4 ----
+ bridging/plugins/nest_plugin/SConscript             |  4 ----
+ build_common/SConscript                             |  1 +
+ build_common/android/SConscript                     |  3 ++-
+ build_common/darwin/SConscript                      |  6 ++++++
+ build_common/linux/SConscript                       | 21 +++++++++++----------
+ build_common/msys_nt/SConscript                     |  2 +-
+ build_common/tizen/SConscript                       | 10 ++++++----
+ cloud/samples/client/SConscript                     |  2 --
+ examples/OICMiddle/SConscript                       | 11 ++---------
+ extlibs/gtest/SConscript                            | 10 ++--------
+ extlibs/libcoap/SConscript                          |  2 --
+ extlibs/yaml/SConscript                             |  8 +++-----
+ plugins/samples/linux/SConscript                    |  2 +-
+ plugins/src/SConscript                              |  2 +-
+ plugins/zigbee_wrapper/src/SConscript               |  2 +-
+ resource/IPCA/samples/ElevatorClient/SConscript     |  2 +-
+ resource/IPCA/samples/ElevatorServer/SConscript     |  2 +-
+ resource/IPCA/samples/ipcaapp/SConscript            |  2 +-
+ resource/IPCA/src/SConscript                        |  2 +-
+ resource/csdk/resource-directory/SConscript         |  2 +-
+ resource/csdk/resource-directory/samples/SConscript |  2 +-
+ resource/csdk/security/provisioning/SConscript      |  3 ---
+ .../csdk/security/provisioning/sample/SConscript    |  2 +-
+ resource/csdk/security/tool/SConscript              |  2 +-
+ .../samples/linux/SimpleClientServer/SConscript     |  2 +-
+ resource/csdk/stack/samples/linux/secure/SConscript |  2 +-
+ .../tizen/SimpleClientServer/scons/SConscript       |  2 +-
+ resource/examples/SConscript                        |  2 +-
+ resource/oc_logger/SConscript                       |  2 +-
+ resource/oc_logger/examples/SConscript              |  2 +-
+ resource/provisioning/SConscript                    |  2 +-
+ resource/provisioning/examples/SConscript           |  2 +-
+ resource/src/SConscript                             |  1 -
+ service/coap-http-proxy/samples/SConscript          |  2 +-
+ service/easy-setup/enrollee/SConscript              |  2 +-
+ service/easy-setup/enrollee/unittests/SConscript    |  2 +-
+ service/easy-setup/mediator/richsdk/SConscript      |  2 +-
+ .../mediator/richsdk/unittests/SConscript           |  2 +-
+ .../easy-setup/sampleapp/enrollee/linux/SConscript  |  2 +-
+ .../mediator/linux/richsdk_sample/SConscript        |  2 +-
+ .../notification/cpp-wrapper/consumer/SConscript    |  2 +-
+ .../cpp-wrapper/examples/linux/SConscript           |  2 +-
+ .../notification/cpp-wrapper/provider/SConscript    |  2 +-
+ .../notification/cpp-wrapper/unittest/SConscript    |  2 +-
+ service/notification/examples/linux/SConscript      |  2 +-
+ service/notification/unittest/SConscript            |  2 +-
+ service/resource-container/SConscript               |  2 +-
+ .../src/inputSensors/HeightSensorApp/SConscript     |  2 +-
+ .../src/inputSensors/WeightSensorApp/SConscript     |  2 +-
+ .../src/inputSensors/THSensorApp/SConscript         |  2 +-
+ .../src/inputSensors/THSensorApp1/SConscript        |  2 +-
+ service/resource-container/unittests/SConscript     |  3 ---
+ service/resource-encapsulation/SConscript           |  2 +-
+ .../examples/linux/SConscript                       |  2 +-
+ .../resource-encapsulation/src/common/SConscript    |  2 +-
+ .../src/resourceBroker/unittest/SConscript          |  2 +-
+ .../src/resourceCache/unittests/SConscript          |  2 +-
+ .../src/serverBuilder/SConscript                    |  2 +-
+ service/resource-encapsulation/unittests/SConscript |  3 ---
+ service/scene-manager/SConscript                    |  2 +-
+ service/scene-manager/sampleapp/linux/SConscript    |  2 +-
+ service/simulator/SConscript                        |  2 +-
+ service/simulator/examples/client/SConscript        | 18 +++++++++++++++++-
+ service/simulator/examples/server/SConscript        | 18 +++++++++++++++++-
+ service/simulator/ramlparser/SConscript             |  3 +--
+ 70 files changed, 115 insertions(+), 124 deletions(-)
+
+diff --git a/bridging/common/SConscript b/bridging/common/SConscript
+index 452aec2fc..b56abf3d0 100644
+--- a/bridging/common/SConscript
++++ b/bridging/common/SConscript
+@@ -53,10 +53,6 @@ mpmcommon_env.PrependUnique(CPPPATH=[
+     '#/resource/c_common/oic_string/include',
+ ])
+ 
+-if target_os not in ['windows']:
+-    mpmcommon_env.AppendUnique(
+-        CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra', '-fpic'])
+-
+ mpmcommon_env['LINKFLAGS'] = maskFlags(mpmcommon_env['LINKFLAGS'])
+ 
+ mpmcommon_env.PrependUnique(LIBS=[
+diff --git a/bridging/mini_plugin_manager/SConscript b/bridging/mini_plugin_manager/SConscript
+index 9ce154d7d..820ebc207 100644
+--- a/bridging/mini_plugin_manager/SConscript
++++ b/bridging/mini_plugin_manager/SConscript
+@@ -42,9 +42,6 @@ manager_env.PrependUnique(CPPPATH=[
+     '#/extlibs/rapidjson/include/rapidjson',
+ ])
+ 
+-if target_os not in ['windows']:
+-    manager_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
+-
+ manager_env.PrependUnique(LIBS=['mpmcommon'])
+ 
+ #####################################################################
+diff --git a/bridging/plugins/hue_plugin/SConscript b/bridging/plugins/hue_plugin/SConscript
+index 4172466cf..831c39e99 100644
+--- a/bridging/plugins/hue_plugin/SConscript
++++ b/bridging/plugins/hue_plugin/SConscript
+@@ -69,12 +69,9 @@ if target_os not in ['windows']:
+ if target_os in ['darwin', 'ios']:
+     hue_env.AppendUnique(CPPDEFINES=['_DARWIN_C_SOURCE'])
+ 
+-hue_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
+-
+ if hue_env.get('LOGGING'):
+     hue_env.AppendUnique(CPPDEFINES=['TB_LOG'])
+ 
+-
+ libmpm = hue_env.get('BUILD_DIR') + 'libmpmcommon.a'
+ hue_env['LINKFLAGS'] = maskFlags(env['LINKFLAGS'])
+ hue_env.AppendUnique(LINKFLAGS=[
+diff --git a/bridging/plugins/lifx_plugin/SConscript b/bridging/plugins/lifx_plugin/SConscript
+index b38d84ea8..d304c9412 100644
+--- a/bridging/plugins/lifx_plugin/SConscript
++++ b/bridging/plugins/lifx_plugin/SConscript
+@@ -61,10 +61,6 @@ lifx_env.AppendUnique(CPPPATH=[
+     '#/bridging/plugins/lifx_plugin/lifx_objects',
+ ])
+ 
+-if 'g++' in lifx_env.get('CXX'):
+-    lifx_env.AppendUnique(
+-        CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
+-
+ libmpm = lifx_env.get('BUILD_DIR') + 'libmpmcommon.a'
+ lifx_env['LINKFLAGS'] = maskFlags(env['LINKFLAGS'])
+ lifx_env.AppendUnique(LINKFLAGS=[
+diff --git a/bridging/plugins/lyric_plugin/SConscript b/bridging/plugins/lyric_plugin/SConscript
+index 77b38c3d8..56199bd6b 100644
+--- a/bridging/plugins/lyric_plugin/SConscript
++++ b/bridging/plugins/lyric_plugin/SConscript
+@@ -63,10 +63,6 @@ lyric_env.AppendUnique(CPPPATH=[
+     '#/bridging/plugins/lyric_plugin/honeywell_objects',
+ ])
+ 
+-if 'g++' in lyric_env.get('CXX'):
+-    lyric_env.AppendUnique(
+-        CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
+-
+ libmpm = lyric_env.get('BUILD_DIR') + 'libmpmcommon.a'
+ lyric_env['LINKFLAGS'] = maskFlags(env['LINKFLAGS'])
+ lyric_env.AppendUnique(LINKFLAGS=[
+diff --git a/bridging/plugins/nest_plugin/SConscript b/bridging/plugins/nest_plugin/SConscript
+index f7018c12c..61b75647d 100644
+--- a/bridging/plugins/nest_plugin/SConscript
++++ b/bridging/plugins/nest_plugin/SConscript
+@@ -68,10 +68,6 @@ if target_os not in ['windows']:
+ if target_os in ['darwin', 'ios']:
+     nest_env.AppendUnique(CPPDEFINES=['_DARWIN_C_SOURCE'])
+ 
+-if 'g++' in nest_env.get('CXX'):
+-    nest_env.AppendUnique(
+-        CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
+-
+ if nest_env.get('LOGGING'):
+     nest_env.AppendUnique(CPPDEFINES=['TB_LOG'])
+ 
+diff --git a/build_common/SConscript b/build_common/SConscript
+index b1579f8be..0adfc6fe7 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -1016,6 +1016,7 @@ if target_os in ['yocto', 'webos']:
+     env.AppendUnique(CPPDEFINES=['__linux__', '_GNU_SOURCE'])
+     env.AppendUnique(CFLAGS=['-std=gnu99'])
+     env.AppendUnique(CCFLAGS=['-Wall', '-Wextra', '-fPIC'])
++    env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+     env.AppendUnique(LIBS=['dl', 'pthread', 'uuid'])
+ else:
+     '''
+diff --git a/build_common/android/SConscript b/build_common/android/SConscript
+index 4ae5e526a..62c634b58 100644
+--- a/build_common/android/SConscript
++++ b/build_common/android/SConscript
+@@ -53,9 +53,10 @@ elif platform.system().lower() == 'darwin':
+ # Set common flags
+ ######################################################################
+ 
+-# Android build system default cofig
++# Android build system default config
+ env.AppendUnique(CPPDEFINES=['ANDROID'])
+ env.AppendUnique(CFLAGS=['-std=c99'])
++env.AppendUnique(CXXFLAGS=['-std=c++11'])
+ env.AppendUnique(SHCFLAGS=['-Wa,--noexecstack'])
+ env.AppendUnique(LINKFLAGS=['-Wl,--gc-sections', '-Wl,-z,nocopyreloc'])
+ 
+diff --git a/build_common/darwin/SConscript b/build_common/darwin/SConscript
+index 1b10cf368..4a4463571 100644
+--- a/build_common/darwin/SConscript
++++ b/build_common/darwin/SConscript
+@@ -110,6 +110,12 @@ if env.get('RELEASE'):
+ else:
+     env.AppendUnique(CCFLAGS=['-g'])
+     env.AppendUnique(LINKFLAGS=['-g'])
++env.AppendUnique(CPPDEFINES=['WITH_POSIX', '__linux__'])
++env.AppendUnique(CFLAGS=['-std=gnu99'])
++env.AppendUnique(CXXFLAGS=['-std=c++11'])
++env.AppendUnique(CCFLAGS=['-Wall', '-Wextra'])
++if env.get('ERROR_ON_WARN'):
++    env.AppendUnique(CCFLAGS=['-Werror'])
+ 
+ if env.get('SECURED') == '1':
+     env.AppendUnique(LIBS=['mbedtls', 'mbedx509', 'mbedcrypto'])
+diff --git a/build_common/linux/SConscript b/build_common/linux/SConscript
+index 1c3bb8bc2..7a759fe51 100644
+--- a/build_common/linux/SConscript
++++ b/build_common/linux/SConscript
+@@ -14,22 +14,26 @@ build_dir = env.get('BUILD_DIR')
+ env.AppendUnique(LIBPATH=[build_dir])
+ env.AppendENVPath('LD_LIBRARY_PATH', [build_dir])
+ 
++# generic build flags, apply everywhere:
++env.AppendUnique(CPPDEFINES=['WITH_POSIX', '__linux__'])
++env.AppendUnique(CFLAGS=['-std=gnu99'])
++env.AppendUnique(CCFLAGS=['-Wall', '-Wextra', '-fPIC'])
++env.AppendUnique(CXXFLAGS=['-std=c++11'])
++env.AppendUnique(LIBS=['dl', 'pthread', 'uuid'])
++
++# build flags based on user choices:
+ # Set release/debug flags
+ if env.get('RELEASE'):
+     env.AppendUnique(CCFLAGS=['-Os'])
+ else:
+     env.AppendUnique(CCFLAGS=['-g'])
+-
+ # Test Coverage Flags and Library (if RELEASE=0)
+ if not env.get('RELEASE') and env.get('COVERAGE_CHECKS'):
+     env.AppendUnique(CCFLAGS=['--coverage', '-fPIC', '-O0'])
+     env.AppendUnique(LINKFLAGS=['--coverage'])
+-
+-env.AppendUnique(CPPDEFINES=['WITH_POSIX', '__linux__'])
+-env.AppendUnique(CFLAGS=['-std=gnu99'])
+-env.AppendUnique(CCFLAGS=['-Wall', '-Wextra', '-fPIC'])
+-env.AppendUnique(SHLINKFLAGS=['-Wl,--as-needed'])
+-env.AppendUnique(LIBS=['dl', 'pthread', 'uuid'])
++# Strict: fail on warnings - for developer builds
++if env.get('ERROR_ON_WARN'):
++    env.AppendUnique(CCFLAGS=['-Werror'])
+ 
+ # The -Wno-error=missing-field-initializers is used due to a bug in versions
+ # of gcc older than 5.0 see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=36750
+@@ -58,9 +62,6 @@ if LooseVersion(gcc_ver) < LooseVersion('5.0'):
+     env.AppendUnique(CFLAGS=['-Wno-missing-field-initializers'])
+     env.AppendUnique(CCFLAGS=['-Wno-missing-braces'])
+ 
+-if env.get('ERROR_ON_WARN'):
+-    env.AppendUnique(CCFLAGS=['-Werror'])
+-
+ # Set arch flags that match best TARGET_ARCH variable
+ if not env.get('WITH_ENV'):
+     target_arch = env.get('TARGET_ARCH')
+diff --git a/build_common/msys_nt/SConscript b/build_common/msys_nt/SConscript
+index 66469927f..523fbc894 100644
+--- a/build_common/msys_nt/SConscript
++++ b/build_common/msys_nt/SConscript
+@@ -22,7 +22,7 @@ if env['CC'] == 'gcc':
+         env.AppendUnique(CCFLAGS=['-g'])
+     env.AppendUnique(CFLAGS=['-std=c99'])
+     env.AppendUnique(CXXFLAGS=['-std=c++11'])
+-    env.AppendUnique(CCFLAGS=['-Wall', '-Wextra', '-Wa,-mbig-obj'])
++    env.AppendUnique(CCFLAGS=['-Wall', '-Wextra', '-fPIC', '-Wa,-mbig-obj'])
+     env.AppendUnique(CPPDEFINES=[
+         'WITH_POSIX', '_GNU_SOURCE', '__msys_nt__', '_WIN32_WINNT=0x0600'
+     ])
+diff --git a/build_common/tizen/SConscript b/build_common/tizen/SConscript
+index 56a12512a..71120eb51 100644
+--- a/build_common/tizen/SConscript
++++ b/build_common/tizen/SConscript
+@@ -7,18 +7,20 @@ import SCons.Util
+ 
+ Import('env')
+ 
+-print("Reading linux configuration script")
++print("Reading tizen configuration script")
+ 
+ env['CCFLAGS'] = SCons.Util.CLVar(os.environ.get('CFLAGS', ""))
+ env.AppendUnique(CPPDEFINES=['WITH_POSIX', '__linux__'])
+ env.AppendUnique(CFLAGS=['-std=gnu99'])
+ env.AppendUnique(CCFLAGS=['-Wextra', '-fPIC'])
++env.AppendUnique(CXXFLAGS=['-std=c++11'])
+ env.AppendUnique(LIBS=['dl', 'pthread'])
+ 
+-env.AppendUnique(
+-    CCFLAGS=['-D__TIZEN__', '-D_GNU_SOURCE', '-DTIZEN_DEBUG_ENABLE'])
++env.AppendUnique(CPPDEFINES=['__TIZEN__', 'GNU_SOURCE', 'TIZEN_DEBUG_ENABLE'])
++
+ env.ParseConfig("pkg-config dlog --cflags --libs")
+ if env.get('OIC_SUPPORT_TIZEN_TRACE') == 'True':
+     env.ParseConfig("pkg-config ttrace --cflags --libs")
+     env.AppendUnique(CPPDEFINES=['OIC_SUPPORT_TIZEN_TRACE'])
+-# Set arch flags : It will be handled by Tizen build system.
++
++# Set arch flags : Will be handled by Tizen build system.
+diff --git a/cloud/samples/client/SConscript b/cloud/samples/client/SConscript
+index eaae11045..5339fe422 100644
+--- a/cloud/samples/client/SConscript
++++ b/cloud/samples/client/SConscript
+@@ -59,8 +59,6 @@ cc_sample_app_env.AppendUnique(CPPPATH=[
+     '#/extlibs/mbedtls/mbedtls/include'
+ ])
+ 
+-cc_sample_app_env.AppendUnique(
+-    CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra', '-std=c++0x', '-pthread'])
+ cc_sample_app_env.AppendUnique(RPATH=[env.get('BUILD_DIR')])
+ 
+ cc_sample_app_env.PrependUnique(LIBS=[
+diff --git a/examples/OICMiddle/SConscript b/examples/OICMiddle/SConscript
+index 77a180e2d..b442c39ed 100644
+--- a/examples/OICMiddle/SConscript
++++ b/examples/OICMiddle/SConscript
+@@ -45,15 +45,8 @@ examples_env.AppendUnique(CPPPATH=[
+ 
+ target_os = env.get('TARGET_OS')
+ if target_os not in ['windows']:
+-    examples_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
+-
+-    # Note: pthread support is in libc for Android.
+-    # On other platforms using pthreads, you need to say something to include.
+-    # On gcc platforms, -lpthread should not be needed if you use -pthread
+-    # (see CXXFLAGS above) which sets both build options and linking options.
+-    # Left in for now.
+-    if target_os != 'android':
+-        examples_env.AppendUnique(LIBS=['pthread'])
++    examples_env.AppendUnique(CCFLAGS=['-pthread'])
++    examples_env.AppendUnique(LINKFLAGS=['-pthread'])
+ 
+ examples_env.PrependUnique(LIBS=['coap'])
+ examples_env.AppendUnique(LIBS=[
+diff --git a/extlibs/gtest/SConscript b/extlibs/gtest/SConscript
+index e66070b2b..ca0ce217f 100644
+--- a/extlibs/gtest/SConscript
++++ b/extlibs/gtest/SConscript
+@@ -112,14 +112,8 @@ gtest_env.AppendUnique(LIBPATH=[gtest_dotlib_dir])
+ gtest_env.PrependUnique(CPPPATH=[os.path.join(gtest_dir, 'include')])
+ gtest_env.AppendENVPath('LD_LIBRARY_PATH', gtest_dotlib_dir)
+ if 'g++' in gtest_env.get('CXX'):
+-    gtest_env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+-    gtest_env.AppendUnique(CXXFLAGS=['-Wall'])
+-    # Note: 'pthread' for android is in bionic
+-    # On other platforms, if use new gcc(>4.9?) it isn't required,
+-    # otherwise, it's required
+-    if target_os not in ['android']:
+-        gtest_env.AppendUnique(CXXFLAGS=['-pthread'])
+-        gtest_env.PrependUnique(LIBS=['pthread'])
++    gtest_env.AppendUnique(CXXFLAGS=['-pthread'])
++    gtest_env.PrependUnique(LINKFLAGS=['-pthread'])
+ gtest_env.PrependUnique(LIBS=['gtest', 'gtest_main'])
+ if target_os in ['windows']:
+     gtest_env.AppendUnique(LINKFLAGS=['/subsystem:CONSOLE'])
+diff --git a/extlibs/libcoap/SConscript b/extlibs/libcoap/SConscript
+index 74395baf1..9c8f6600b 100755
+--- a/extlibs/libcoap/SConscript
++++ b/extlibs/libcoap/SConscript
+@@ -135,7 +135,6 @@ if target_os not in ['windows', 'winrt', 'msys_nt']:
+     # libcoap uses ipv6 features from <netinet/in.h> which only
+     # turn on if __GNU_SOURCE is defined
+     libcoap_env.AppendUnique(CPPDEFINES=['WITH_POSIX', '_GNU_SOURCE'])
+-    libcoap_env.AppendUnique(CFLAGS=['-std=gnu99','-fPIC'])
+ 
+ if target_os not in ['windows', 'winrt']:
+     libcoap_env.AppendUnique(CFLAGS=['-Wall', '-ffunction-sections',
+@@ -143,7 +142,6 @@ if target_os not in ['windows', 'winrt']:
+ 
+ if target_os == 'msys_nt':
+     libcoap_env.AppendUnique(CPPDEFINES=['_DEFAULT_SOURCE'])
+-    libcoap_env.AppendUnique(CFLAGS=['-std=c99'])
+ 
+ if target_os in ['linux', 'tizen', 'android', 'ios', 'windows']:
+     if with_tcp == True:
+diff --git a/extlibs/yaml/SConscript b/extlibs/yaml/SConscript
+index e12c588c6..45d66356a 100644
+--- a/extlibs/yaml/SConscript
++++ b/extlibs/yaml/SConscript
+@@ -40,17 +40,15 @@ yaml_env = env.Clone()
+ # Build flags
+ ######################################################################
+ yaml_env.AppendUnique(CPPPATH=['yaml/src', 'yaml/include'])
+-yaml_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
+ yaml_env.AppendUnique(CPPDEFINES=['LINUX'])
+-yaml_env.AppendUnique(LIBS=['pthread'])
++yaml_env.AppendUnique(CCFLAGS=['-pthread'])
++yaml_env.AppendUnique(LINKFLAGS=['-pthread'])
+ 
+ # Remove -Werror build flag when building the 'YamlParser' library  it
+ # is external code. see IOT-2539
+ while '-Werror' in yaml_env['CCFLAGS']: yaml_env['CCFLAGS'].remove('-Werror')
+ 
+-
+-yaml_env.AppendUnique(
+-    CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++yaml_env.AppendUnique(CXXFLAGS=['-fmessage-length=0'])
+ 
+ ######################################################################
+ # Source files and Targets
+diff --git a/plugins/samples/linux/SConscript b/plugins/samples/linux/SConscript
+index 00b0ab078..dd6bb22cf 100644
+--- a/plugins/samples/linux/SConscript
++++ b/plugins/samples/linux/SConscript
+@@ -37,7 +37,7 @@ samples_env.PrependUnique(CPPPATH=[
+ ])
+ 
+ samples_env.AppendUnique(
+-    CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
++    CXXFLAGS=['-Wall', '-Wextra'])
+ 
+ if target_os in ['darwin', 'ios']:
+     samples_env.PrependUnique(LIBS=[
+diff --git a/plugins/src/SConscript b/plugins/src/SConscript
+index 925e28d67..cc4c27711 100644
+--- a/plugins/src/SConscript
++++ b/plugins/src/SConscript
+@@ -59,7 +59,7 @@ if target_os not in ['windows']:
+ if target_os in ['darwin', 'ios']:
+     env.AppendUnique(CPPDEFINES=['_DARWIN_C_SOURCE'])
+ 
+-env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
++env.AppendUnique(CXXFLAGS=['-Wall', '-Wextra'])
+ 
+ env.PrependUnique(LIBS=['zigbee_wrapper'])
+ 
+diff --git a/plugins/zigbee_wrapper/src/SConscript b/plugins/zigbee_wrapper/src/SConscript
+index 54506377c..d53d15177 100644
+--- a/plugins/zigbee_wrapper/src/SConscript
++++ b/plugins/zigbee_wrapper/src/SConscript
+@@ -53,7 +53,7 @@ if target_os not in ['windows']:
+ if target_os in ['darwin', 'ios']:
+     env.AppendUnique(CPPDEFINES=['_DARWIN_C_SOURCE'])
+ 
+-env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-Wextra'])
++env.AppendUnique(CXXFLAGS=['-Wall', '-Wextra'])
+ env.PrependUnique(LIBS=['telegesis_wrapper'])
+ 
+ #####################################################################
+diff --git a/resource/IPCA/samples/ElevatorClient/SConscript b/resource/IPCA/samples/ElevatorClient/SConscript
+index baa72d266..f755ae7d0 100644
+--- a/resource/IPCA/samples/ElevatorClient/SConscript
++++ b/resource/IPCA/samples/ElevatorClient/SConscript
+@@ -38,7 +38,7 @@ if target_os not in ['windows', 'msys_nt']:
+     elevator_client_env.AppendUnique(LIBS=['dl'])
+ 
+ if 'g++' in elevator_client_env.get('CXX'):
+-    elevator_client_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    elevator_client_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ elevator_client_src = [
+     'ElevatorClient.cpp',
+diff --git a/resource/IPCA/samples/ElevatorServer/SConscript b/resource/IPCA/samples/ElevatorServer/SConscript
+index bce389e7b..b58ac8b85 100644
+--- a/resource/IPCA/samples/ElevatorServer/SConscript
++++ b/resource/IPCA/samples/ElevatorServer/SConscript
+@@ -76,7 +76,7 @@ if target_os not in ['windows', 'msys_nt']:
+     elevator_server_env.AppendUnique(LIBS=['dl'])
+ 
+ if 'g++' in elevator_server_env.get('CXX'):
+-    elevator_server_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    elevator_server_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ ######################################################################
+ # Source files and Targets
+diff --git a/resource/IPCA/samples/ipcaapp/SConscript b/resource/IPCA/samples/ipcaapp/SConscript
+index 4cd2c35d4..1aa0fc1d4 100644
+--- a/resource/IPCA/samples/ipcaapp/SConscript
++++ b/resource/IPCA/samples/ipcaapp/SConscript
+@@ -38,7 +38,7 @@ if target_os not in ['windows', 'msys_nt']:
+     ipcaapp_env.AppendUnique(LIBS=['dl'])
+ 
+ if 'g++' in ipcaapp_env.get('CXX'):
+-    ipcaapp_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    ipcaapp_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ ######################################################################
+ # Source files and Targets
+diff --git a/resource/IPCA/src/SConscript b/resource/IPCA/src/SConscript
+index 665cef0ca..b05767c0a 100644
+--- a/resource/IPCA/src/SConscript
++++ b/resource/IPCA/src/SConscript
+@@ -80,7 +80,7 @@ if target_os not in ['windows', 'msys_nt']:
+     ipca_lib_env.AppendUnique(LIBS=['dl'])
+ 
+ if 'g++' in ipca_lib_env.get('CXX'):
+-    ipca_lib_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    ipca_lib_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ ######################################################################
+ # Source files and Targets
+diff --git a/resource/csdk/resource-directory/SConscript b/resource/csdk/resource-directory/SConscript
+index 136c94f2f..7aae2cf40 100644
+--- a/resource/csdk/resource-directory/SConscript
++++ b/resource/csdk/resource-directory/SConscript
+@@ -58,7 +58,7 @@ rd_env.PrependUnique(
+ 
+ if target_os not in ['windows']:
+     rd_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra'])
+ else:
+     # Non-Windows platforms find the boost headers under /usr/include or similar path.
+     rd_env.AppendUnique(CPPPATH=['#/extlibs/boost/boost'])
+diff --git a/resource/csdk/resource-directory/samples/SConscript b/resource/csdk/resource-directory/samples/SConscript
+index aa172f6c6..77b0be10d 100644
+--- a/resource/csdk/resource-directory/samples/SConscript
++++ b/resource/csdk/resource-directory/samples/SConscript
+@@ -46,7 +46,7 @@ rd_sample_app_env.AppendUnique(CPPPATH=[
+ 
+ if target_os not in ['windows']:
+     rd_sample_app_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra'])
+ rd_sample_app_env.PrependUnique(LIBS=['resource_directory', 'octbstack'])
+ 
+ if env.get('SECURED') == '1':
+diff --git a/resource/csdk/security/provisioning/SConscript b/resource/csdk/security/provisioning/SConscript
+index 62a2c862c..989c2a32a 100644
+--- a/resource/csdk/security/provisioning/SConscript
++++ b/resource/csdk/security/provisioning/SConscript
+@@ -43,9 +43,6 @@ provisioning_env.AppendUnique(CPPPATH=[
+ 
+ provisioning_env.AppendUnique(CPPDEFINES=['__WITH_DTLS__'])
+ 
+-if 'g++' in provisioning_env.get('CXX'):
+-    provisioning_env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+-
+ SConscript('src/SConscript', 'provisioning_env')
+ 
+ if target_os in ['linux', 'msys_nt', 'windows', 'tizen']:
+diff --git a/resource/csdk/security/provisioning/sample/SConscript b/resource/csdk/security/provisioning/sample/SConscript
+index 086e14ae5..a2ca5c9bb 100644
+--- a/resource/csdk/security/provisioning/sample/SConscript
++++ b/resource/csdk/security/provisioning/sample/SConscript
+@@ -39,7 +39,7 @@ provisioning_sample_env.AppendUnique(CPPDEFINES=['__WITH_DTLS__'])
+ if target_os not in ['windows']:
+     provisioning_sample_env.AppendUnique(CFLAGS=['-std=c99'])
+     provisioning_sample_env.AppendUnique(
+-        CXXFLAGS=['-std=c++0x', '-Wall', '-pthread', '-fpermissive'])
++        CXXFLAGS=['-Wall', '-pthread', '-fpermissive'])
+     provisioning_sample_env.AppendUnique(LIBS=['pthread'])
+ 
+ if target_os not in ['msys_nt', 'windows']:
+diff --git a/resource/csdk/security/tool/SConscript b/resource/csdk/security/tool/SConscript
+index 247393d82..709a4f21c 100644
+--- a/resource/csdk/security/tool/SConscript
++++ b/resource/csdk/security/tool/SConscript
+@@ -67,7 +67,7 @@ tools_env.PrependUnique(CPPPATH=[
+     '#/resource/csdk/security/provisioning/include',
+     '#/resource/csdk/security/provisioning/include/internal'
+ ])
+-tools_env.AppendUnique(CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra', '-std=c++0x'])
++tools_env.AppendUnique(CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra'])
+ 
+ if target_os in ['windows', 'msys_nt']:
+     # Macro needed for Windows builds to avoid __declspec(dllexport) and
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript b/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
+index 7742c3d71..43aff962e 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/SConscript
+@@ -47,7 +47,7 @@ samples_env.PrependUnique(CPPPATH=[
+ 
+ compiler = samples_env.get('CXX')
+ if 'g++' in compiler:
+-    samples_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    samples_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ samples_env.PrependUnique(LIBS=['coap'])
+ 
+diff --git a/resource/csdk/stack/samples/linux/secure/SConscript b/resource/csdk/stack/samples/linux/secure/SConscript
+index 6fc3d21fe..b98da3721 100644
+--- a/resource/csdk/stack/samples/linux/secure/SConscript
++++ b/resource/csdk/stack/samples/linux/secure/SConscript
+@@ -34,7 +34,7 @@ samples_env.PrependUnique(CPPPATH=[
+ 
+ target_os = samples_env.get('TARGET_OS')
+ if target_os not in ['windows']:
+-    samples_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
++    samples_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ 
+     # Note: 'pthread' is in libc for android.
+     if target_os != 'android':
+diff --git a/resource/csdk/stack/samples/tizen/SimpleClientServer/scons/SConscript b/resource/csdk/stack/samples/tizen/SimpleClientServer/scons/SConscript
+index d732c6bf0..decb3c7fd 100644
+--- a/resource/csdk/stack/samples/tizen/SimpleClientServer/scons/SConscript
++++ b/resource/csdk/stack/samples/tizen/SimpleClientServer/scons/SConscript
+@@ -33,7 +33,7 @@ sample_dir = build_dir
+ print("MQ flag is %s" % with_mq)
+ 
+ env.AppendUnique(CPPFLAGS=[
+-    '-std=c++0x', '-fPIC', '-D__TIZEN__', '-DWITH_POSIX', '-Wall',
++    '-fPIC', '-D__TIZEN__', '-DWITH_POSIX', '-Wall',
+     '-DSLP_SDK_LOG', '-g', '-D_GNU_SOURCE', '-DTIZEN_DEBUG_ENABLE', '-DTB_LOG',
+ ])
+ env.ParseConfig("pkg-config --cflags --libs dlog com.oic.ri capi-network-connection")
+diff --git a/resource/examples/SConscript b/resource/examples/SConscript
+index 5ff29786b..127f59edb 100644
+--- a/resource/examples/SConscript
++++ b/resource/examples/SConscript
+@@ -54,7 +54,7 @@ examples_env.AppendUnique(LIBS=['oc'])
+ 
+ compiler = examples_env.get('CXX')
+ if 'g++' in compiler:
+-    examples_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    examples_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if target_os in ['msys_nt', 'windows']:
+     examples_env.PrependUnique(LIBS=[
+diff --git a/resource/oc_logger/SConscript b/resource/oc_logger/SConscript
+index aa9818ed7..a8a98e30a 100644
+--- a/resource/oc_logger/SConscript
++++ b/resource/oc_logger/SConscript
+@@ -41,7 +41,7 @@ if target_os == 'android':
+ 
+ if target_os not in ['windows']:
+     liboc_logger_env.AppendUnique(CFLAGS=['-Wall', '-std=c99', '-fPIC'])
+-    liboc_logger_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x', '-fPIC'])
++    liboc_logger_env.AppendUnique(CXXFLAGS=['-Wall', '-fPIC'])
+ 
+ if target_os not in ['darwin', 'ios', 'windows', 'msys_nt']:
+     liboc_logger_env.AppendUnique(LINKFLAGS=['-Wl,--no-undefined'])
+diff --git a/resource/oc_logger/examples/SConscript b/resource/oc_logger/examples/SConscript
+index 3ac7cd1b8..e6a3a8f25 100644
+--- a/resource/oc_logger/examples/SConscript
++++ b/resource/oc_logger/examples/SConscript
+@@ -42,7 +42,7 @@ target_os = env.get('TARGET_OS')
+ 
+ if target_os not in ['msys_nt', 'windows']:
+     examples_env.AppendUnique(CFLAGS=Split('-Wall -std=c99'))
+-    examples_env.AppendUnique(CXXFLAGS=Split('-Wall -std=c++0x'))
++    examples_env.AppendUnique(CXXFLAGS=['-Wall'])
+     examples_env.AppendUnique(LIBS=['oc_logger'])
+ 
+     if target_os == 'android':
+diff --git a/resource/provisioning/SConscript b/resource/provisioning/SConscript
+index 9eb1e6c44..b96bfce63 100644
+--- a/resource/provisioning/SConscript
++++ b/resource/provisioning/SConscript
+@@ -53,7 +53,7 @@ ocprovision_env.AppendUnique(CPPPATH=[
+ 
+ target_os = ocprovision_env.get('TARGET_OS')
+ if target_os not in ['windows']:
+-    ocprovision_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-fPIC'])
++    ocprovision_env.AppendUnique(CXXFLAGS=['-Wall', '-fPIC'])
+ 
+ if target_os == 'android':
+     ocprovision_env.AppendUnique(CXXFLAGS=['-frtti', '-fexceptions'])
+diff --git a/resource/provisioning/examples/SConscript b/resource/provisioning/examples/SConscript
+index 3958a7748..37cd28225 100644
+--- a/resource/provisioning/examples/SConscript
++++ b/resource/provisioning/examples/SConscript
+@@ -86,7 +86,7 @@ if examples_env.get('SECURED') == '1':
+     ])
+ 
+ if 'g++' in examples_env.get('CXX'):
+-    examples_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    examples_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if target_os in ['android']:
+     examples_env.AppendUnique(CXXFLAGS=['-frtti', '-fexceptions'])
+diff --git a/resource/src/SConscript b/resource/src/SConscript
+index 457a80ee7..b18e31628 100644
+--- a/resource/src/SConscript
++++ b/resource/src/SConscript
+@@ -61,7 +61,6 @@ oclib_env.AppendUnique(LIBS=['oc_logger'])
+ oclib_env.PrependUnique(LIBS=['octbstack', 'connectivity_abstraction'])
+ 
+ if 'g++' in oclib_env.get('CXX'):
+-    oclib_env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+     oclib_env.AppendUnique(CXXFLAGS=['-Wall'])
+     oclib_env.AppendUnique(CXXFLAGS=['-fPIC'])
+ 
+diff --git a/service/coap-http-proxy/samples/SConscript b/service/coap-http-proxy/samples/SConscript
+index f56e0f819..601c56068 100644
+--- a/service/coap-http-proxy/samples/SConscript
++++ b/service/coap-http-proxy/samples/SConscript
+@@ -37,7 +37,7 @@ proxy_sample_app_env.AppendUnique(CPPPATH=['../include'])
+ 
+ if target_os not in ['windows']:
+     proxy_sample_app_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-Wextra'])
+ else:
+     proxy_sample_app_env.PrependUnique(LIBS=['m'])
+ 
+diff --git a/service/easy-setup/enrollee/SConscript b/service/easy-setup/enrollee/SConscript
+index 9cba70bb9..a26456b18 100644
+--- a/service/easy-setup/enrollee/SConscript
++++ b/service/easy-setup/enrollee/SConscript
+@@ -64,7 +64,7 @@ if enrollee_env.get('SECURED') == '1':
+     enrollee_env.AppendUnique(LIBS=['mbedtls', 'mbedx509', 'mbedcrypto'])
+ 
+ if target_os not in ['windows']:
+-    enrollee_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    enrollee_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ ######################################################################
+ # Linux Enrollee
+diff --git a/service/easy-setup/enrollee/unittests/SConscript b/service/easy-setup/enrollee/unittests/SConscript
+index 67bac4a44..d1426a6d6 100644
+--- a/service/easy-setup/enrollee/unittests/SConscript
++++ b/service/easy-setup/enrollee/unittests/SConscript
+@@ -57,7 +57,7 @@ easysetup_test_env.PrependUnique(LIBS=[
+ 
+ if target_os not in ['windows', 'winrt']:
+     easysetup_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ easysetup_test_env.AddPthreadIfNeeded()
+ easysetup_test_env.PrependUnique(CPPPATH=[
+diff --git a/service/easy-setup/mediator/richsdk/SConscript b/service/easy-setup/mediator/richsdk/SConscript
+index 139adfc7a..e6714fdec 100644
+--- a/service/easy-setup/mediator/richsdk/SConscript
++++ b/service/easy-setup/mediator/richsdk/SConscript
+@@ -57,7 +57,7 @@ easy_setup_env.AppendUnique(CPPPATH=[
+ ])
+ 
+ if target_os not in ['windows']:
+-    easy_setup_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    easy_setup_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if target_os in ['linux', 'tizen']:
+     easy_setup_env.AppendUnique(LIBS=['dl', 'coap'])
+diff --git a/service/easy-setup/mediator/richsdk/unittests/SConscript b/service/easy-setup/mediator/richsdk/unittests/SConscript
+index ba13c71cd..4be1509b7 100644
+--- a/service/easy-setup/mediator/richsdk/unittests/SConscript
++++ b/service/easy-setup/mediator/richsdk/unittests/SConscript
+@@ -53,7 +53,7 @@ easysetup_test_env.PrependUnique(LIBS=[
+ 
+ if target_os not in ['windows', 'winrt']:
+     easysetup_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ easysetup_test_env.AddPthreadIfNeeded()
+ easysetup_test_env.PrependUnique(CPPPATH=[
+diff --git a/service/easy-setup/sampleapp/enrollee/linux/SConscript b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+index 8da5286d8..5fcecf517 100644
+--- a/service/easy-setup/sampleapp/enrollee/linux/SConscript
++++ b/service/easy-setup/sampleapp/enrollee/linux/SConscript
+@@ -31,7 +31,7 @@ transport = enrollee_env.get('TARGET_TRANSPORT')
+ ######################################################################
+ # Build flags
+ ######################################################################
+-enrollee_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++enrollee_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if env.get('RELEASE'):
+     enrollee_env.AppendUnique(CCFLAGS=['-Os'])
+diff --git a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
+index 751607f8d..84212a7cd 100644
+--- a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
++++ b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/SConscript
+@@ -38,7 +38,7 @@ else:
+ mediator_env.AppendUnique(CPPDEFINES=['CPP_MEDIATOR'])
+ 
+ if target_os not in ['windows']:
+-    mediator_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    mediator_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ mediator_env.PrependUnique(CPPPATH=[
+     '#/resource/include',
+diff --git a/service/notification/cpp-wrapper/consumer/SConscript b/service/notification/cpp-wrapper/consumer/SConscript
+index 95cf88e39..c71e8dc50 100644
+--- a/service/notification/cpp-wrapper/consumer/SConscript
++++ b/service/notification/cpp-wrapper/consumer/SConscript
+@@ -62,7 +62,7 @@ notification_env.PrependUnique(LIBS=[
+     'logger',
+ ])
+ 
+-notification_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-frtti'])
++notification_env.AppendUnique(CXXFLAGS=['-frtti'])
+ 
+ if target_os not in ['windows', 'winrt']:
+     notification_env.AppendUnique(
+diff --git a/service/notification/cpp-wrapper/examples/linux/SConscript b/service/notification/cpp-wrapper/examples/linux/SConscript
+index 7c8b5a5d9..086103f0a 100644
+--- a/service/notification/cpp-wrapper/examples/linux/SConscript
++++ b/service/notification/cpp-wrapper/examples/linux/SConscript
+@@ -56,7 +56,7 @@ notification_sample_env.PrependUnique(LIBS=[
+     'connectivity_abstraction',
+ ])
+ 
+-notification_sample_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-frtti'])
++notification_sample_env.AppendUnique(CXXFLAGS=['-frtti'])
+ if target_os not in ['windows', 'winrt']:
+     notification_sample_env.AppendUnique(
+         CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+diff --git a/service/notification/cpp-wrapper/provider/SConscript b/service/notification/cpp-wrapper/provider/SConscript
+index 4d647f785..6571d2b51 100644
+--- a/service/notification/cpp-wrapper/provider/SConscript
++++ b/service/notification/cpp-wrapper/provider/SConscript
+@@ -64,7 +64,7 @@ notification_env.PrependUnique(LIBS=[
+     'resource_directory',
+     'logger'
+ ])
+-notification_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-frtti'])
++notification_env.AppendUnique(CXXFLAGS=['-frtti'])
+ 
+ if target_os not in ['windows', 'winrt']:
+     notification_env.AppendUnique(
+diff --git a/service/notification/cpp-wrapper/unittest/SConscript b/service/notification/cpp-wrapper/unittest/SConscript
+index 03709bc94..73daf7c0a 100644
+--- a/service/notification/cpp-wrapper/unittest/SConscript
++++ b/service/notification/cpp-wrapper/unittest/SConscript
+@@ -61,7 +61,7 @@ if env.get('SECURED') == '1':
+ 
+ if target_os not in ['windows', 'winrt']:
+     notification_wrapper_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ notification_wrapper_test_env.AppendUnique(LINKFLAGS=['-Wl,--no-as-needed'])
+ 
+diff --git a/service/notification/examples/linux/SConscript b/service/notification/examples/linux/SConscript
+index c31f816a4..0cd712234 100644
+--- a/service/notification/examples/linux/SConscript
++++ b/service/notification/examples/linux/SConscript
+@@ -35,7 +35,7 @@ notification_sample_env.PrependUnique(LIBS=[
+ 
+ if target_os not in ['windows', 'winrt']:
+     notification_sample_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ if target_os not in ['darwin', 'ios', 'windows', 'winrt']:
+     notification_sample_env.AppendUnique(LINKFLAGS=['-Wl,--no-undefined'])
+diff --git a/service/notification/unittest/SConscript b/service/notification/unittest/SConscript
+index 108adf8f6..6363685f3 100644
+--- a/service/notification/unittest/SConscript
++++ b/service/notification/unittest/SConscript
+@@ -57,7 +57,7 @@ notification_test_env.AppendUnique(LIBS=[
+ 
+ if target_os not in ['windows', 'winrt']:
+     notification_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ notification_test_env.AppendUnique(LINKFLAGS=['-Wl,--no-as-needed'])
+ 
+diff --git a/service/resource-container/SConscript b/service/resource-container/SConscript
+index 6bf4c1617..8a97d81cd 100644
+--- a/service/resource-container/SConscript
++++ b/service/resource-container/SConscript
+@@ -91,7 +91,7 @@ if int(containerJavaSupport):
+         print('')
+ 
+ if target_os not in ['windows']:
+-    resource_container_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    resource_container_env.AppendUnique(CXXFLAGS=['-Wall'])
+     if target_os != 'android':
+         resource_container_env.AppendUnique(CXXFLAGS=['-pthread'])
+ 
+diff --git a/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript b/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
+index 19b7482b8..88ea8c7ea 100644
+--- a/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
++++ b/service/resource-container/examples/BMISensorBundle/src/inputSensors/HeightSensorApp/SConscript
+@@ -12,7 +12,7 @@ SConscript('#service/third_party_libs.scons',
+ # Build flags
+ ######################################################################
+ linux_sample_env.AppendUnique(CPPPATH=['include'])
+-linux_sample_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
++linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ linux_sample_env.AppendUnique(CPPDEFINES=['LINUX'])
+ linux_sample_env.AppendUnique(LIBS=[
+     'coap',
+diff --git a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
+index 1f2805fb9..5491468f4 100644
+--- a/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
++++ b/service/resource-container/examples/BMISensorBundle/src/inputSensors/WeightSensorApp/SConscript
+@@ -12,7 +12,7 @@ SConscript(
+ # Build flags
+ ######################################################################
+ linux_sample_env.AppendUnique(CPPPATH=['include'])
+-linux_sample_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
++linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ linux_sample_env.AppendUnique(CPPDEFINES=['LINUX'])
+ linux_sample_env.AppendUnique(LIBS=[
+     'coap',
+diff --git a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
+index 690aaf811..9ee5cc35f 100644
+--- a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
++++ b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp/SConscript
+@@ -12,7 +12,7 @@ SConscript('#service/third_party_libs.scons',
+ # Build flags
+ ######################################################################
+ linux_sample_env.AppendUnique(CPPPATH=['include'])
+-linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread', '-std=c++0x'])
++linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ linux_sample_env.AppendUnique(CPPDEFINES=['LINUX'])
+ linux_sample_env.AppendUnique(LIBS=[
+     'coap',
+diff --git a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
+index fc249ef85..c575105d2 100644
+--- a/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
++++ b/service/resource-container/examples/DiscomfortIndexSensorBundle/src/inputSensors/THSensorApp1/SConscript
+@@ -12,7 +12,7 @@ SConscript('#service/third_party_libs.scons',
+ # Build flags
+ ######################################################################
+ linux_sample_env.AppendUnique(CPPPATH=['include'])
+-linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread', '-std=c++0x'])
++linux_sample_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ linux_sample_env.AppendUnique(CPPDEFINES=['LINUX'])
+ linux_sample_env.AppendUnique(LIBS=[
+     'coap',
+diff --git a/service/resource-container/unittests/SConscript b/service/resource-container/unittests/SConscript
+index 1dbe0f383..821ea6bcc 100644
+--- a/service/resource-container/unittests/SConscript
++++ b/service/resource-container/unittests/SConscript
+@@ -180,9 +180,6 @@ unittests += TestBundle
+ ######################################################################
+ # Build Test
+ ######################################################################
+-if 'g++' in container_gtest_env.get('CXX'):
+-    container_gtest_env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+-
+ container_gtest_src = container_gtest_env.Glob('./ResourceContainerTest.cpp')
+ 
+ container_test = container_gtest_env.Program('container_test',
+diff --git a/service/resource-encapsulation/SConscript b/service/resource-encapsulation/SConscript
+index deba38df3..fa42162c7 100644
+--- a/service/resource-encapsulation/SConscript
++++ b/service/resource-encapsulation/SConscript
+@@ -70,7 +70,7 @@ resourceClient_env.PrependUnique(
+     LIBS=['c_common', 'oc', 'rcs_common', 'octbstack', 'oc_logger', 'logger'])
+ 
+ if target_os not in ['windows']:
+-    resourceClient_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++    resourceClient_env.AppendUnique(CXXFLAGS=['-Wall'])
+     resourceClient_env.AppendUnique(LIBS=['dl'])
+     resourceClient_env.AddPthreadIfNeeded()
+ 
+diff --git a/service/resource-encapsulation/examples/linux/SConscript b/service/resource-encapsulation/examples/linux/SConscript
+index 09e107a91..cc5200a77 100644
+--- a/service/resource-encapsulation/examples/linux/SConscript
++++ b/service/resource-encapsulation/examples/linux/SConscript
+@@ -31,7 +31,7 @@ SConscript('#service/third_party_libs.scons', 'lib_env')
+ 
+ sample_env = lib_env.Clone()
+ 
+-sample_env.AppendUnique(CXXFLAGS=['-Wall', '-std=c++0x'])
++sample_env.AppendUnique(CXXFLAGS=['-Wall'])
+ sample_env.AppendUnique(LIBS=[
+     'coap', 'connectivity_abstraction', 'oc_logger', 'octbstack', 'oc',
+     'rcs_common'
+diff --git a/service/resource-encapsulation/src/common/SConscript b/service/resource-encapsulation/src/common/SConscript
+index 34b89d182..e21f93391 100644
+--- a/service/resource-encapsulation/src/common/SConscript
++++ b/service/resource-encapsulation/src/common/SConscript
+@@ -54,7 +54,7 @@ rcs_common_env.AppendUnique(CPPPATH=[
+ rcs_common_env.AppendUnique(CPPPATH=['expiryTimer/include', 'expiryTimer/src'])
+ 
+ if target_os not in ['windows']:
+-    rcs_common_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    rcs_common_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if target_os not in ['darwin', 'ios', 'windows']:
+     rcs_common_env.AppendUnique(LINKFLAGS=['-Wl,--no-undefined'])
+diff --git a/service/resource-encapsulation/src/resourceBroker/unittest/SConscript b/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
+index 6a372a599..16e62cf18 100644
+--- a/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
++++ b/service/resource-encapsulation/src/resourceBroker/unittest/SConscript
+@@ -76,7 +76,7 @@ broker_test_env.AppendUnique(LIBS=[
+ compiler = broker_test_env.get('CXX')
+ if 'g++' in compiler:
+     broker_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ if broker_test_env.get('SECURED') == '1':
+     broker_test_env.AppendUnique(LIBS=['mbedtls', 'mbedx509', 'mbedcrypto'])
+diff --git a/service/resource-encapsulation/src/resourceCache/unittests/SConscript b/service/resource-encapsulation/src/resourceCache/unittests/SConscript
+index 3459c7d0b..03fd09272 100644
+--- a/service/resource-encapsulation/src/resourceCache/unittests/SConscript
++++ b/service/resource-encapsulation/src/resourceCache/unittests/SConscript
+@@ -73,7 +73,7 @@ cache_test_env.PrependUnique(LIBS=[
+ compiler = cache_test_env.get('CXX')
+ if 'g++' in compiler:
+     cache_test_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ if cache_test_env.get('SECURED') == '1':
+     cache_test_env.AppendUnique(LIBS=['mbedtls', 'mbedx509', 'mbedcrypto'])
+diff --git a/service/resource-encapsulation/src/serverBuilder/SConscript b/service/resource-encapsulation/src/serverBuilder/SConscript
+index a9eaa0346..ff0a869e4 100644
+--- a/service/resource-encapsulation/src/serverBuilder/SConscript
++++ b/service/resource-encapsulation/src/serverBuilder/SConscript
+@@ -54,7 +54,7 @@ server_builder_env.AppendUnique(CPPPATH=[
+ server_builder_env.AppendUnique(LIBS=['oc', 'rcs_common', 'logger'])
+ 
+ if target_os not in ['windows']:
+-    server_builder_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall'])
++    server_builder_env.AppendUnique(CXXFLAGS=['-Wall'])
+ 
+ if target_os not in ['darwin', 'ios', 'windows']:
+     server_builder_env.AppendUnique(LINKFLAGS=['-Wl,--no-undefined'])
+diff --git a/service/resource-encapsulation/unittests/SConscript b/service/resource-encapsulation/unittests/SConscript
+index f3059e6df..6ec949f23 100644
+--- a/service/resource-encapsulation/unittests/SConscript
++++ b/service/resource-encapsulation/unittests/SConscript
+@@ -82,9 +82,6 @@ if lib_env.get('SECURED') == '1':
+     rcs_test_env.AppendUnique(CPPDEFINES=['SECURED'])
+     rcs_test_env.AppendUnique(LIBS=['mbedtls', 'mbedx509', 'mbedcrypto'])
+ 
+-if 'g++' in rcs_test_env.get('CXX'):
+-    rcs_test_env.AppendUnique(CXXFLAGS=['-std=c++0x'])
+-
+ ######################################################################
+ # Build Test
+ ######################################################################
+diff --git a/service/scene-manager/SConscript b/service/scene-manager/SConscript
+index 49d17a441..b5a1b676a 100644
+--- a/service/scene-manager/SConscript
++++ b/service/scene-manager/SConscript
+@@ -66,7 +66,7 @@ scenemanager_env.PrependUnique(LIBS=[
+ 
+ if target_os not in ['windows']:
+     scenemanager_env.AppendUnique(
+-        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++        CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ if target_os not in ['darwin', 'ios', 'windows']:
+     scenemanager_env.AppendUnique(LINKFLAGS=['-Wl,--no-undefined'])
+diff --git a/service/scene-manager/sampleapp/linux/SConscript b/service/scene-manager/sampleapp/linux/SConscript
+index 29541f529..484b3d44c 100644
+--- a/service/scene-manager/sampleapp/linux/SConscript
++++ b/service/scene-manager/sampleapp/linux/SConscript
+@@ -28,7 +28,7 @@ scenemanager_sample_env.AppendUnique(CPPPATH=[
+     '#/resource/oc_logger/include'
+ ])
+ scenemanager_sample_env.AppendUnique(
+-    CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++    CXXFLAGS=['-O2', '-g', '-Wall', '-fmessage-length=0'])
+ 
+ scenemanager_sample_env.PrependUnique(LIBS=['scene_manager'])
+ scenemanager_sample_env.AppendUnique(LIBS=[
+diff --git a/service/simulator/SConscript b/service/simulator/SConscript
+index 8cbdfb2fa..0148dbe70 100644
+--- a/service/simulator/SConscript
++++ b/service/simulator/SConscript
+@@ -80,7 +80,7 @@ simulator_env.PrependUnique(LIBS=['oc', 'octbstack', 'RamlParser'])
+ simulator_env.AppendUnique(LIBS=['pthread'])
+ 
+ simulator_env.AppendUnique(
+-    CXXFLAGS=['-O2', '-Wall', '-fmessage-length=0', '-std=c++0x'])
++    CXXFLAGS=['-O2', '-Wall', '-fmessage-length=0'])
+ 
+ ######################################################################
+ # Source files and Targets
+diff --git a/service/simulator/examples/client/SConscript b/service/simulator/examples/client/SConscript
+index 335e33028..7c731c455 100644
+--- a/service/simulator/examples/client/SConscript
++++ b/service/simulator/examples/client/SConscript
+@@ -1,3 +1,19 @@
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
+ Import('env')
+ lib_env = env.Clone()
+ SConscript('#service/third_party_libs.scons', 'lib_env')
+@@ -17,7 +33,7 @@ sim_env.AppendUnique(CPPPATH=[
+     '#/resource/include',
+     '#/resource/oc_logger/include'
+ ])
+-sim_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
++sim_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ sim_env.AppendUnique(CPPDEFINES=['LINUX'])
+ sim_env.AppendUnique(LIBS=['SimulatorManager'])
+ 
+diff --git a/service/simulator/examples/server/SConscript b/service/simulator/examples/server/SConscript
+index 0b25fea76..19a2a6c29 100644
+--- a/service/simulator/examples/server/SConscript
++++ b/service/simulator/examples/server/SConscript
+@@ -1,3 +1,19 @@
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
+ Import('env')
+ lib_env = env.Clone()
+ SConscript('#service/third_party_libs.scons', 'lib_env')
+@@ -18,7 +34,7 @@ sim_env.AppendUnique(CPPPATH=[
+     '#/resource/oc_logger/include',
+     '#/service/simulator/inc'
+ ])
+-sim_env.AppendUnique(CXXFLAGS=['-std=c++0x', '-Wall', '-pthread'])
++sim_env.AppendUnique(CXXFLAGS=['-Wall', '-pthread'])
+ sim_env.AppendUnique(CPPDEFINES=['LINUX'])
+ sim_env.AppendUnique(LIBS=['SimulatorManager'])
+ 
+diff --git a/service/simulator/ramlparser/SConscript b/service/simulator/ramlparser/SConscript
+index 4937c7cff..939356502 100644
+--- a/service/simulator/ramlparser/SConscript
++++ b/service/simulator/ramlparser/SConscript
+@@ -38,8 +38,7 @@ raml_env.AppendUnique(CPPPATH=[
+     'raml'
+ ])
+ raml_env.AppendUnique(CXXFLAGS=[
+-    '-std=c++0x', '-Wall', '-pthread', '-O2', '-g', '-Wall',
+-    '-fmessage-length=0'
++    '-Wall', '-pthread', '-O2', '-g', '-Wall', '-fmessage-length=0'
+ ])
+ raml_env.AppendUnique(CPPDEFINES=['LINUX'])
+ raml_env['RPATH']=env.Literal('\\$$ORIGIN')
+-- 
+2.16.1.windows.1
+

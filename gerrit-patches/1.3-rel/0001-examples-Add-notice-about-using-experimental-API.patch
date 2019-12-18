@@ -1,0 +1,1223 @@
+From 0615f171b6bef5b1c8e413529022b5176888ca1e Mon Sep 17 00:00:00 2001
+From: Philippe Coval <philippe.coval@osg.samsung.com>
+Date: Tue, 28 Nov 2017 09:44:42 +0100
+Subject: [PATCH 1/2] examples: Add notice about using experimental API
+
+Bug: https://jira.iotivity.org/browse/IOT-1745
+Change-Id: I14190ffe2f857d48e062f3f78e9b7b52123efe1b
+Signed-off-by: Philippe Coval <philippe.coval@osg.samsung.com>
+---
+ plugins/samples/linux/IotivityandZigbeeClient.c             |  7 +++++--
+ plugins/samples/linux/IotivityandZigbeeServer.c             |  7 ++++++-
+ resource/IPCA/samples/ElevatorServer/elevatorserver.cpp     |  5 ++++-
+ .../csdk/resource-directory/samples/rd_publishingClient.cpp |  5 ++++-
+ resource/csdk/resource-directory/samples/rd_queryClient.cpp |  4 ++++
+ .../security/provisioning/sample/autoprovisioningclient.c   |  9 ++++++---
+ .../csdk/security/provisioning/sample/certgenerator.cpp     |  5 ++++-
+ .../csdk/security/provisioning/sample/cloud/cloudAuth.c     | 11 ++++++-----
+ .../csdk/security/provisioning/sample/cloud/cloudCommon.c   |  7 +++++--
+ .../security/provisioning/sample/cloud/cloudDiscovery.c     |  7 +++++--
+ .../csdk/security/provisioning/sample/cloud/cloudResource.c |  6 ++++--
+ .../csdk/security/provisioning/sample/cloud/cloudWrapper.c  |  6 ++++--
+ resource/csdk/security/provisioning/sample/cloudClient.c    |  3 +++
+ resource/csdk/security/provisioning/sample/cloudServer.c    |  5 ++++-
+ .../csdk/security/provisioning/sample/provisioningclient.c  |  9 ++++++---
+ .../security/provisioning/sample/sampleserver_justworks.cpp |  4 ++++
+ .../csdk/security/provisioning/sample/sampleserver_mfg.cpp  |  3 +++
+ .../provisioning/sample/sampleserver_mvjustworks.cpp        |  3 +++
+ .../provisioning/sample/sampleserver_preconfpin.cpp         |  3 +++
+ .../security/provisioning/sample/sampleserver_randompin.cpp |  3 +++
+ resource/csdk/security/provisioning/sample/subownerclient.c |  5 ++++-
+ .../csdk/security/provisioning/unittest/sampleserver.cpp    |  7 +++++--
+ .../arduino/SimpleClientServer/ocserver/ocserver.cpp        |  4 +++-
+ resource/csdk/stack/samples/linux/OCSample/occlient.c       |  3 +++
+ resource/csdk/stack/samples/linux/OCSample/ocserver.c       |  3 +++
+ .../stack/samples/linux/SimpleClientServer/occlient.cpp     |  3 +++
+ .../samples/linux/SimpleClientServer/occlientbasicops.cpp   |  7 +++++--
+ .../stack/samples/linux/SimpleClientServer/occlientcoll.cpp |  7 +++++--
+ .../stack/samples/linux/SimpleClientServer/occlientslow.cpp |  8 ++++++--
+ .../linux/SimpleClientServer/ocremoteaccessclient.cpp       |  9 +++++++--
+ .../stack/samples/linux/SimpleClientServer/ocrouting.cpp    |  6 +++++-
+ .../stack/samples/linux/SimpleClientServer/ocserver.cpp     |  3 +++
+ .../samples/linux/SimpleClientServer/ocserverbasicops.cpp   |  6 +++++-
+ .../stack/samples/linux/SimpleClientServer/ocservercoll.cpp |  6 +++++-
+ .../stack/samples/linux/SimpleClientServer/ocserverslow.cpp |  5 ++++-
+ resource/csdk/stack/samples/linux/secure/common.cpp         |  6 +++++-
+ resource/csdk/stack/samples/linux/secure/ocamsservice.cpp   |  5 ++++-
+ .../csdk/stack/samples/linux/secure/occlientbasicops.cpp    |  7 +++++--
+ .../csdk/stack/samples/linux/secure/ocserverbasicops.cpp    |  5 ++++-
+ .../stack/samples/tizen/SimpleClientServer/occlient.cpp     |  5 ++++-
+ .../stack/samples/tizen/SimpleClientServer/ocrouting.cpp    |  5 ++++-
+ .../stack/samples/tizen/SimpleClientServer/ocserver.cpp     |  6 +++++-
+ resource/examples/groupclient.cpp                           |  7 +++++--
+ resource/provisioning/examples/cloudAuth.cpp                | 13 ++++++++-----
+ resource/provisioning/examples/cloudClient.cpp              |  8 ++++++--
+ resource/provisioning/examples/cloudWrapper.cpp             |  7 ++++++-
+ resource/provisioning/examples/provisioningclient.cpp       |  7 +++++--
+ resource/provisioning/examples/subownerclient.cpp           |  6 +++++-
+ service/coap-http-proxy/samples/proxy_client.c              |  6 +++++-
+ .../easy-setup/sampleapp/enrollee/arduino/enrolleewifi.cpp  |  5 ++++-
+ service/easy-setup/sampleapp/enrollee/linux/easysetup_x.c   |  5 ++++-
+ .../enrollee/tizen-sdb/EnrolleeSample/easysetup_wifi_conn.c |  6 +++++-
+ .../sampleapp/mediator/linux/richsdk_sample/mediator.cpp    |  6 ++++--
+ .../sampleapp/mediator/linux/richsdk_sample/submediator.cpp |  6 ++++--
+ 54 files changed, 244 insertions(+), 71 deletions(-)
+
+diff --git a/plugins/samples/linux/IotivityandZigbeeClient.c b/plugins/samples/linux/IotivityandZigbeeClient.c
+index 52fe5baa4..c8be5c1b5 100644
+--- a/plugins/samples/linux/IotivityandZigbeeClient.c
++++ b/plugins/samples/linux/IotivityandZigbeeClient.c
+@@ -34,11 +34,14 @@
+ #include <unistd.h>
+ #include <errno.h>
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "oic_string.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define DEFAULT_CONTEXT_VALUE       (0x99)
+ #define MAX_QUERY_SIZE              (1024)
+ #define MAX_URI_SIZE                (256)
+diff --git a/plugins/samples/linux/IotivityandZigbeeServer.c b/plugins/samples/linux/IotivityandZigbeeServer.c
+index 4d4dc6c44..2450a3969 100644
+--- a/plugins/samples/linux/IotivityandZigbeeServer.c
++++ b/plugins/samples/linux/IotivityandZigbeeServer.c
+@@ -21,13 +21,18 @@
+ #include "IotivityandZigbeeServer.h"
+ #include <signal.h>
+ #include <ocstack.h>
+-#include "experimental/logger.h"
++
+ #include "oic_string.h"
+ #include "oic_malloc.h"
+ 
+ #define TAG "IoTivityZigbeeServer"
+ #define defaultComPort "/dev/ttyUSB0"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
++
+ #define VERIFY_SUCCESS(op)                          \
+ {                                                   \
+     if (op !=  OC_STACK_OK)                         \
+diff --git a/resource/IPCA/samples/ElevatorServer/elevatorserver.cpp b/resource/IPCA/samples/ElevatorServer/elevatorserver.cpp
+index b003c327a..047f83388 100644
+--- a/resource/IPCA/samples/ElevatorServer/elevatorserver.cpp
++++ b/resource/IPCA/samples/ElevatorServer/elevatorserver.cpp
+@@ -17,9 +17,12 @@
+  *
+  ******************************************************************/
+ 
+-#include "experimental/logger.h"
+ #include "elevatorserver.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ using namespace OC;
+ using namespace std::placeholders;
+ 
+diff --git a/resource/csdk/resource-directory/samples/rd_publishingClient.cpp b/resource/csdk/resource-directory/samples/rd_publishingClient.cpp
+index 85beafae3..60483704b 100644
+--- a/resource/csdk/resource-directory/samples/rd_publishingClient.cpp
++++ b/resource/csdk/resource-directory/samples/rd_publishingClient.cpp
+@@ -24,8 +24,11 @@
+ #include <limits>
+ 
+ #include "oic_string.h"
+-
+ #include "rd_client.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// logging part is not critical but convenient for developer
+ #include "experimental/payload_logging.h"
+ 
+ #define TAG ("RD_PublishClient")
+diff --git a/resource/csdk/resource-directory/samples/rd_queryClient.cpp b/resource/csdk/resource-directory/samples/rd_queryClient.cpp
+index 9b45b0fac..b308d5858 100644
+--- a/resource/csdk/resource-directory/samples/rd_queryClient.cpp
++++ b/resource/csdk/resource-directory/samples/rd_queryClient.cpp
+@@ -21,6 +21,10 @@
+ #include <iostream>
+ #include "octypes.h"
+ #include "ocstack.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// logging part is not critical
+ #include "experimental/payload_logging.h"
+ 
+ bool g_foundResource = true;
+diff --git a/resource/csdk/security/provisioning/sample/autoprovisioningclient.c b/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
+index 3484f591c..4c658ce29 100644
+--- a/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
++++ b/resource/csdk/security/provisioning/sample/autoprovisioningclient.c
+@@ -35,9 +35,7 @@
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+ #endif
+-#include "experimental/payload_logging.h"
+ #include "utlist.h"
+-#include "experimental/logger.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "ocprovisioningmanager.h"
+@@ -50,7 +48,6 @@
+ #include "ocsecurity.h"
+ #include "ocstackinternal.h"
+ #include "pmutility.h"
+-#include "experimental/ocrandom.h"
+ 
+ #ifdef _MSC_VER
+ #include <io.h>
+@@ -59,6 +56,12 @@
+ #define access _access_s
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++#include "experimental/ocrandom.h"
++
+ #ifdef __cplusplus
+ extern "C"
+ {
+diff --git a/resource/csdk/security/provisioning/sample/certgenerator.cpp b/resource/csdk/security/provisioning/sample/certgenerator.cpp
+index c2a9c0890..be78098ae 100644
+--- a/resource/csdk/security/provisioning/sample/certgenerator.cpp
++++ b/resource/csdk/security/provisioning/sample/certgenerator.cpp
+@@ -26,7 +26,6 @@
+ 
+ #include "ocstack.h"
+ #include "oic_malloc.h"
+-#include "experimental/ocrandom.h"
+ #include "occertutility.h"
+ 
+ #ifdef HAVE_WINDOWS_H
+@@ -37,6 +36,10 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/ocrandom.h"
++
+ static long GetFileSize(FILE *f)
+ {
+     long offset, size;
+diff --git a/resource/csdk/security/provisioning/sample/cloud/cloudAuth.c b/resource/csdk/security/provisioning/sample/cloud/cloudAuth.c
+index 2d45f3de8..b375fa621 100644
+--- a/resource/csdk/security/provisioning/sample/cloud/cloudAuth.c
++++ b/resource/csdk/security/provisioning/sample/cloud/cloudAuth.c
+@@ -19,24 +19,25 @@
+  * *****************************************************************/
+ 
+ #include "octypes.h"
+-#include "experimental/logger.h"
+-#include "experimental/payload_logging.h"
+ #include "ocstack.h"
+ #include "ocpayload.h"
+ #include "psinterface.h"
+-#include "experimental/securevirtualresourcetypes.h"
+ #include "doxmresource.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "pmutility.h"
+ #include "credresource.h"
+-#include "experimental/payload_logging.h"
+ #include "cacommonutil.h"
+-
+ #include "utils.h"
+ #include "cloudAuth.h"
+ #include "cloudCommon.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++#include "experimental/securevirtualresourcetypes.h"
++
+ #define TAG "cloudAuth"
+ 
+ #define LOGIN_OK 4
+diff --git a/resource/csdk/security/provisioning/sample/cloud/cloudCommon.c b/resource/csdk/security/provisioning/sample/cloud/cloudCommon.c
+index 07a7aa387..a09607dc4 100644
+--- a/resource/csdk/security/provisioning/sample/cloud/cloudCommon.c
++++ b/resource/csdk/security/provisioning/sample/cloud/cloudCommon.c
+@@ -22,11 +22,9 @@
+ #include <string.h>
+ 
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "octhread.h"
+ #include "cathreadpool.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "aclresource.h"
+ #include "acl_logging.h"
+ #include "crl_logging.h"
+@@ -45,6 +43,11 @@
+ #include <unistd.h> //for unlink
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define TAG "cloudCommon"
+ 
+ //[IOT-2147] Requests 50-83 are not confirmed to new OCF spec
+diff --git a/resource/csdk/security/provisioning/sample/cloud/cloudDiscovery.c b/resource/csdk/security/provisioning/sample/cloud/cloudDiscovery.c
+index ef2462273..471c384c8 100644
+--- a/resource/csdk/security/provisioning/sample/cloud/cloudDiscovery.c
++++ b/resource/csdk/security/provisioning/sample/cloud/cloudDiscovery.c
+@@ -18,9 +18,7 @@
+ //
+ //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "oic_string.h"
+ #include "srmresourcestrings.h"
+ #include "pmutility.h"
+@@ -28,6 +26,11 @@
+ #include "cloudCommon.h"
+ #include "cloudWrapper.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define TAG "cloudDiscovery"
+ 
+ #define DISCOVERY_URI "/oic/res"
+diff --git a/resource/csdk/security/provisioning/sample/cloud/cloudResource.c b/resource/csdk/security/provisioning/sample/cloud/cloudResource.c
+index 0e5f5973d..82d785635 100644
+--- a/resource/csdk/security/provisioning/sample/cloud/cloudResource.c
++++ b/resource/csdk/security/provisioning/sample/cloud/cloudResource.c
+@@ -20,11 +20,13 @@
+ #include <string.h>
+ #include "cloudCommon.h"
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+-
+ #include "cloudResource.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "cloudResource"
+ 
+ LEDResource LED;
+diff --git a/resource/csdk/security/provisioning/sample/cloud/cloudWrapper.c b/resource/csdk/security/provisioning/sample/cloud/cloudWrapper.c
+index 4b6b5bbcc..7b51e7208 100644
+--- a/resource/csdk/security/provisioning/sample/cloud/cloudWrapper.c
++++ b/resource/csdk/security/provisioning/sample/cloud/cloudWrapper.c
+@@ -17,16 +17,18 @@
+  * limitations under the License.
+  *
+  * *****************************************************************/
+-#include "experimental/logger.h"
+ #include "occloudprovisioning.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "srmutility.h"
+ #include "aclresource.h"
+ #include "utlist.h"
+-
+ #include "utils.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "CLOUD-WRAPPER"
+ 
+ #define MAX_ID_LENGTH       (64)
+diff --git a/resource/csdk/security/provisioning/sample/cloudClient.c b/resource/csdk/security/provisioning/sample/cloudClient.c
+index a819d5be8..07efa076b 100644
+--- a/resource/csdk/security/provisioning/sample/cloudClient.c
++++ b/resource/csdk/security/provisioning/sample/cloudClient.c
+@@ -18,6 +18,9 @@
+  *
+  * *****************************************************************/
+ #include "cloudCommon.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ #define TAG "cloudClient"
+diff --git a/resource/csdk/security/provisioning/sample/cloudServer.c b/resource/csdk/security/provisioning/sample/cloudServer.c
+index 8030777de..42960f74f 100644
+--- a/resource/csdk/security/provisioning/sample/cloudServer.c
++++ b/resource/csdk/security/provisioning/sample/cloudServer.c
+@@ -18,9 +18,12 @@
+  *
+  * *****************************************************************/
+ #include "cloudCommon.h"
+-#include "experimental/logger.h"
+ #include "cloudResource.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "cloudServer"
+ 
+ extern LEDResource LED;
+diff --git a/resource/csdk/security/provisioning/sample/provisioningclient.c b/resource/csdk/security/provisioning/sample/provisioningclient.c
+index bd801cecf..05c772dab 100644
+--- a/resource/csdk/security/provisioning/sample/provisioningclient.c
++++ b/resource/csdk/security/provisioning/sample/provisioningclient.c
+@@ -25,9 +25,8 @@
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+ #endif
+-#include "experimental/payload_logging.h"
++
+ #include "utlist.h"
+-#include "experimental/logger.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "ocprovisioningmanager.h"
+@@ -43,11 +42,15 @@
+ 
+ #ifdef _MSC_VER
+ #include <io.h>
+-
+ #define F_OK 0
+ #define access _access_s
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/payload_logging.h"
++#include "experimental/logger.h"
++
+ #ifdef __cplusplus
+ extern "C"
+ {
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp b/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
+index a7bdf846e..e2c0faf84 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_justworks.cpp
+@@ -43,9 +43,13 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ #include "platform_features.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ 
++
+ #define TAG "SAMPLE_JUSTWORKS"
+ 
+ const char * specVersion = "ocf.1.1.0";
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_mfg.cpp b/resource/csdk/security/provisioning/sample/sampleserver_mfg.cpp
+index 3af216386..8db4c6eeb 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_mfg.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_mfg.cpp
+@@ -43,6 +43,9 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ #include "platform_features.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ 
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_mvjustworks.cpp b/resource/csdk/security/provisioning/sample/sampleserver_mvjustworks.cpp
+index 23391d42e..b6dd7a2d0 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_mvjustworks.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_mvjustworks.cpp
+@@ -44,6 +44,9 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ #include "platform_features.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ 
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_preconfpin.cpp b/resource/csdk/security/provisioning/sample/sampleserver_preconfpin.cpp
+index 52860f146..853d29d3e 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_preconfpin.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_preconfpin.cpp
+@@ -43,6 +43,9 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ #include "platform_features.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ 
+diff --git a/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp b/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
+index 42f1f0ac7..505673aac 100644
+--- a/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
++++ b/resource/csdk/security/provisioning/sample/sampleserver_randompin.cpp
+@@ -43,6 +43,9 @@
+ #endif //ERROR
+ #endif //HAVE_WINDOWS_H
+ #include "platform_features.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ #define TAG "SAMPLE_RANDOMPIN"
+diff --git a/resource/csdk/security/provisioning/sample/subownerclient.c b/resource/csdk/security/provisioning/sample/subownerclient.c
+index 261defdaf..0d72f5f8f 100644
+--- a/resource/csdk/security/provisioning/sample/subownerclient.c
++++ b/resource/csdk/security/provisioning/sample/subownerclient.c
+@@ -28,7 +28,6 @@
+ 
+ #include "platform_features.h"
+ #include "utlist.h"
+-#include "experimental/logger.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "ocprovisioningmanager.h"
+@@ -45,6 +44,10 @@
+ #define access _access_s
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #ifdef __cplusplus
+ extern "C"
+ {
+diff --git a/resource/csdk/security/provisioning/unittest/sampleserver.cpp b/resource/csdk/security/provisioning/unittest/sampleserver.cpp
+index acc6ef5b9..c0dc34ab1 100644
+--- a/resource/csdk/security/provisioning/unittest/sampleserver.cpp
++++ b/resource/csdk/security/provisioning/unittest/sampleserver.cpp
+@@ -27,17 +27,20 @@
+ #include <time.h>
+ 
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+ #include "oic_string.h"
+ #include "srmutility.h"
+ #include "doxmresource.h"
+-#include "experimental/ocrandom.h"
+ 
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/ocrandom.h"
++
+ #define TAG "JW_UNITTEST"
+ 
+ int gQuitFlag = 0;
+diff --git a/resource/csdk/stack/samples/arduino/SimpleClientServer/ocserver/ocserver.cpp b/resource/csdk/stack/samples/arduino/SimpleClientServer/ocserver/ocserver.cpp
+index 8e756a0bc..a9ff8a525 100644
+--- a/resource/csdk/stack/samples/arduino/SimpleClientServer/ocserver/ocserver.cpp
++++ b/resource/csdk/stack/samples/arduino/SimpleClientServer/ocserver/ocserver.cpp
+@@ -21,7 +21,6 @@
+ // Do not remove the include below
+ #include "Arduino.h"
+ 
+-#include "experimental/logger.h"
+ #include "ocstack.h"
+ #include "ocpayload.h"
+ #include <string.h>
+@@ -41,6 +40,9 @@
+ #include <EthernetUdp.h>
+ #include <Dhcp.h>
+ #endif
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
+ 
+ const char *getResult(OCStackResult result);
+ 
+diff --git a/resource/csdk/stack/samples/linux/OCSample/occlient.c b/resource/csdk/stack/samples/linux/OCSample/occlient.c
+index c4b21b7cc..dbe0e0093 100644
+--- a/resource/csdk/stack/samples/linux/OCSample/occlient.c
++++ b/resource/csdk/stack/samples/linux/OCSample/occlient.c
+@@ -31,6 +31,9 @@
+ #ifdef HAVE_WINDOWS_H
+ #include <windows.h>
+ #endif
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ #define TAG ("occlient")
+diff --git a/resource/csdk/stack/samples/linux/OCSample/ocserver.c b/resource/csdk/stack/samples/linux/OCSample/ocserver.c
+index 2bf66a27e..307cd09b5 100644
+--- a/resource/csdk/stack/samples/linux/OCSample/ocserver.c
++++ b/resource/csdk/stack/samples/linux/OCSample/ocserver.c
+@@ -33,6 +33,9 @@
+ #endif
+ #include <signal.h>
+ #include <stdbool.h>
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ #define TAG ("ocserver")
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/occlient.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/occlient.cpp
+index b40c59340..3268541f9 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/occlient.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/occlient.cpp
+@@ -44,6 +44,9 @@
+ #include <coap/pdu.h>
+ #include "occlient.h"
+ #include "common.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ #include "experimental/payload_logging.h"
+ 
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientbasicops.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientbasicops.cpp
+index 6a95c881e..46fa21e85 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientbasicops.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientbasicops.cpp
+@@ -34,14 +34,17 @@
+ #include <getopt.h>
+ 
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "occlientbasicops.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define MAX_IP_ADDR_ST_SZ  16 //string size of "155.255.255.255" (15 + 1)
+ #define MAX_PORT_ST_SZ  6     //string size of "65535" (5 + 1)
+ 
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientcoll.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientcoll.cpp
+index 10f3c1490..98cab1b26 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientcoll.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientcoll.cpp
+@@ -34,11 +34,14 @@
+ #include <sstream>
+ #include <getopt.h>
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+-#include "experimental/logger.h"
+ #include "common.h"
+ #include "oic_string.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/payload_logging.h"
++#include "experimental/logger.h"
++
+ std::string getQueryStrForGetPut();
+ 
+ #define TAG ("occlient")
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientslow.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientslow.cpp
+index 27df39530..d2463ccc7 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/occlientslow.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/occlientslow.cpp
+@@ -32,14 +32,18 @@
+ #include <iostream>
+ #include <sstream>
+ #include <getopt.h>
++
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "occlientslow.h"
+ #include "oic_string.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ // Tracking user input
+ static int UnicastDiscovery = 0;
+ static int TestCase = 0;
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocremoteaccessclient.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocremoteaccessclient.cpp
+index bc42936dd..82599ca25 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocremoteaccessclient.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocremoteaccessclient.cpp
+@@ -26,13 +26,18 @@
+ #include <unistd.h>
+ #include <iostream>
+ #include <sstream>
++
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "ocremoteaccessclient.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/payload_logging.h"
++#include "experimental/logger.h"
++
++
+ #define SET_BUT_NOT_USED(x) (void) x
+ // Tracking user input
+ static int TEST_CASE = 0;
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocrouting.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocrouting.cpp
+index 6f1444fb5..ac2e8db7c 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocrouting.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocrouting.cpp
+@@ -27,10 +27,14 @@
+ #include <signal.h>
+ #include <pthread.h>
+ #include <array>
++
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "ocrouting"
+ 
+ int gQuitFlag = 0;
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserver.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserver.cpp
+index 480f7fbaf..d5d0ffef6 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserver.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserver.cpp
+@@ -43,6 +43,9 @@
+ #include "ocserver.h"
+ #include "common.h"
+ #include "oic_string.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
+ #include "experimental/logger.h"
+ 
+ #define VERIFY_SUCCESS(op)                          \
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverbasicops.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverbasicops.cpp
+index 9fe861680..d9206cfa0 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverbasicops.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverbasicops.cpp
+@@ -32,11 +32,15 @@
+ #ifdef HAVE_PTHREAD_H
+ #include <pthread.h>
+ #endif
++
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocserverbasicops.h"
+ #include "ocpayload.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ //string length of "/a/led/" + std::numeric_limits<int>::digits10 + '\0'"
+ // 7 + 9 + 1 = 17
+ const int URI_MAXSIZE = 17;
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocservercoll.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocservercoll.cpp
+index 26752d79a..9420600c0 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocservercoll.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocservercoll.cpp
+@@ -34,12 +34,16 @@
+ #ifdef HAVE_PTHREAD_H
+ #include <pthread.h>
+ #endif
++
+ #include <ocstack.h>
+-#include "experimental/logger.h"
+ #include <getopt.h>
+ #include "ocpayload.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG PCF("ocservercontainer")
+ 
+ volatile sig_atomic_t gQuitFlag = 0;
+diff --git a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverslow.cpp b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverslow.cpp
+index f572df095..bd80950d6 100644
+--- a/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverslow.cpp
++++ b/resource/csdk/stack/samples/linux/SimpleClientServer/ocserverslow.cpp
+@@ -40,9 +40,12 @@
+ #include "ocstack.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+-#include "experimental/logger.h"
+ #include "ocserverslow.h"
+ #include "ocpayload.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
+ #include "experimental/payload_logging.h"
+ 
+ volatile sig_atomic_t gQuitFlag = 0;
+diff --git a/resource/csdk/stack/samples/linux/secure/common.cpp b/resource/csdk/stack/samples/linux/secure/common.cpp
+index 8e26c5511..f1602d1f2 100644
+--- a/resource/csdk/stack/samples/linux/secure/common.cpp
++++ b/resource/csdk/stack/samples/linux/secure/common.cpp
+@@ -20,12 +20,16 @@
+ #include "common.h"
+ 
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ 
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "sample-common"
+ 
+ const char *getResult(OCStackResult result) {
+diff --git a/resource/csdk/stack/samples/linux/secure/ocamsservice.cpp b/resource/csdk/stack/samples/linux/secure/ocamsservice.cpp
+index 2f6d6caf5..fdf4676cd 100644
+--- a/resource/csdk/stack/samples/linux/secure/ocamsservice.cpp
++++ b/resource/csdk/stack/samples/linux/secure/ocamsservice.cpp
+@@ -14,9 +14,12 @@
+ #include <pthread.h>
+ #endif
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG  PCF("SRM-AMSS")
+ 
+ int gQuitFlag = 0;
+diff --git a/resource/csdk/stack/samples/linux/secure/occlientbasicops.cpp b/resource/csdk/stack/samples/linux/secure/occlientbasicops.cpp
+index 3f59797ad..353d775e6 100644
+--- a/resource/csdk/stack/samples/linux/secure/occlientbasicops.cpp
++++ b/resource/csdk/stack/samples/linux/secure/occlientbasicops.cpp
+@@ -37,13 +37,16 @@
+ #include <sstream>
+ #include <getopt.h>
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "occlientbasicops.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "oic_string.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define TAG "occlientbasicops"
+ static int UnicastDiscovery = 0;
+ static int TestCase = 0;
+diff --git a/resource/csdk/stack/samples/linux/secure/ocserverbasicops.cpp b/resource/csdk/stack/samples/linux/secure/ocserverbasicops.cpp
+index 5280c337b..e28396fa6 100644
+--- a/resource/csdk/stack/samples/linux/secure/ocserverbasicops.cpp
++++ b/resource/csdk/stack/samples/linux/secure/ocserverbasicops.cpp
+@@ -33,11 +33,14 @@
+ #include <pthread.h>
+ #endif
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+ #include "ocserverbasicops.h"
+ #include "common.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ 
+ int gQuitFlag = 0;
+ 
+diff --git a/resource/csdk/stack/samples/tizen/SimpleClientServer/occlient.cpp b/resource/csdk/stack/samples/tizen/SimpleClientServer/occlient.cpp
+index 8642b6625..d7d5fca67 100644
+--- a/resource/csdk/stack/samples/tizen/SimpleClientServer/occlient.cpp
++++ b/resource/csdk/stack/samples/tizen/SimpleClientServer/occlient.cpp
+@@ -29,9 +29,12 @@
+ #include <iostream>
+ #include <sstream>
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "occlient.h"
+ #include "ocpayload.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
+ #include "experimental/payload_logging.h"
+ 
+ using namespace std;
+diff --git a/resource/csdk/stack/samples/tizen/SimpleClientServer/ocrouting.cpp b/resource/csdk/stack/samples/tizen/SimpleClientServer/ocrouting.cpp
+index a5ac05d7f..129595b7b 100644
+--- a/resource/csdk/stack/samples/tizen/SimpleClientServer/ocrouting.cpp
++++ b/resource/csdk/stack/samples/tizen/SimpleClientServer/ocrouting.cpp
+@@ -29,9 +29,12 @@
+ #include <array>
+ #include <iostream>
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ using namespace std;
+ 
+ #define TAG "ocrouting"
+diff --git a/resource/csdk/stack/samples/tizen/SimpleClientServer/ocserver.cpp b/resource/csdk/stack/samples/tizen/SimpleClientServer/ocserver.cpp
+index 66be2ed46..1a67b100c 100644
+--- a/resource/csdk/stack/samples/tizen/SimpleClientServer/ocserver.cpp
++++ b/resource/csdk/stack/samples/tizen/SimpleClientServer/ocserver.cpp
+@@ -31,9 +31,13 @@
+ #include <array>
+ #include "oic_malloc.h"
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
+ #include "ocserver.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ using namespace std;
+ 
+ #define VERIFY_SUCCESS(op)                          \
+diff --git a/resource/examples/groupclient.cpp b/resource/examples/groupclient.cpp
+index de50526a4..927647687 100644
+--- a/resource/examples/groupclient.cpp
++++ b/resource/examples/groupclient.cpp
+@@ -20,8 +20,6 @@
+ 
+ #include "OCPlatform.h"
+ #include "OCApi.h"
+-#include "experimental/logger.h"
+-
+ #include <functional>
+ #include <pthread.h>
+ #include <mutex>
+@@ -29,6 +27,11 @@
+ #include <iostream>
+ #include <mutex>
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++
+ #define DO_ACTION               "DoAction"
+ #define GET_ACTIONSET           "GetActionSet"
+ #define ACTIONSET               "ActionSet"
+diff --git a/resource/provisioning/examples/cloudAuth.cpp b/resource/provisioning/examples/cloudAuth.cpp
+index 3e09481c1..e136411bd 100644
+--- a/resource/provisioning/examples/cloudAuth.cpp
++++ b/resource/provisioning/examples/cloudAuth.cpp
+@@ -19,23 +19,26 @@
+  * *****************************************************************/
+ 
+ #include "octypes.h"
+-#include "experimental/logger.h"
+-#include "experimental/payload_logging.h"
+ #include "ocstack.h"
+ #include "ocpayload.h"
+ //#include "psinterface.h"
+-#include "experimental/securevirtualresourcetypes.h"
+ #include "doxmresource.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "srmutility.h"
+ #include "pmutility.h"
+ #include "credresource.h"
+-#include "experimental/payload_logging.h"
+-
+ #include "utils.h"
+ #include "cloudAuth.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++#include "experimental/securevirtualresourcetypes.h"
++
++
+ #define TAG "cloudAuth"
+ 
+ #define LOGIN_OK 4
+diff --git a/resource/provisioning/examples/cloudClient.cpp b/resource/provisioning/examples/cloudClient.cpp
+index aa98f602e..328c9b404 100644
+--- a/resource/provisioning/examples/cloudClient.cpp
++++ b/resource/provisioning/examples/cloudClient.cpp
+@@ -22,11 +22,9 @@
+ #include <string.h>
+ 
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "octhread.h"
+ #include "cathreadpool.h"
+ #include "ocpayload.h"
+-#include "experimental/payload_logging.h"
+ #include "ocprovisioningmanager.h"
+ 
+ #include "utils.h"
+@@ -39,6 +37,12 @@
+ #include <unistd.h> //for unlink
+ #endif
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++#include "experimental/payload_logging.h"
++
+ #define TAG "cloudClient"
+ using namespace OC;
+ 
+diff --git a/resource/provisioning/examples/cloudWrapper.cpp b/resource/provisioning/examples/cloudWrapper.cpp
+index 19433c01d..7a635e1eb 100644
+--- a/resource/provisioning/examples/cloudWrapper.cpp
++++ b/resource/provisioning/examples/cloudWrapper.cpp
+@@ -17,13 +17,18 @@
+ // limitations under the License.
+ //
+ //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+-#include "experimental/logger.h"
++
+ #include "occloudprovisioning.h"
+ #include "OCCloudProvisioning.hpp"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "utils.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++
+ #define TAG "CLOUD-WRAPPER"
+ 
+ #define MAX_ID_LENGTH       (64)
+diff --git a/resource/provisioning/examples/provisioningclient.cpp b/resource/provisioning/examples/provisioningclient.cpp
+index db73bdeb3..9564a8d85 100644
+--- a/resource/provisioning/examples/provisioningclient.cpp
++++ b/resource/provisioning/examples/provisioningclient.cpp
+@@ -27,8 +27,6 @@
+ #include <pthread.h>
+ #include <mutex>
+ #include <condition_variable>
+-
+-#include "experimental/logger.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "OCPlatform.h"
+@@ -39,6 +37,11 @@
+ #include "aclresource.h"
+ #include "coap/utlist.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++
+ #define MAX_PERMISSION_LENGTH (5)
+ #define ACL_RESRC_ARRAY_SIZE (3)
+ #define CREATE (1)
+diff --git a/resource/provisioning/examples/subownerclient.cpp b/resource/provisioning/examples/subownerclient.cpp
+index ae05e0d75..88f7feabb 100644
+--- a/resource/provisioning/examples/subownerclient.cpp
++++ b/resource/provisioning/examples/subownerclient.cpp
+@@ -28,7 +28,6 @@
+ #include <mutex>
+ #include <condition_variable>
+ 
+-#include "experimental/logger.h"
+ #include "oic_malloc.h"
+ #include "oic_string.h"
+ #include "OCPlatform.h"
+@@ -39,6 +38,11 @@
+ #include "aclresource.h"
+ #include "utlist.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++/// Here logging part is not critical.
++#include "experimental/logger.h"
++
+ #define MAX_PERMISSION_LENGTH (5)
+ #define ACL_RESRC_ARRAY_SIZE (3)
+ #define CREATE (1)
+diff --git a/service/coap-http-proxy/samples/proxy_client.c b/service/coap-http-proxy/samples/proxy_client.c
+index 352bb04a5..2cf8885eb 100644
+--- a/service/coap-http-proxy/samples/proxy_client.c
++++ b/service/coap-http-proxy/samples/proxy_client.c
+@@ -29,9 +29,13 @@
+ #endif
+ 
+ #include <getopt.h>
++
+ #include "ocstack.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
++
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
+ #include "experimental/payload_logging.h"
+ 
+ /**
+diff --git a/service/easy-setup/sampleapp/enrollee/arduino/enrolleewifi.cpp b/service/easy-setup/sampleapp/enrollee/arduino/enrolleewifi.cpp
+index 85433ea3d..876b4af04 100644
+--- a/service/easy-setup/sampleapp/enrollee/arduino/enrolleewifi.cpp
++++ b/service/easy-setup/sampleapp/enrollee/arduino/enrolleewifi.cpp
+@@ -20,7 +20,6 @@
+ 
+ #include "Arduino.h"
+ 
+-#include "experimental/logger.h"
+ #include <string.h>
+ 
+ #ifdef ARDUINOWIFI
+@@ -41,6 +40,10 @@
+ 
+ #include "easysetup.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
+ #define TAG "TS"
+ 
+ const char *getResult(OCStackResult result);
+diff --git a/service/easy-setup/sampleapp/enrollee/linux/easysetup_x.c b/service/easy-setup/sampleapp/enrollee/linux/easysetup_x.c
+index 06b778b29..29585b299 100644
+--- a/service/easy-setup/sampleapp/enrollee/linux/easysetup_x.c
++++ b/service/easy-setup/sampleapp/enrollee/linux/easysetup_x.c
+@@ -22,10 +22,13 @@
+ #include "easysetup_x.h"
+ #include "string.h"
+ #include "oic_malloc.h"
+-#include "experimental/logger.h"
+ #include "ocpayload.h"
++
+ #include <inttypes.h>
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
+ /**
+  * @var ESX_ENROLLEE_TAG
+  * @brief Logging tag for module name.
+diff --git a/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/easysetup_wifi_conn.c b/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/easysetup_wifi_conn.c
+index 19a83a4f4..bf949bbc4 100644
+--- a/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/easysetup_wifi_conn.c
++++ b/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/easysetup_wifi_conn.c
+@@ -21,7 +21,6 @@
+ 
+ #include "easysetup_wifi_conn.h"
+ #include "string.h"
+-#include "experimental/logger.h"
+ #include "escommon.h"
+ 
+ #include <wifi.h>
+@@ -29,6 +28,11 @@
+ #include <glib.h>
+ #include <unistd.h>
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/logger.h"
++
++
+ /**
+  * @var ES_WIFICONN_TAG
+  * @brief Logging tag for module name.
+diff --git a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/mediator.cpp b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/mediator.cpp
+index a18755598..e868efbb1 100755
+--- a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/mediator.cpp
++++ b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/mediator.cpp
+@@ -24,11 +24,13 @@
+ #include "OCPlatform.h"
+ #include "OCApi.h"
+ #include "OCProvisioningManager.hpp"
+-#include "experimental/securevirtualresourcetypes.h"
+-
+ #include "EasySetup.hpp"
+ #include "ESRichCommon.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/securevirtualresourcetypes.h"
++
+ #define ES_SAMPLE_APP_TAG "ES_SAMPLE_APP_TAG"
+ #define DECLARE_MENU(FUNC, ...) { #FUNC, FUNC }
+ 
+diff --git a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/submediator.cpp b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/submediator.cpp
+index 7c0edf5f7..25c8d7f73 100644
+--- a/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/submediator.cpp
++++ b/service/easy-setup/sampleapp/mediator/linux/richsdk_sample/submediator.cpp
+@@ -24,11 +24,13 @@
+ #include "OCPlatform.h"
+ #include "OCApi.h"
+ #include "OCProvisioningManager.hpp"
+-#include "experimental/securevirtualresourcetypes.h"
+-
+ #include "EasySetup.hpp"
+ #include "ESRichCommon.h"
+ 
++/// This example is using experimental API, so there is no guarantee of support for future release,
++/// nor any there any guarantee that breaking changes will not occur across releases.
++#include "experimental/securevirtualresourcetypes.h"
++
+ #define ES_SAMPLE_APP_TAG "ES_SAMPLE_APP_TAG"
+ #define DECLARE_MENU(FUNC, ...) { #FUNC, FUNC }
+ 
+-- 
+2.16.1.windows.1
+

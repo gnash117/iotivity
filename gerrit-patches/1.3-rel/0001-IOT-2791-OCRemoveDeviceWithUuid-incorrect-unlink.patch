@@ -1,0 +1,138 @@
+From 85d9876742499aee8a893d0250c5128f4061cc36 Mon Sep 17 00:00:00 2001
+From: Vitalii Irkha <v.irkha@samsung.com>
+Date: Thu, 23 Nov 2017 16:32:06 +0200
+Subject: [PATCH] [IOT-2791] OCRemoveDeviceWithUuid incorrect unlink
+
+OCRemoveDeviceWithUuid should correctly delete
+linked device
+
+Change-Id: Ia9b02eb745ba29cffba3602374cf0e7a0b8e0a1d
+Signed-off-by: Vitalii Irkha <v.irkha@samsung.com>
+---
+ .../provisioning/sample/provisioningclient.c       |  2 +-
+ .../provisioning/src/ocprovisioningmanager.c       | 76 ++++++++++++----------
+ 2 files changed, 42 insertions(+), 36 deletions(-)
+
+diff --git a/resource/csdk/security/provisioning/sample/provisioningclient.c b/resource/csdk/security/provisioning/sample/provisioningclient.c
+index 363c87db6..cfbacf578 100644
+--- a/resource/csdk/security/provisioning/sample/provisioningclient.c
++++ b/resource/csdk/security/provisioning/sample/provisioningclient.c
+@@ -1702,7 +1702,7 @@ static int removeDeviceWithUuid(void)
+     }
+ 
+     g_doneCB = false;
+-    rst = OCRemoveDeviceWithUuid("RemoveDeviceWithUUID", DISCOVERY_TIMEOUT, &revUuid, removeDeviceCB);
++    rst = OCRemoveDeviceWithUuid((void*) g_ctx, DISCOVERY_TIMEOUT, &revUuid, removeDeviceCB);
+     if(OC_STACK_OK != rst)
+     {
+         OIC_LOG_V(ERROR, TAG, "OCRemoveDeviceWithUuid API error: %d", rst);
+diff --git a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+index d8fe9314a..5797a8f36 100644
+--- a/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
++++ b/resource/csdk/security/provisioning/src/ocprovisioningmanager.c
+@@ -866,41 +866,41 @@ OCStackResult OC_CALL OCRemoveDeviceWithUuid(void* ctx, unsigned short waitTimeF
+     }
+     PDMDestoryOicUuidLinkList(linkedDevices);
+ 
+-    //If there is no linked devices, device revocation step can be skipped.
+-    if(0 != numOfLinkedDevices)
++    //2. Find owned device from the network
++    res = PMDeviceDiscovery(waitTimeForOwnedDeviceDiscovery, true, &pOwnedDevList);
++    if (OC_STACK_OK != res)
+     {
+-        OIC_LOG_V(INFO, TAG, "[%s] linked with other devices.", strUuid);
+-        //2. Find owned device from the network
+-        res = PMDeviceDiscovery(waitTimeForOwnedDeviceDiscovery, true, &pOwnedDevList);
+-        if (OC_STACK_OK != res)
+-        {
+-            OIC_LOG(ERROR, TAG, "OCRemoveDeviceWithUuid : Failed to PMDeviceDiscovery");
+-            goto error;
+-        }
++        OIC_LOG(ERROR, TAG, "OCRemoveDeviceWithUuid : Failed to PMDeviceDiscovery");
++        goto error;
++    }
+ 
+-        OCProvisionDev_t* tempDev = NULL;
+-        LL_FOREACH(pOwnedDevList, tempDev)
++    OCProvisionDev_t* tempDev = NULL;
++    LL_FOREACH(pOwnedDevList, tempDev)
++    {
++        if(memcmp(&tempDev->doxm->deviceID.id, pTargetUuid->id, sizeof(pTargetUuid->id)) == 0)
+         {
+-            if(memcmp(&tempDev->doxm->deviceID.id, pTargetUuid->id, sizeof(pTargetUuid->id)) == 0)
+-            {
+-                break;
+-            }
++            break;
+         }
++    }
+ 
+-        if(NULL == tempDev)
+-        {
+-            OIC_LOG_V(WARNING, TAG, "Can not find [%s] on the network.", strUuid);
+-            OIC_LOG_V(WARNING, TAG, "[%s]'s information will be deleted from local and other devices.", strUuid);
+-        }
+-        else
+-        {
+-            OICFree(pTargetDev->doxm);
+-            OICFree(pTargetDev);
+-            pTargetDev = tempDev;
+-            discoverdFlag = true;
+-            OIC_LOG_V(INFO, TAG, "[%s] is dectected on the network.", strUuid);
+-        }
++    if(NULL == tempDev)
++    {
++        OIC_LOG_V(WARNING, TAG, "Can not find [%s] on the network.", strUuid);
++        OIC_LOG_V(WARNING, TAG, "[%s]'s information will be deleted from local and other devices.", strUuid);
++    }
++    else
++    {
++        OICFree(pTargetDev->doxm);
++        OICFree(pTargetDev);
++        pTargetDev = tempDev;
++        discoverdFlag = true;
++        OIC_LOG_V(INFO, TAG, "[%s] is dectected on the network.", strUuid);
++    }
+ 
++    //If there is no linked devices, device revocation step can be skipped.
++    if(0 != numOfLinkedDevices)
++    {
++        OIC_LOG_V(INFO, TAG, "[%s] linked with other devices.", strUuid);
+         OIC_LOG_V(INFO, TAG, "Trying [%s] revocation.", strUuid);
+ 
+         // Send DELETE requests to linked devices
+@@ -925,12 +925,17 @@ OCStackResult OC_CALL OCRemoveDeviceWithUuid(void* ctx, unsigned short waitTimeF
+         OIC_LOG(INFO, TAG, "Device discovery and SRPRemoveDevice will be skipped.");
+     }
+ 
+-    res = RemoveDeviceInfoFromLocal(pTargetDev);
+-    if(OC_STACK_OK != res)
+-    {
+-        OIC_LOG(ERROR, TAG, "OCRemoveDeviceWithUuid : Filed to remove the device information from local.");
+-        goto error;
+-    }
++    /**
++     * Please don't remove commented bellow code
++     * till connectivity issue in CAcloseSslConnection will be fixed
++     *
++     * res = RemoveDeviceInfoFromLocal(pTargetDev);
++     * if(OC_STACK_OK != res)
++     * {
++     *     OIC_LOG(ERROR, TAG, "Filed to remove the device information from local.");
++     *     goto error;
++     * }
++     */
+ 
+     if(OC_STACK_CONTINUE == resReq)
+     {
+@@ -942,6 +947,7 @@ OCStackResult OC_CALL OCRemoveDeviceWithUuid(void* ctx, unsigned short waitTimeF
+         {
+             resultCallback(ctx, 0, NULL, false);
+         }
++        SRPResetDevice(pTargetDev, resultCallback);
+         res = OC_STACK_OK;
+     }
+ 
+-- 
+2.16.1.windows.1
+

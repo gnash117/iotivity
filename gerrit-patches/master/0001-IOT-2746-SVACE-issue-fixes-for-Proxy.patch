@@ -1,0 +1,67 @@
+From d6d19586f8327809dd72cfe1f7ae9fcc69e927da Mon Sep 17 00:00:00 2001
+From: Abhishek Sharma <ce.abhishek@samsung.com>
+Date: Tue, 24 Oct 2017 11:33:58 +0530
+Subject: [PATCH] [IOT-2746] SVACE issue fixes for Proxy
+
+Change-Id: I252656395dfcfb4685d702fd905e0401facbb474
+Signed-off-by: Abhishek Sharma <ce.abhishek@samsung.com>
+Origin: https://gerrit.iotivity.org/gerrit/#/c/24145/
+Bug: https://jira.iotivity.org/browse/IOT-2746
+---
+ .../coap-http-proxy/unittests/CoAPHttpUnitTest.cpp | 24 ++++++++++++----------
+ 1 file changed, 13 insertions(+), 11 deletions(-)
+
+diff --git a/service/coap-http-proxy/unittests/CoAPHttpUnitTest.cpp b/service/coap-http-proxy/unittests/CoAPHttpUnitTest.cpp
+index e10a528ac..82f9e3ef9 100644
+--- a/service/coap-http-proxy/unittests/CoAPHttpUnitTest.cpp
++++ b/service/coap-http-proxy/unittests/CoAPHttpUnitTest.cpp
+@@ -124,10 +124,11 @@ OCStackApplicationResult discoveryReqCB(void* ctx, OCDoHandle handle,
+         {
+             return OC_STACK_KEEP_TRANSACTION;
+         }
++
++        serverAddr = clientResponse->devAddr;
++        connType = clientResponse->connType;
+     }
+ 
+-    serverAddr = clientResponse->devAddr;
+-    connType = clientResponse->connType;
+     cbCalled = true;
+     return OC_STACK_DELETE_TRANSACTION;
+ }
+@@ -338,22 +339,23 @@ TEST_F(CoApHttpTest, CHPRepPayloadToJson)
+     OCRepPayloadSetPropObject(payload, "embedded", payload2);
+ 
+     OCRepPayload **payloadarr = (OCRepPayload **) OICCalloc(2, sizeof(OCRepPayload *));
+-    payloadarr[0] = OCRepPayloadClone(payload2);
+-    payloadarr[1] = OCRepPayloadClone(payload2);
+-    dimensions[0] = 2;
+-    OCRepPayloadSetPropObjectArray(payload, "payloadarr", (const OCRepPayload **)payloadarr,
+-                                    dimensions);
+-    cj = CHPRepPayloadToJson(payload);
+-    EXPECT_TRUE(cj);
+-    OCRepPayloadDestroy(payload);
+-    OCRepPayloadDestroy(payload2);
+     if (payloadarr)
+     {
++        payloadarr[0] = OCRepPayloadClone(payload2);
++        payloadarr[1] = OCRepPayloadClone(payload2);
++        dimensions[0] = 2;
++        OCRepPayloadSetPropObjectArray(payload, "payloadarr", (const OCRepPayload **)payloadarr,
++                                        dimensions);
++        cj = CHPRepPayloadToJson(payload);
++        EXPECT_TRUE(cj);
++
+         for (int k = 0; k < 2; k++)
+             OCRepPayloadDestroy(payloadarr[k]);
+         OICFree(payloadarr);
+     }
+ 
++    OCRepPayloadDestroy(payload);
++    OCRepPayloadDestroy(payload2);
+     payload = NULL;
+ }
+ 
+-- 
+2.16.1.windows.1
+

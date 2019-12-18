@@ -1,0 +1,60 @@
+From 47553c5419ab0f863128bc1e2ffb90c93a7134bb Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Wed, 27 Mar 2019 14:00:59 +0200
+Subject: [PATCH] Segmentation fault fix
+
+Program terminated with signal SIGSEGV, Segmentation fault.
+#1  0x00005608c0373d6f in OICStrdup (str=0x21
+<error: Cannot access memory at address 0x21>)
+at resource/c_common/oic_string/src/oic_string.c:35
+#2  0x00005608c0274cee in OCRepPayloadSetStringArray
+(payload=0x5608c1d19f90, name=0x5608c040d7e0 "gidlist",
+array=0x5608c1d14850, dimensions=0x7ffed28ca1a0)
+at resource/csdk/stack/src/ocpayload.c:1223
+
+Change-Id: I9c8869ef1e89ad20969e53bea92244eecb353714
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ resource/csdk/stack/src/ocpayload.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/resource/csdk/stack/src/ocpayload.c b/resource/csdk/stack/src/ocpayload.c
+index 2d62a7ff5..d8a929867 100644
+--- a/resource/csdk/stack/src/ocpayload.c
++++ b/resource/csdk/stack/src/ocpayload.c
+@@ -893,23 +893,21 @@ bool OC_CALL OCRepPayloadGetPropObject(const OCRepPayload* payload, const char*
+     *value = OCRepPayloadClone(val->obj);
+     return *value != NULL;
+ }
+-
++/*
++*The function calcDimTotal calculate non zero values(string length)
++*/
+ size_t OC_CALL calcDimTotal(const size_t dimensions[MAX_REP_ARRAY_DEPTH])
+ {
+-    if (dimensions[0] == 0)
+-    {
+-        return 0;
+-    }
+-
+-    size_t total = 1;
+-    for(uint8_t i = 0; i < MAX_REP_ARRAY_DEPTH && dimensions[i] != 0; ++i)
++    for(size_t i = 0; i < MAX_REP_ARRAY_DEPTH; i++)
+     {
+-        total *= dimensions[i];
++        if(0 == dimensions[i])
++        {
++            return i;
++        }
+     }
+-    return total;
++    return 0;
+ }
+ 
+-
+ bool OC_CALL OCRepPayloadSetByteStringArrayAsOwner(OCRepPayload* payload, const char* name,
+         OCByteString* array, size_t dimensions[MAX_REP_ARRAY_DEPTH])
+ {
+-- 
+2.16.1.windows.1
+

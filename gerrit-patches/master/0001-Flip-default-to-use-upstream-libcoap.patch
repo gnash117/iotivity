@@ -1,0 +1,241 @@
+From a13ab28fad7e6df0fb81ee7a66eb76a1806ae4f0 Mon Sep 17 00:00:00 2001
+From: Mats Wichmann <mats@linux.com>
+Date: Thu, 7 Jun 2018 08:05:06 -0600
+Subject: [PATCH] Flip default to use "upstream" libcoap
+
+Change to use libcoap from extlibs. At the moment that is actually still
+a fork as well, but it's closer to current upstream. Note Windows builds
+already made this change in run.bat a while ago (October 2016).
+
+Extra changes for Tizen: add a prep.sh and a stanza to call it in
+gbsbuild.sh since Tizen cannot make git calls directly during the build.
+There are multiple gbsbuild.sh, not sure if all four are called.
+
+Android fail is not making sense, seems to work for local developers
+but not in CI build.
+
+Change-Id: I09a3699b1b954296a2ed1624e8738d864abccbe0
+Signed-off-by: Mats Wichmann <mats@linux.com>
+---
+ build_common/SConscript                            |  4 +-
+ extlibs/libcoap/prep.sh                            | 72 ++++++++++++++++++++++
+ gbsbuild.sh                                        |  3 +
+ .../csdk/connectivity/build/android/jni/Android.mk |  6 +-
+ resource/csdk/connectivity/build/tizen/gbsbuild.sh | 11 +++-
+ .../csdk/stack/samples/tizen/build/gbsbuild.sh     |  6 ++
+ .../EnrolleeSample/build/tizen/gbsbuild.sh         |  6 ++
+ 7 files changed, 101 insertions(+), 7 deletions(-)
+ create mode 100755 extlibs/libcoap/prep.sh
+
+diff --git a/build_common/SConscript b/build_common/SConscript
+index b485ffc20..69dcc5060 100644
+--- a/build_common/SConscript
++++ b/build_common/SConscript
+@@ -80,8 +80,6 @@ else:
+ 
+ target_arch = ARGUMENTS.get('TARGET_ARCH', default_arch)  # target arch
+ 
+-default_with_upstream_libcoap = 0
+-
+ if ARGUMENTS.get('TEST'):
+     logging_default = False
+ else:
+@@ -175,7 +173,7 @@ help_vars.AddVariables(
+                  allowed_values=('GW', 'EP')),
+     EnumVariable('WITH_UPSTREAM_LIBCOAP',
+                  'Use latest stable version of LibCoAP downloaded from github',
+-                 default=default_with_upstream_libcoap,
++                 default='1',
+                  allowed_values=('0', '1')),
+     EnumVariable('BUILD_SAMPLE',
+                  'Build with sample',
+diff --git a/extlibs/libcoap/prep.sh b/extlibs/libcoap/prep.sh
+new file mode 100755
+index 000000000..368b4fd5f
+--- /dev/null
++++ b/extlibs/libcoap/prep.sh
+@@ -0,0 +1,72 @@
++#!/bin/bash
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
++
++set -e
++
++[ ! -z ${EXEC_MODE} ] || EXEC_MODE=false
++
++
++# Right now this script assumes packageRevision is a tag;
++# comment out the second clause if packageRevision becomes a branch or a specific commit.
++package="libcoap"
++packageRevision="IoTivity-1.4"
++#packageUrl="https://github.com/obgm/libcoap"
++packageUrl="https://github.com/dthaler/libcoap"
++packageDir="extlibs/${package}/${package}"
++
++
++do_()
++{
++    set +f
++    if $EXEC_MODE; then
++        echo "warning: fetching online resources may not be reproductible"
++        printf "%s \n" "trying: \"$@\""
++        eval "$@"
++    else
++        cat<<EOF
++error: Something should be prepared, please manually execute from shell
++EOF
++        printf "%s \n" "$@"
++        exit 1
++    fi
++}
++
++
++main_()
++{
++    if [ ! -d "${packageDir}" ]; then
++        do_ "git clone ${packageUrl} ${packageDir} -b ${packageRevision}"
++    elif [ ! -z $(git tag -l "${packageRevision}") ]; then
++        cat<<EOF
++error: $packageDir is unaligned with supported release of ${package}
++Please update ${package} using "cd ${packageDir} && git fetch"
++For more support please refer to:
++https://wiki.iotivity.org/build
++EOF
++        exit 2
++    elif [ -d "${packageDir}/.git" ]; then
++        cd "${packageDir}" || exit 1
++        git clean -f -d -x
++        git reset --hard "${packageRevision}"
++        rm -rf -- "${packageDir}/.git"
++    else
++        echo "log: Assuming ${package} is already on correct revision: \"${packageRevision}\""
++    fi
++}
++
++
++main_ "$@"
+diff --git a/gbsbuild.sh b/gbsbuild.sh
+index 7b511f4e0..7fd738925 100755
+--- a/gbsbuild.sh
++++ b/gbsbuild.sh
+@@ -79,6 +79,9 @@ done
+ gbscommand="${gbscommand} -B ~/GBS-ROOT-OIC --include-all --repository ./"
+ pwd
+ 
++# Prepare libcoap dependency
++$SHELL ./extlibs/libcoap/prep.sh
++
+ # Prepare mbedTLS dependency (also for unsecured as used by connectivity)
+ $SHELL ./extlibs/mbedtls/prep.sh
+ 
+diff --git a/resource/csdk/connectivity/build/android/jni/Android.mk b/resource/csdk/connectivity/build/android/jni/Android.mk
+index 1f255a1b4..7c8d1036e 100644
+--- a/resource/csdk/connectivity/build/android/jni/Android.mk
++++ b/resource/csdk/connectivity/build/android/jni/Android.mk
+@@ -97,9 +97,9 @@ include $(BUILD_STATIC_LIBRARY)
+ include $(CLEAR_VARS)
+ 
+ LOCAL_LDLIBS += -L$(SYSROOT)/usr/lib -llog
+-LOCAL_PATH = $(PROJECT_LIB_PATH)/libcoap-4.1.1
++LOCAL_PATH = $(EXT_LIB_PATH)/libcoap/libcoap
+ LOCAL_MODULE = CACoap
+-LOCAL_EXPORT_C_INCLUDES = $(PROJECT_LIB_PATH)/libcoap-4.1.1
++LOCAL_EXPORT_C_INCLUDES = $(EXT_LIB_PATH)/libcoap/libcoap
+ LOCAL_CFLAGS = -DWITH_POSIX
+ LOCAL_SRC_FILES = pdu.c net.c debug.c encode.c uri.c coap_list.c resource.c hashkey.c \
+                                         str.c option.c async.c subscribe.c block.c
+@@ -129,7 +129,7 @@ LOCAL_STATIC_LIBRARIES = CACommon CACoap
+ LOCAL_C_INCLUDES = $(PROJECT_API_PATH)
+ LOCAL_C_INCLUDES += $(PROJECT_COMMON_INC_PATH)
+ LOCAL_C_INCLUDES += $(PROJECT_INC_PATH)
+-LOCAL_C_INCLUDES += $(PROJECT_LIB_PATH)/libcoap-4.1.1
++LOCAL_C_INCLUDES += $(EXT_LIB_PATH)/libcoap/libcoap
+ LOCAL_C_INCLUDES += $(PROJECT_EXTERNAL_PATH)
+ LOCAL_C_INCLUDES += $(OIC_C_COMMON_PATH)/oic_malloc/include
+ LOCAL_C_INCLUDES += $(OIC_C_COMMON_PATH)/oic_string/include
+diff --git a/resource/csdk/connectivity/build/tizen/gbsbuild.sh b/resource/csdk/connectivity/build/tizen/gbsbuild.sh
+index bcc6af11e..386ed626c 100755
+--- a/resource/csdk/connectivity/build/tizen/gbsbuild.sh
++++ b/resource/csdk/connectivity/build/tizen/gbsbuild.sh
+@@ -85,9 +85,18 @@ cp -R $sourcedir/iotivity.pc.in $sourcedir/tmp/
+ cd $sourcedir/tmp
+ 
+ echo `pwd`
+-# Prepare mbedTLS dependency
++# Prepare libcoap dependency
++$SHELL ./extlibs/libcoap/prep.sh
++
++# Prepare mbedTLS dependency (also for unsecured as used by connectivity)
+ $SHELL ./extlibs/mbedtls/prep.sh
+ 
++# Prepare TinyCBOR dependency
++$SHELL ./extlibs/tinycbor/prep.sh
++
++# Remove modules history for gbs export (Applies to tinycbor, mbedtls...)
++rm -rf ./extlibs/*/*/.git
++
+ whoami
+ # Initialize Git repository
+ if [ ! -d .git ]; then
+diff --git a/resource/csdk/stack/samples/tizen/build/gbsbuild.sh b/resource/csdk/stack/samples/tizen/build/gbsbuild.sh
+index b173a515f..2a66407f8 100755
+--- a/resource/csdk/stack/samples/tizen/build/gbsbuild.sh
++++ b/resource/csdk/stack/samples/tizen/build/gbsbuild.sh
+@@ -88,12 +88,18 @@ cp -R $sourcedir/iotivity.pc.in $sourcedir/tmp/
+ cd $sourcedir/tmp
+ 
+ echo `pwd`
++# Prepare libcoap dependency
++$SHELL ./extlibs/libcoap/prep.sh
++
+ # Prepare mbedTLS dependency
+ $SHELL ./extlibs/mbedtls/prep.sh
+ 
+ # Prepare TinyCBOR dependency
+ $SHELL ./extlibs/tinycbor/prep.sh
+ 
++# Remove modules history for gbs export (Applies to tinycbor, mbedtls...)
++rm -rf ./extlibs/*/*/.git
++
+ whoami
+ # Initialize Git repository
+ if [ ! -d .git ]; then
+diff --git a/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/build/tizen/gbsbuild.sh b/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/build/tizen/gbsbuild.sh
+index 2dd87a821..52902d6a3 100755
+--- a/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/build/tizen/gbsbuild.sh
++++ b/service/easy-setup/sampleapp/enrollee/tizen-sdb/EnrolleeSample/build/tizen/gbsbuild.sh
+@@ -59,12 +59,18 @@ cp -R $sourcedir/iotivity.pc.in $sourcedir/tmp
+ cd $sourcedir/tmp
+ 
+ echo `pwd`
++# Prepare libcoap dependency
++$SHELL ./extlibs/libcoap/prep.sh
++
+ # Prepare mbedTLS dependency
+ $SHELL ./extlibs/mbedtls/prep.sh
+ 
+ # Prepare TinyCBOR dependency
+ $SHELL ./extlibs/tinycbor/prep.sh
+ 
++# Remove modules history for gbs export (Applies to tinycbor, mbedtls...)
++rm -rf ./extlibs/*/*/.git
++
+ # Build IoTivity
+ # Initialize Git repository
+ if [ ! -d .git ]; then
+-- 
+2.16.1.windows.1
+

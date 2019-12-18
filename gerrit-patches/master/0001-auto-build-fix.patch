@@ -1,0 +1,61 @@
+From 8796ebdb7d11378e959704c502a575c2a2495972 Mon Sep 17 00:00:00 2001
+From: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+Date: Tue, 18 Jun 2019 12:21:17 +0300
+Subject: [PATCH] auto build fix
+
+calculate threads count by core and memory:
+that fixed bottleneck build
+
+Change-Id: I89bceab3b059bcc8a4b62cc92b402ee2424f8b5d
+Signed-off-by: Oleksandr Dmytrenko <o.dmytrenko@samsung.com>
+---
+ auto_build.py | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/auto_build.py b/auto_build.py
+index f8c0ee896..758acd224 100755
+--- a/auto_build.py
++++ b/auto_build.py
+@@ -20,7 +20,7 @@ To clean:
+ EXEC_MODE=True/False (default false) to suppress running the commands.
+ VERBOSE=0/1 (default 1) to tell scons to print more information.
+ 
+-Allowed values for <target_build>: 
++Allowed values for <target_build>:
+     all linux linux_unsecured linux_secured linux_full linux_unsecured_with_tcp
+     linux_unsecured_with_rd linux_secured_with_rd linux_unsecured_with_mq
+     linux_secured_with_tcp linux_unsecured_with_java linux_secured_with_java
+@@ -265,7 +265,7 @@ def build_android_universal(flag, scons_options):
+        - x86
+        - x86_64
+     If you do not need to build a universal APK or you can target a specific
+-    architecture we recommend you build android for that specific target. 
++    architecture we recommend you build android for that specific target.
+ *******************************************************************************
+ ''')
+     print ("*********** Build for android armeabi *************")
+@@ -667,10 +667,20 @@ def unit_tests():
+     unit_tests_secured()
+     unit_tests_unsecured()
+ 
++def get_threads_to_run():
++    GB_BY_THREAD=1.2
++    cores = multiprocessing.cpu_count() - 1
++    try:
++        from psutil import virtual_memory
++        svmem = virtual_memory()
++        free = int(svmem[4]/(GB_BY_THREAD*(1024.**3)))
++    except Exception as ex:
++        free = cores
++    return(str(min(cores,free)))
+ 
+ # Main module starts here
+ if os.getenv("SCONSFLAGS", "") == "":
+-    os.environ["SCONSFLAGS"] = "-Q -j " + str(multiprocessing.cpu_count())
++    os.environ["SCONSFLAGS"] = "-Q -j " + get_threads_to_run()
+ 
+ arg_num = len(sys.argv)
+ script_name = sys.argv[0]
+-- 
+2.16.1.windows.1
+

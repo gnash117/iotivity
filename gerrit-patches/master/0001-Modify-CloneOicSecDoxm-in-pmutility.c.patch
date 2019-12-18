@@ -1,0 +1,55 @@
+From 8884f2acdc8ddfd4d97776a4ae2031a54ddfec49 Mon Sep 17 00:00:00 2001
+From: Jeonghwan Kim <addy.kim@lge.com>
+Date: Mon, 28 May 2018 19:19:39 +0900
+Subject: [PATCH] Modify CloneOicSecDoxm() in pmutility.c
+
+CloneOicSecDoxm don't copy OXM resource.
+So I modify that copy OXM resource to new one.
+
+Change-Id: I3ac2633a5a372712fa07affe90199f95f0f3e19d
+Signed-off-by: Jeonghwan Kim <addy.kim@lge.com>
+---
+ resource/csdk/security/provisioning/src/pmutility.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
+ mode change 100644 => 100755 resource/csdk/security/provisioning/src/pmutility.c
+
+diff --git a/resource/csdk/security/provisioning/src/pmutility.c b/resource/csdk/security/provisioning/src/pmutility.c
+old mode 100644
+new mode 100755
+index 17b0f39d3..a78d43ff5
+--- a/resource/csdk/security/provisioning/src/pmutility.c
++++ b/resource/csdk/security/provisioning/src/pmutility.c
+@@ -207,9 +207,17 @@ OicSecDoxm_t* CloneOicSecDoxm(const OicSecDoxm_t* src)
+ 
+     OicSecDoxm_t* newDoxm = (OicSecDoxm_t*)OICCalloc(1, sizeof(OicSecDoxm_t));
+     VERIFY_NOT_NULL(TAG, newDoxm, ERROR);
+-
+-    memcpy(newDoxm, src, sizeof(OicSecDoxm_t));
+-
++    newDoxm->oxm = (OicSecOxm_t*)OICCalloc(1, sizeof(OicSecOxm_t));
++    VERIFY_NOT_NULL(TAG, newDoxm->oxm, ERROR);
++    memcpy(newDoxm->oxm,src->oxm,sizeof(OicSecOxm_t));
++    newDoxm->oxmLen = src->oxmLen;
++    newDoxm->oxmSel = src->oxmSel;
++    newDoxm->sct = src->sct;
++    newDoxm->owned = src->owned;
++    newDoxm->deviceID = src->deviceID;
++    newDoxm->dpc = src->dpc;
++    newDoxm->owner = src->owner;
++    newDoxm->rownerID = src->rownerID;
+ #ifdef MULTIPLE_OWNER
+     newDoxm->subOwners = NULL;
+     newDoxm->mom = NULL;
+@@ -227,9 +235,6 @@ OicSecDoxm_t* CloneOicSecDoxm(const OicSecDoxm_t* src)
+     }
+ #endif //MULTIPLE_OWNER
+ 
+-    // We have to assign NULL for not necessary information to prevent memory corruption.
+-    newDoxm->oxm = NULL;
+-    newDoxm->oxmLen = 0;
+ 
+     OIC_LOG_V(DEBUG, TAG, "OUT %s", __func__);
+ 
+-- 
+2.16.1.windows.1
+

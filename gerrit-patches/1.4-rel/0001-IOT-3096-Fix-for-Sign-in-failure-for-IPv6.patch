@@ -1,0 +1,80 @@
+From 129e38fc4f456dfbf4c1fa5bfba2f68c9b128985 Mon Sep 17 00:00:00 2001
+From: Koushik4082 <g.koushik@samsung.com>
+Date: Mon, 30 Jul 2018 15:21:57 +0530
+Subject: [PATCH] [IOT-3096] Fix for Sign in failure for IPv6
+
+Change-Id: I41ecd979a6d0ad2f9073e6c45dc0e8778738eee4
+Signed-off-by: Koushik4082 <g.koushik@samsung.com>
+---
+ .../csdk/security/provisioning/src/cloud/auth.c    | 48 ++++++++++++++++++++++
+ 1 file changed, 48 insertions(+)
+
+diff --git a/resource/csdk/security/provisioning/src/cloud/auth.c b/resource/csdk/security/provisioning/src/cloud/auth.c
+index a3d1b7c26..e9fc1e150 100644
+--- a/resource/csdk/security/provisioning/src/cloud/auth.c
++++ b/resource/csdk/security/provisioning/src/cloud/auth.c
+@@ -1141,6 +1141,10 @@ static OCStackApplicationResult handleCloudSignUpResponse(void *ctx,
+     OCStackApplicationResult ret = OC_STACK_DELETE_TRANSACTION;
+     OicCloud_t *cloud = (OicCloud_t *)ctx;
+ 
++    char *ipv6End = NULL;
++    char *percentChar = NULL;
++    char *cis = NULL;
++
+     VERIFY_NOT_NULL_RETURN(TAG, response, ERROR, OC_STACK_DELETE_TRANSACTION);
+     VERIFY_NOT_NULL_RETURN(TAG, cloud, ERROR, OC_STACK_DELETE_TRANSACTION);
+ 
+@@ -1194,6 +1198,50 @@ static OCStackApplicationResult handleCloudSignUpResponse(void *ctx,
+         goto exit;
+     }
+ 
++#if !defined(__MANDATORY__)
++    // find the IPv6 address end bracket
++    ipv6End = strchr(cloud->redirectUri, ']');
++    if (NULL != ipv6End)
++    {
++        // find the interface name from UDP address of sender
++        percentChar = strchr(response->devAddr.addr, '%');
++        size_t ifLen = strlen(percentChar);
++        size_t addrLen = strlen(cloud->redirectUri);
++        size_t cisLen = addrLen + ifLen + 3;
++
++        // fill the cloud uri with interface name inserted
++        cis = (char *)OICMalloc(sizeof(char) * cisLen);
++        OICStrcpy(cis, ipv6End - cloud->redirectUri + 1, cloud->redirectUri);
++        OICStrcat(cis, cisLen, "%25");
++        OICStrcat(cis, cisLen, percentChar + 1);
++        OICStrcat(cis, cisLen, ipv6End);
++
++        OICFree(cloud->redirectUri);
++        cloud->redirectUri = cis;
++    }
++#else
++    // find the IPv6 address end bracket
++    ipv6End = strchr(cloud->cis, ']');
++    if (NULL != ipv6End)
++    {
++        // find the interface name from UDP address of sender
++        percentChar = strchr(response->devAddr.addr, '%');
++        size_t ifLen = strlen(percentChar);
++        size_t addrLen = strlen(cloud->cis);
++        size_t cisLen = addrLen + ifLen + 3;
++
++        // fill the cloud uri with interface name inserted
++        cis = (char *)OICMalloc(sizeof(char) * cisLen);
++        OICStrcpy(cis, ipv6End - cloud->cis + 1, cloud->cis);
++        OICStrcat(cis, cisLen, "%25");
++        OICStrcat(cis, cisLen, percentChar + 1);
++        OICStrcat(cis, cisLen, ipv6End);
++
++        OICFree(cloud->cis);
++        cloud->cis = cis;
++    }
++#endif
++
+ #if !defined(__MANDATORY__)
+     if (cloud->redirectUri)
+     {
+-- 
+2.16.1.windows.1
+
